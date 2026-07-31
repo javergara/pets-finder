@@ -1,19 +1,22 @@
 # Estado actual
 
-**Fase activa:** 3 — Arquitectura y ADRs (completa, pendiente checkpoint del usuario)
-**Feature en progreso:** ninguna (todas en `todo`; la primera se activa al iniciar Fase 7)
+**Fase activa:** 4 — Convenciones de desarrollo (completa, pendiente checkpoint del usuario)
+**Feature en progreso:** ninguna
 
 ## Hecho en esta fase
-- `docs/architecture.md`: vista general (monorepo `src/api`+`src/web`), capas del backend (models/schemas/services/routers), frontend (tokens compartidos con design-system, gestos con Pointer Events crudos reutilizando el prototipo), datos/seed, arranque de un solo comando, y qué queda fuera deliberadamente (auth, realtime, migraciones formales) y por qué no es deuda técnica todavía.
-- `docs/decisions/0001-stack-tecnico.md`: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local; por qué no Supabase/Firebase todavía (HANDOFF.md lo sugiere para chat en tiempo real, que es backlog).
-- `docs/decisions/0002-mecanica-match-no-mutuo.md`: el match no-mutuo y el HomeProfile obligatorio como reglas de negocio de **backend** (Swipe crea Match automáticamente), no solo de copy — para que no se implemente por error un flujo de doble consentimiento.
-- `docs/decisions/0003-afinidad-calculada-al-vuelo.md`: por qué el score no se persiste (evita invalidación de caché al editar HomeProfile/Pet).
+- `docs/conventions.md`: estructura de carpetas (`services/` como capa de lógica pura, separada de `routers/`), convenciones de nombres (Python/TS/rutas HTTP/IDs de features y ADRs), manejo de errores (mensajes en español, sin stack traces, encolado de swipes offline), estrategia de tests (pytest + Vitest, cada `acceptance` de `feature_list.json` con test asociado), formato/lint, y política de commits/ramas.
+- `pyproject.toml`: config de `ruff` (lint) + `black` (formato) para `src/api`.
+- `.prettierrc.json`: config de formato para `src/web`.
+- `.pre-commit-config.yaml`: hooks de `ruff`/`ruff-format` (Python), `prettier` (TS/JS/CSS/JSON), y un hook local que valida que `feature_list.json` tenga como máximo 1 item `in_progress` — probado en aislado, funciona.
 
 ## Decisiones vigentes (ver plan.md)
 - Producto = **Adopta**, es-CO únicamente.
-- Fuente de verdad de producto: `design/prototypes/HANDOFF.md`.
-- Stack MVP: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (formalizado en ADR 0001).
+- Stack: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (ADR 0001).
 - Match no mutuo (ADR 0002); afinidad al vuelo (ADR 0003).
 
+## Pendiente (no bloqueante, se resuelve en Fase 7)
+- El hook de pre-commit no se ha activado (`pre-commit install`) porque aún no hay un venv de Python creado — `init.sh` (Fase 5/8) lo instalará como parte del setup.
+- La config de ESLint para `src/web` se genera con el scaffold de Vite en Fase 7 (depende del preset elegido), siguiendo las reglas descritas en `docs/conventions.md` §5.
+
 ## Próximo paso
-Checkpoint de Fase 3 con el usuario. Luego Fase 4: `docs/conventions.md` + linters/formatters + pre-commit.
+Checkpoint de Fase 4 con el usuario. Luego Fase 5: sistema de harness engineering (AGENTS.md, CHECKPOINTS.md, init.sh, progress/, memory/, changes.md, CHANGELOG.md, .claude/agents, .claude/skills, .claude/settings.json).

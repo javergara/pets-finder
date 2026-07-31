@@ -12,3 +12,7 @@
 
 ## 2026-07-31 — Fase 3: Arquitectura y ADRs
 - `docs/architecture.md` y tres ADRs: 0001 (stack local FastAPI+SQLite, por qué no Supabase todavía), 0002 (match no-mutuo como regla de backend, no solo copy — Swipe crea Match automáticamente), 0003 (afinidad calculada al vuelo, sin persistir, para evitar invalidación de caché al editar HomeProfile/Pet).
+
+## 2026-07-31 — Fase 4: Convenciones de desarrollo
+- `docs/conventions.md`: estructura de carpetas, nombres, manejo de errores, tests, lint/formato, commits/ramas.
+- `pyproject.toml` (ruff+black), `.prettierrc.json`, `.pre-commit-config.yaml` (ruff/ruff-format/prettier + hook local que valida máximo 1 `in_progress` en `feature_list.json`, probado en aislado).
