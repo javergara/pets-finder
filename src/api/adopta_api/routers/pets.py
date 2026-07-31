@@ -8,6 +8,7 @@ from ..models.swipe import Swipe
 from ..schemas.pet import AfinidadOut, PetOut, ShelterOut
 from ..services.affinity import calcular_afinidad
 from ..services.db import get_session
+from ..services.deck import ordenar_deck
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -49,7 +50,7 @@ def listar_mascotas(
 
     if home is not None and not incluir_incompatibles:
         resultados = [r for r in resultados if not (r.afinidad and r.afinidad.incompatible)]
-        resultados.sort(key=lambda r: r.afinidad.score if r.afinidad else 0, reverse=True)
+        resultados = ordenar_deck(resultados)
 
     return resultados
 

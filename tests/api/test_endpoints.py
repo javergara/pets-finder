@@ -98,3 +98,34 @@ def test_mascota_excluida_tras_swipe(client, db_session):
     respuesta = client.get(f"/api/pets?user_id={user.id}")
 
     assert respuesta.json() == []
+
+
+def test_obtener_mascota_incluye_afinidad_y_refugio(client, db_session):
+    shelter, pet, user = _seed_minimo(db_session)
+
+    respuesta = client.get(f"/api/pets/{pet.id}?user_id={user.id}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == pet.id
+    assert cuerpo["nombre"] == "Firulais"
+    assert cuerpo["shelter"]["id"] == shelter.id
+    assert cuerpo["afinidad"] is not None
+    assert cuerpo["afinidad"]["score"] >= 0
+
+
+def test_obtener_mascota_sin_user_id_no_calcula_afinidad(client, db_session):
+    _shelter, pet, _user = _seed_minimo(db_session)
+
+    respuesta = client.get(f"/api/pets/{pet.id}")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json()["afinidad"] is None
+
+
+def test_obtener_mascota_inexistente_devuelve_404(client, db_session):
+    _seed_minimo(db_session)
+
+    respuesta = client.get("/api/pets/9999")
+
+    assert respuesta.status_code == 404
