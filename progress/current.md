@@ -1,19 +1,17 @@
 # Estado actual
 
-**Fase activa:** 1 — Bootstrap + Git
-**Feature en progreso:** ninguna (feature_list.json aún vacío; se puebla en Fase 2)
+**Fase activa:** 2 — Investigación de producto (completa, pendiente checkpoint del usuario)
+**Feature en progreso:** ninguna (todas en `todo`; la primera se activa al iniciar Fase 7)
 
 ## Hecho en esta fase
-- `git init`, identidad local de git configurada (sin tocar config global).
-- `.gitignore`, `.env.example`, `README.md`, `feature_list.json` (esqueleto).
-- Diseño preexistente (`design/HANDOFF.md`, 3 prototipos `.dc.html`, `ios-frame.jsx`, `support.js`) movido a `design/prototypes/` tal cual, sin modificar contenido.
-- Estructura de carpetas objetivo creada: `docs/`, `design/screens`, `design/assets`, `data/seed`, `progress/`, `memory/`, `src/api`, `src/web`, `tests/`, `scripts/`, `.claude/agents`, `.claude/skills`.
+- `docs/product-research.md`: producto, roles, decisiones de mecánica ya tomadas (y por qué), flujo de adopción E2E, fórmula de afinidad, validación de las 11 pantallas de `design/prototypes/HANDOFF.md`, alcance MVP vs. backlog.
+- `feature_list.json` poblado con 15 items: 5 `milestone: mvp` (01-05), 2 `post-mvp` (06-07), 8 `backlog` (08-15). Todos en `status: todo`, ids únicos, cero `in_progress`.
 
-## Decisiones vigentes (ver plan.md para contexto completo)
-- Producto = **Adopta** (no "PawMatch"), es-CO únicamente, sin i18n bilingüe.
+## Decisiones vigentes (ver plan.md)
+- Producto = **Adopta**, es-CO únicamente.
 - Fuente de verdad de producto: `design/prototypes/HANDOFF.md`.
 - Stack MVP: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (ADR pendiente en Fase 3).
-- Match no mutuo; cuestionario de hogar obligatorio (para MVP, `HomeProfile` sintético en seed; flujo interactivo de onboarding queda en backlog).
+- Match no mutuo; cuestionario de hogar obligatorio → en MVP se resuelve con `HomeProfile` sintético (flujo interactivo = feature 08, backlog).
 
 ## Próximo paso
-Rama `develop`, primer commit, mostrar árbol + `feature_list.json` inicial + commit al usuario para checkpoint de Fase 1. Luego Fase 2 (product-research.md).
+Checkpoint de Fase 2 con el usuario. Luego Fase 3: `docs/architecture.md` + ADRs (stack, match no-mutuo/reglas de negocio en backend).

@@ -5,3 +5,7 @@
 - `git init` con identidad local (sin tocar `~/.gitconfig`, autorizado explícitamente por el usuario).
 - Diseño existente movido de `design/*` a `design/prototypes/*` sin modificar contenido.
 - Creados: `.gitignore`, `.env.example`, `README.md`, `feature_list.json` (esqueleto vacío), estructura de carpetas del repo.
+
+## 2026-07-31 — Fase 2: Investigación de producto
+- `docs/product-research.md` redactado a partir de `design/prototypes/HANDOFF.md`, formalizando las decisiones de producto ya tomadas (match no mutuo, cuestionario obligatorio, sin lenguaje de descarte, sin comisión) y documentando el flujo de adopción end-to-end y la fórmula de afinidad.
+- `feature_list.json` poblado: 15 features (5 MVP, 2 post-MVP, 8 backlog), todas en `todo`, con `acceptance` verificable para las 5 de MVP.

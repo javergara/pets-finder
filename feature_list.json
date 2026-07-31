@@ -1,4 +1,171 @@
 {
-  "$comment": "Alcance del proyecto Adopta. Regla dura: como máximo un item en status 'in_progress' a la vez (verificado por init.sh). Cada item: id, title, description, status (todo|in_progress|done), acceptance (criterios verificables), depends_on (ids). Contenido real poblado en la Fase 2 (docs/product-research.md).",
-  "items": []
+  "$comment": "Alcance del proyecto Adopta. Regla dura: como máximo un item en status 'in_progress' a la vez (verificado por init.sh). milestone: 'mvp' = alcance del primer MVP local (Fase 7); 'post-mvp' = siguiente en la cola tras el MVP; 'backlog' = fuera de alcance por ahora, ver docs/product-research.md §7.",
+  "items": [
+    {
+      "id": "01-foundations-data",
+      "title": "Fundaciones y datos",
+      "description": "Esquema SQLite (User, HomeProfile, Shelter, Pet, Swipe, Match), seed determinista (scripts/seed.py) de mascotas/refugios/adoptantes con HomeProfile sintético y fotos con fallback offline, API FastAPI base (health check, listar mascotas).",
+      "status": "todo",
+      "milestone": "mvp",
+      "depends_on": [],
+      "acceptance": [
+        "python scripts/seed.py corre sin red (fallback a placeholders locales) y produce data/app.db con datos deterministas (misma seed = mismos datos)",
+        "Existen al menos 15 mascotas, 3 refugios y 5 adoptantes (con HomeProfile) en el seed",
+        "GET /api/pets devuelve la lista de mascotas disponibles desde SQLite",
+        "Tests de persistencia en tests/api/ pasan (crear/leer las 6 entidades)"
+      ]
+    },
+    {
+      "id": "02-swipe-deck",
+      "title": "Deck de descubrimiento (swipe)",
+      "description": "Deck de swipe conectado a la API: like ('Me interesa') registra Swipe y crea Match de inmediato (no mutuo); pass ('Ahora no', nunca 'rechazar') solo registra Swipe. Gestos de arrastre + botones accesibles equivalentes, según design/prototypes/HANDOFF.md §5.2.",
+      "status": "todo",
+      "milestone": "mvp",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": [
+        "POST /api/swipes registra dirección like|pass y, si es like, crea un Match automáticamente",
+        "El deck en el frontend consume GET /api/pets y excluye mascotas ya swipeadas por el adoptante activo",
+        "Swipe por gesto (arrastre) y por botones (equivalente de teclado/click) producen el mismo resultado",
+        "Ninguna copy de la UI usa lenguaje de descarte ('rechazar', 'nope')"
+      ]
+    },
+    {
+      "id": "03-pet-profile",
+      "title": "Ficha de mascota",
+      "description": "Vista de detalle de una mascota (galería, historia, salud, identidad, afinidad con explicación, chips de carácter), accesible desde la carta del deck o desde matches.",
+      "status": "todo",
+      "milestone": "mvp",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": [
+        "GET /api/pets/{id} devuelve el detalle completo de la mascota",
+        "La ficha muestra el score de afinidad con su frase explicativa (nunca el número solo)",
+        "Ruta /mascota/:id navegable desde el deck y desde matches"
+      ]
+    },
+    {
+      "id": "04-matches",
+      "title": "Mis matches",
+      "description": "Listado de matches del adoptante (creados por swipe like), con badge de afinidad, estado y acceso a la ficha de la mascota.",
+      "status": "todo",
+      "milestone": "mvp",
+      "depends_on": ["02-swipe-deck"],
+      "acceptance": [
+        "GET /api/matches?user_id= devuelve los matches del adoptante ordenados por fecha de creación descendente",
+        "Cada match muestra nombre, foto, afinidad y estado",
+        "Estado vacío cuando el adoptante no tiene matches, con enlace a Descubrir",
+        "Test de integración: hacer like a una mascota la hace aparecer en /api/matches"
+      ]
+    },
+    {
+      "id": "05-affinity-score",
+      "title": "Score de compatibilidad",
+      "description": "Cálculo de afinidad HomeProfile↔Pet con la ponderación de docs/product-research.md §5 (energía/rutina 30%, tamaño/vivienda 20%, convivencia 20%, preferencia especie/tamaño 15%, experiencia/presupuesto 15%) y las reglas duras de incompatibilidad (niños/gatos).",
+      "status": "todo",
+      "milestone": "mvp",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": [
+        "Función de scoring pura y testeable en src/api (o skill match-scoring) que dado un HomeProfile y un Pet devuelve un entero 0-100 más la frase explicativa",
+        "Reglas duras probadas: hogar con niños + mascota no apta con niños => marcada incompatible y excluida del deck por defecto",
+        "Tests unitarios cubren al menos: caso alta afinidad, caso baja afinidad, caso regla dura activada",
+        "El deck ordena por afinidad descendente con inserción de mascotas difíciles de ubicar cada 4-5 tarjetas"
+      ]
+    },
+    {
+      "id": "06-filters",
+      "title": "Filtros de descubrimiento",
+      "description": "Filtros de especie, tamaño, distancia, edad, nivel de energía y convivencia sobre el deck, aplicados al instante (design/prototypes/HANDOFF.md §5.2).",
+      "status": "todo",
+      "milestone": "post-mvp",
+      "depends_on": ["02-swipe-deck"],
+      "acceptance": [
+        "GET /api/pets acepta query params de filtro y devuelve solo coincidencias",
+        "El contador 'N perfiles cerca de ti' se actualiza al cambiar filtros",
+        "Botón 'Restablecer filtros' vuelve al estado por defecto (15 km)"
+      ]
+    },
+    {
+      "id": "07-adopter-profile",
+      "title": "Perfil del adoptante",
+      "description": "Vista de 'Mi perfil': cabecera, métricas (matches activos, visitas agendadas, apadrinamientos), resumen del HomeProfile y texto 'Sobre mí'.",
+      "status": "todo",
+      "milestone": "post-mvp",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": [
+        "GET /api/users/{id} devuelve perfil + HomeProfile + métricas agregadas",
+        "La tarjeta 'Mi hogar' refleja las respuestas del cuestionario/HomeProfile sintético"
+      ]
+    },
+    {
+      "id": "08-onboarding-cuestionario",
+      "title": "Onboarding: cuestionario de hogar interactivo",
+      "description": "Flujo de registro + cuestionario de 6 pasos que crea el HomeProfile real y bloquea /descubrir hasta completarse (design/prototypes/HANDOFF.md §5.1). Reemplaza el HomeProfile sintético del seed por uno editable.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": []
+    },
+    {
+      "id": "09-shelter-panel",
+      "title": "Panel del refugio",
+      "description": "Publicación de mascotas, revisión de solicitudes con cuestionario adjunto, agendar visita / pedir info / descartar con motivo, métricas del refugio.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["04-matches"],
+      "acceptance": []
+    },
+    {
+      "id": "10-adoption-request-flow",
+      "title": "Solicitud de adopción y visita",
+      "description": "Paso posterior al match: el refugio acepta/rechaza la solicitud de adopción (no el match) y agenda visita; estados 'esperando refugio' / 'visita agendada'.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["09-shelter-panel"],
+      "acceptance": []
+    },
+    {
+      "id": "11-chat",
+      "title": "Mensajería en tiempo real",
+      "description": "Chat adoptante↔refugio por match, con aviso de sistema inicial y respuestas rápidas sugeridas. Requiere revisar el ADR de stack (posible migración a un BaaS con realtime).",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["04-matches"],
+      "acceptance": []
+    },
+    {
+      "id": "12-sponsorship",
+      "title": "Apadrinamiento",
+      "description": "Niveles de donación recurrente, lista de mascotas que necesitan apoyo, novedades mensuales al padrino.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": []
+    },
+    {
+      "id": "13-favorites",
+      "title": "Favoritos",
+      "description": "Guardar mascotas sin hacer swipe definitivo, para revisar después.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["03-pet-profile"],
+      "acceptance": []
+    },
+    {
+      "id": "14-shelter-map",
+      "title": "Mapa de refugios",
+      "description": "Vista de mapa con refugios cercanos y sus mascotas publicadas.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": ["01-foundations-data"],
+      "acceptance": []
+    },
+    {
+      "id": "15-public-landing",
+      "title": "Landing pública",
+      "description": "Página de marketing: propuesta de valor, cómo funciona, por qué el cuestionario va primero, franja de apadrinamiento, vista previa del panel de refugio.",
+      "status": "todo",
+      "milestone": "backlog",
+      "depends_on": [],
+      "acceptance": []
+    }
+  ]
 }
