@@ -5,7 +5,7 @@
       "id": "01-foundations-data",
       "title": "Fundaciones y datos",
       "description": "Esquema SQLite (User, HomeProfile, Shelter, Pet, Swipe, Match), seed determinista (scripts/seed.py) de mascotas/refugios/adoptantes con HomeProfile sintético y fotos con fallback offline, API FastAPI base (health check, listar mascotas).",
-      "status": "in_progress",
+      "status": "done",
       "milestone": "mvp",
       "depends_on": [],
       "acceptance": [
@@ -19,7 +19,7 @@
       "id": "02-swipe-deck",
       "title": "Deck de descubrimiento (swipe)",
       "description": "Deck de swipe conectado a la API: like ('Me interesa') registra Swipe y crea Match de inmediato (no mutuo); pass ('Ahora no', nunca 'rechazar') solo registra Swipe. Gestos de arrastre + botones accesibles equivalentes, según design/prototypes/HANDOFF.md §5.2.",
-      "status": "todo",
+      "status": "done",
       "milestone": "mvp",
       "depends_on": ["01-foundations-data"],
       "acceptance": [
@@ -33,7 +33,7 @@
       "id": "03-pet-profile",
       "title": "Ficha de mascota",
       "description": "Vista de detalle de una mascota (galería, historia, salud, identidad, afinidad con explicación, chips de carácter), accesible desde la carta del deck o desde matches.",
-      "status": "todo",
+      "status": "done",
       "milestone": "mvp",
       "depends_on": ["01-foundations-data"],
       "acceptance": [
@@ -46,7 +46,7 @@
       "id": "04-matches",
       "title": "Mis matches",
       "description": "Listado de matches del adoptante (creados por swipe like), con badge de afinidad, estado y acceso a la ficha de la mascota.",
-      "status": "todo",
+      "status": "done",
       "milestone": "mvp",
       "depends_on": ["02-swipe-deck"],
       "acceptance": [
@@ -60,7 +60,7 @@
       "id": "05-affinity-score",
       "title": "Score de compatibilidad",
       "description": "Cálculo de afinidad HomeProfile↔Pet con la ponderación de docs/product-research.md §5 (energía/rutina 30%, tamaño/vivienda 20%, convivencia 20%, preferencia especie/tamaño 15%, experiencia/presupuesto 15%) y las reglas duras de incompatibilidad (niños/gatos).",
-      "status": "todo",
+      "status": "done",
       "milestone": "mvp",
       "depends_on": ["01-foundations-data"],
       "acceptance": [
