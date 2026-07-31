@@ -27,3 +27,14 @@
 ## 2026-07-31 — Fase 6: Diseño formalizado
 - `design/design-system.md` formalizado desde `design/prototypes/HANDOFF.md` §3/§9 (color, tipografía, forma, imágenes, estados, accesibilidad, gesto de swipe). Sin modo oscuro (no estaba diseñado, no se inventó).
 - `design/screens/*.md`: las 11 pantallas, detalle completo para las 4 del alcance MVP (descubrir, mascota-detalle, match-modal, mis-matches) y breve para el resto (backlog/post-MVP), cada una etiquetada con su id de `feature_list.json`.
+
+## 2026-07-31 — Fase 7: Implementación del MVP
+- Backend (FastAPI+SQLAlchemy+SQLite): modelos, `services/affinity.py` (score puro + reglas duras), `services/matching.py` (match no-mutuo), routers, `scripts/seed.py` (17 mascotas/3 refugios/5 adoptantes, fotos reales con fallback offline). 9 tests iniciales.
+- Frontend (React+Vite+TS+Tailwind v4): deck de swipe (Pointer Events + teclado/botones), ficha, modal de match, mis matches. Verificado en Chrome real sin errores de consola. `dev.sh` para un solo comando.
+- **Primera revisión del revisor (agente independiente): RECHAZADA.** 3 gaps contra `CHECKPOINTS.md`: inserción de mascotas difíciles de ubicar no implementada, `GET /api/pets/{id}` sin test, estado vacío de matches sin test.
+- Corregidos los 3 gaps: `services/deck.py` (inserción cada 4-5 tarjetas) + 6 tests, 3 tests de endpoint, 2 tests de frontend.
+- **Segunda revisión: APROBADA.** El revisor verificó línea por línea las correcciones, corrió `init.sh` en verde (18 tests API + 5 web), y marcó `01-foundations-data`, `02-swipe-deck`, `03-pet-profile`, `04-matches`, `05-affinity-score` como `done` en `feature_list.json`.
+
+## 2026-07-31 — Fase 8: Verificación
+- `bash init.sh` corrido de nuevo desde working tree limpio: en verde. `docs/verification.md` con evidencia real (salida completa, cobertura de tests por feature, verificación manual E2E en navegador, confirmación de ADR 0002/0003 en código).
+- App levantada en local (`dev.sh`) a pedido del usuario para verla en su navegador.
