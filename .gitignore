@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings (machine/session-specific, not versioned)
+.claude/settings.local.json
+
+# Python (src/api)
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node (src/web)
+node_modules/
+dist/
+.vite/
+
+# Data
+data/app.db
+data/app.db-journal
+data/seed/images/*
+!data/seed/images/.gitkeep
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,0 +1,4 @@
+{
+  "$comment": "Alcance del proyecto Adopta. Regla dura: como máximo un item en status 'in_progress' a la vez (verificado por init.sh). Cada item: id, title, description, status (todo|in_progress|done), acceptance (criterios verificables), depends_on (ids). Contenido real poblado en la Fase 2 (docs/product-research.md).",
+  "items": []
+}

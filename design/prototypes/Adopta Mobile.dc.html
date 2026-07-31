@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<meta name="design_doc_mode" content="canvas" />
+<style>
+  html, body { margin:0; padding:0; background:#EFE9DC; color:#1B1A17; font-family:'Work Sans', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  * { box-sizing:border-box; }
+  a { color:#1F4D3A; } a:hover { color:#2E6E52; }
+</style>
+</helmet>
+
+<div style="padding:56px 56px 90px; display:flex; flex-direction:column; gap:44px;">
+
+  <header style="display:flex; flex-direction:column; gap:14px; max-width:720px;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:#8A8172;">Adopta · app móvil</div>
+    <h1 style="font-family:'Newsreader',serif; font-weight:400; font-size:44px; margin:0; letter-spacing:-0.02em;">Diez pantallas móviles</h1>
+    <p style="margin:0; font-size:15.5px; line-height:1.65; color:#4A463D; text-wrap:pretty;">La misma web app en formato responsive. Todo el flujo del adoptante: cuestionario previo, descubrimiento por deslizamiento, ficha, match, conversación con el refugio y apadrinamiento.</p>
+    <div style="display:flex; gap:22px; flex-wrap:wrap; margin-top:6px;">
+      <div style="display:flex; align-items:center; gap:8px;"><span style="width:15px; height:15px; border-radius:4px; background:#1F4D3A;"></span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#6B665C;">#1F4D3A verde</span></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span style="width:15px; height:15px; border-radius:4px; background:#F7F3EA; border:1px solid #D9CFB8;"></span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#6B665C;">#F7F3EA fondo</span></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span style="width:15px; height:15px; border-radius:4px; background:#B57C2E;"></span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#6B665C;">#B57C2E aviso</span></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span style="font-family:'Newsreader',serif; font-size:16px;">Newsreader</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#6B665C;">titulares</span></div>
+      <div style="display:flex; align-items:center; gap:8px;"><span style="font-size:15px; font-weight:500;">Work Sans</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#6B665C;">interfaz</span></div>
+    </div>
+  </header>
+
+  <div style="display:flex; flex-wrap:wrap; gap:52px 40px;">
+
+    <!-- 01 CUESTIONARIO -->
+    <div data-screen-label="01 Cuestionario" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">01</span><span style="font-size:14.5px; font-weight:500;">Cuestionario de hogar</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:66px 22px 40px; display:flex; flex-direction:column;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172; margin-bottom:9px;">Paso 3 de 6</div>
+          <div style="height:3px; background:#E4DDCE; border-radius:3px; margin-bottom:26px;"><div style="width:50%; height:100%; background:#1F4D3A; border-radius:3px;"></div></div>
+          <h2 style="font-family:'Newsreader',serif; font-weight:400; font-size:28px; margin:0 0 10px; letter-spacing:-0.015em; line-height:1.2;">¿Cómo es tu rutina diaria?</h2>
+          <p style="margin:0 0 24px; font-size:14.5px; line-height:1.6; color:#6B665C; text-wrap:pretty;">Respondemos esto antes de mostrarte perfiles. Evita adopciones que terminan en devolución.</p>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:13px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:17px;"><span style="width:18px; height:18px; border-radius:50%; border:1.5px solid #C9C0AC; flex:none;"></span><span style="font-size:14.5px;">Estoy en casa casi todo el día</span></div>
+            <div style="display:flex; align-items:center; gap:13px; background:#E8EFE9; border:1px solid #1F4D3A; border-radius:13px; padding:17px;"><span style="width:18px; height:18px; border-radius:50%; border:5px solid #1F4D3A; background:#FFFDF8; flex:none;"></span><span style="font-size:14.5px;">Salgo entre 6 y 8 horas</span></div>
+            <div style="display:flex; align-items:center; gap:13px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:17px;"><span style="width:18px; height:18px; border-radius:50%; border:1.5px solid #C9C0AC; flex:none;"></span><span style="font-size:14.5px;">Viajo mucho o salgo +10 horas</span></div>
+          </div>
+          <div style="background:#F3EDE0; border:1px solid #E4DDCE; border-radius:12px; padding:15px; margin-top:22px; font-size:13.5px; line-height:1.6; color:#3D3931; text-wrap:pretty;">Sé honesto. Solo lo ve el refugio con el que hagas match.</div>
+          <div style="flex:1;"></div>
+          <div style="display:flex; gap:10px;">
+            <button style="border:1px solid #E4DDCE; background:#FFFDF8; border-radius:11px; padding:16px 22px; font-size:15px; color:#6B665C;">Atrás</button>
+            <button style="flex:1; border:0; background:#1F4D3A; color:#F7F3EA; border-radius:11px; padding:16px; font-size:15px;">Continuar</button>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 02 DESCUBRIR -->
+    <div data-screen-label="02 Descubrir" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">02</span><span style="font-size:14.5px; font-weight:500;">Descubrir · deslizar</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:60px 0 0; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 22px 14px;">
+            <div style="font-family:'Newsreader',serif; font-size:26px; letter-spacing:-0.015em;">Descubrir</div>
+            <div style="display:flex; align-items:center; gap:6px; border:1px solid #E4DDCE; background:#FFFDF8; border-radius:20px; padding:7px 13px; font-size:13px;">Filtros <span style="width:6px; height:6px; border-radius:50%; background:#1F4D3A;"></span></div>
+          </div>
+          <div style="position:relative; margin:0 22px; height:520px;">
+            <div style="position:absolute; inset:0; transform:translateY(16px) scale(.95); background:#FFFDF8; border:1px solid #E4DDCE; border-radius:20px;"></div>
+            <div style="position:absolute; inset:0; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:20px; overflow:hidden; display:flex; flex-direction:column; transform:rotate(-3deg) translateX(-14px); box-shadow:0 18px 40px -28px rgba(27,26,23,.5);">
+              <div style="position:relative; flex:1; background:repeating-linear-gradient(135deg,#EDE6D8 0 10px,#E4DBCA 10px 20px); display:flex; align-items:center; justify-content:center;">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:6px; padding:5px 10px;">foto · Luna</div>
+                <div style="position:absolute; top:14px; left:14px; display:flex; gap:6px;">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; background:#1F4D3A; color:#F7F3EA; border-radius:20px; padding:4px 9px;">94% afín</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:20px; padding:4px 9px;">3,2 km</span>
+                </div>
+                <div style="position:absolute; top:16px; right:16px; padding:6px 12px; border-radius:8px; border:2px solid #B57C2E; color:#B57C2E; background:rgba(255,253,248,.92); font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.06em; text-transform:uppercase; transform:rotate(8deg);">Ahora no</div>
+              </div>
+              <div style="padding:16px 18px 18px; display:flex; flex-direction:column; gap:10px;">
+                <div style="display:flex; align-items:baseline; gap:9px;"><span style="font-family:'Newsreader',serif; font-size:25px; letter-spacing:-0.015em;">Luna</span><span style="font-size:13px; color:#6B665C;">2 años · Mestiza</span></div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                  <span style="font-size:12.5px; color:#1F4D3A; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:20px; padding:4px 10px;">Juguetona</span>
+                  <span style="font-size:12.5px; color:#1F4D3A; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:20px; padding:4px 10px;">Sociable</span>
+                  <span style="font-size:12.5px; color:#1F4D3A; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:20px; padding:4px 10px;">Buena con niños</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:16px; padding:26px 0 10px;">
+            <div style="width:60px; height:60px; border-radius:50%; border:1px solid #E4DDCE; background:#FFFDF8; display:flex; align-items:center; justify-content:center; font-size:16px; color:#6B665C;">✕</div>
+            <div style="width:48px; height:48px; border-radius:50%; border:1px solid #E4DDCE; background:#FFFDF8; display:flex; align-items:center; justify-content:center; font-size:13px; color:#6B665C;">i</div>
+            <div style="width:60px; height:60px; border-radius:50%; background:#1F4D3A; display:flex; align-items:center; justify-content:center; font-size:18px; color:#F7F3EA;">♥</div>
+          </div>
+          <div style="flex:1;"></div>
+          <div style="display:flex; justify-content:space-around; align-items:center; padding:12px 12px 30px; border-top:1px solid #E4DDCE; background:#FFFDF8;">
+            <div style="font-size:12px; color:#1F4D3A; font-weight:600;">Descubrir</div>
+            <div style="font-size:12px; color:#8A8172;">Matches</div>
+            <div style="font-size:12px; color:#8A8172;">Mensajes</div>
+            <div style="font-size:12px; color:#8A8172;">Perfil</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 03 FILTROS -->
+    <div data-screen-label="03 Filtros" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">03</span><span style="font-size:14.5px; font-weight:500;">Filtros · hoja inferior</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; position:relative;">
+          <div style="position:absolute; inset:0; background:rgba(27,26,23,.34);"></div>
+          <div style="position:absolute; left:0; right:0; bottom:0; background:#FFFDF8; border-radius:22px 22px 0 0; padding:14px 22px 34px; display:flex; flex-direction:column; gap:22px;">
+            <div style="width:38px; height:4px; border-radius:4px; background:#E4DDCE; align-self:center;"></div>
+            <div style="font-family:'Newsreader',serif; font-size:24px;">Filtros</div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172;">Especie</div>
+              <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                <span style="font-size:14px; background:#1F4D3A; color:#F7F3EA; border-radius:22px; padding:9px 16px;">Perros</span>
+                <span style="font-size:14px; border:1px solid #E4DDCE; border-radius:22px; padding:9px 16px;">Gatos</span>
+                <span style="font-size:14px; border:1px solid #E4DDCE; border-radius:22px; padding:9px 16px;">Otros</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:9px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172;">Tamaño</div>
+              <div style="display:flex; gap:7px; flex-wrap:wrap;">
+                <span style="font-size:14px; background:#1F4D3A; color:#F7F3EA; border-radius:22px; padding:9px 16px;">Pequeño</span>
+                <span style="font-size:14px; background:#1F4D3A; color:#F7F3EA; border-radius:22px; padding:9px 16px;">Mediano</span>
+                <span style="font-size:14px; border:1px solid #E4DDCE; border-radius:22px; padding:9px 16px;">Grande</span>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:11px;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172;">Distancia</div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:12px;">hasta 15 km</div>
+              </div>
+              <div style="height:3px; background:#E4DDCE; border-radius:3px; position:relative;">
+                <div style="position:absolute; left:0; top:0; bottom:0; width:52%; background:#1F4D3A; border-radius:3px;"></div>
+                <div style="position:absolute; left:52%; top:-7px; width:17px; height:17px; border-radius:50%; background:#FFFDF8; border:1.5px solid #1F4D3A;"></div>
+              </div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:13px;">
+              <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172;">Convivencia</div>
+              <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:15px;">Apto con niños</span><span style="width:44px; height:26px; border-radius:22px; background:#1F4D3A; position:relative;"><span style="position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:15px;">Apto con otros perros</span><span style="width:44px; height:26px; border-radius:22px; background:#1F4D3A; position:relative;"><span style="position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+              <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:15px;">Apto con gatos</span><span style="width:44px; height:26px; border-radius:22px; background:#E4DDCE; position:relative;"><span style="position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+            </div>
+            <button style="border:0; background:#1F4D3A; color:#F7F3EA; border-radius:11px; padding:17px; font-size:15px;">Ver 23 mascotas</button>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 04 FICHA -->
+    <div data-screen-label="04 Ficha de mascota" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">04</span><span style="font-size:14.5px; font-weight:500;">Ficha de mascota</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="min-height:874px; background:#F7F3EA;">
+          <div style="position:relative; height:330px; background:repeating-linear-gradient(135deg,#EDE6D8 0 10px,#E4DBCA 10px 20px); display:flex; align-items:center; justify-content:center;">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:6px; padding:5px 10px;">foto principal · Luna</div>
+            <div style="position:absolute; top:62px; left:18px; width:36px; height:36px; border-radius:50%; background:rgba(255,253,248,.92); display:flex; align-items:center; justify-content:center; font-size:15px;">←</div>
+            <div style="position:absolute; bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:5px;">
+              <span style="width:18px; height:3px; border-radius:3px; background:#1B1A17;"></span>
+              <span style="width:18px; height:3px; border-radius:3px; background:rgba(27,26,23,.28);"></span>
+              <span style="width:18px; height:3px; border-radius:3px; background:rgba(27,26,23,.28);"></span>
+              <span style="width:18px; height:3px; border-radius:3px; background:rgba(27,26,23,.28);"></span>
+            </div>
+          </div>
+          <div style="padding:22px 22px 130px; display:flex; flex-direction:column; gap:18px;">
+            <div>
+              <div style="font-family:'Newsreader',serif; font-size:32px; letter-spacing:-0.015em;">Luna</div>
+              <div style="font-size:14px; color:#6B665C; margin-top:3px;">2 años · Mestiza mediana · 3,2 km</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:11px; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:12px; padding:13px 15px;">
+              <div style="font-family:'Newsreader',serif; font-size:26px; color:#1F4D3A; line-height:1;">94%</div>
+              <div style="font-size:12.5px; color:#2E5545; line-height:1.45;">de afinidad con tu hogar según tu cuestionario</div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              <span style="font-size:12.5px; background:#F3EDE0; border:1px solid #E4DDCE; border-radius:20px; padding:5px 11px;">Juguetona</span>
+              <span style="font-size:12.5px; background:#F3EDE0; border:1px solid #E4DDCE; border-radius:20px; padding:5px 11px;">Sociable</span>
+              <span style="font-size:12.5px; background:#F3EDE0; border:1px solid #E4DDCE; border-radius:20px; padding:5px 11px;">Buena con niños</span>
+              <span style="font-size:12.5px; background:#F3EDE0; border:1px solid #E4DDCE; border-radius:20px; padding:5px 11px;">Esterilizada</span>
+            </div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:14px; padding:18px;">
+              <div style="font-family:'Newsreader',serif; font-size:18px; margin-bottom:8px;">Su historia</div>
+              <p style="margin:0; font-size:14px; line-height:1.65; color:#3D3931; text-wrap:pretty;">Luna llegó en enero tras ser rescatada de la vía a La Calera. Camina bien con correa, sabe «sentado» y duerme toda la noche sin llorar.</p>
+            </div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:14px; padding:18px; display:flex; gap:12px; align-items:center;">
+              <div style="width:42px; height:42px; border-radius:10px; background:repeating-linear-gradient(135deg,#EDE6D8 0 6px,#E3DACA 6px 12px); border:1px solid #E4DDCE;"></div>
+              <div><div style="font-size:14px; font-weight:500;">Refugio Patitas Bogotá</div><div style="font-size:12.5px; color:#6B665C;">Verificado · 61 adopciones</div></div>
+            </div>
+          </div>
+          <div style="position:sticky; bottom:0; padding:14px 22px 34px; background:#FFFDF8; border-top:1px solid #E4DDCE; display:flex; gap:10px;">
+            <button style="flex:none; width:58px; border:1px solid #E4DDCE; background:#FFFDF8; border-radius:11px; font-size:15px; color:#6B665C;">✕</button>
+            <button style="flex:1; border:0; background:#1F4D3A; color:#F7F3EA; border-radius:11px; padding:17px; font-size:15px;">Me interesa adoptar</button>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 05 MATCH -->
+    <div data-screen-label="05 Match" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">05</span><span style="font-size:14.5px; font-weight:500;">Match confirmado</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#1F4D3A; padding:60px 26px 40px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:#A8C6B4; margin-bottom:26px;">Nuevo match</div>
+          <div style="width:170px; height:170px; border-radius:50%; background:repeating-linear-gradient(135deg,#2E6E52 0 10px,#28604A 10px 20px); border:1px solid #4A8468; display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#A8C6B4; margin-bottom:28px;">foto · Luna</div>
+          <div style="font-family:'Newsreader',serif; font-size:34px; color:#F7F3EA; letter-spacing:-0.015em; line-height:1.2;">Te interesa Luna</div>
+          <p style="margin:14px 0 0; font-size:15px; line-height:1.65; color:#C3D8CB; max-width:290px; text-wrap:pretty;">Enviamos tu perfil y tu cuestionario a Refugio Patitas Bogotá. Suelen responder en menos de 24 horas.</p>
+          <div style="flex:1;"></div>
+          <div style="width:100%; display:flex; flex-direction:column; gap:10px;">
+            <button style="border:0; background:#F7F3EA; color:#1F4D3A; border-radius:12px; padding:17px; font-size:15px; font-weight:500;">Escribir al refugio</button>
+            <button style="border:1px solid #4A8468; background:transparent; color:#C3D8CB; border-radius:12px; padding:17px; font-size:15px;">Seguir viendo perfiles</button>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 06 MATCHES -->
+    <div data-screen-label="06 Mis matches" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">06</span><span style="font-size:14.5px; font-weight:500;">Mis matches</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:60px 0 0; display:flex; flex-direction:column;">
+          <div style="padding:8px 22px 14px;">
+            <div style="font-family:'Newsreader',serif; font-size:26px; letter-spacing:-0.015em;">Mis matches</div>
+            <div style="font-size:13.5px; color:#6B665C; margin-top:4px;">3 refugios ya recibieron tu solicitud</div>
+          </div>
+          <div style="display:flex; gap:7px; padding:0 22px 16px; overflow:hidden;">
+            <span style="font-size:13px; background:#1F4D3A; color:#F7F3EA; border-radius:20px; padding:7px 14px; white-space:nowrap;">Todos</span>
+            <span style="font-size:13px; border:1px solid #E4DDCE; background:#FFFDF8; border-radius:20px; padding:7px 14px; white-space:nowrap;">Esperando</span>
+            <span style="font-size:13px; border:1px solid #E4DDCE; background:#FFFDF8; border-radius:20px; padding:7px 14px; white-space:nowrap;">Visita</span>
+          </div>
+          <div style="flex:1; padding:0 22px; display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; gap:14px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:12px;">
+              <div style="width:76px; height:76px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:'Newsreader',serif; font-size:20px;">Luna</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#1F4D3A;">94%</span></div>
+                <div style="font-size:12.5px; color:#6B665C; margin-top:2px;">2 años · Mestiza</div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:8px;"><span style="width:6px; height:6px; border-radius:50%; background:#1F4D3A;"></span><span style="font-size:12.5px; color:#1F4D3A;">Visita agendada · sáb 14:00</span></div>
+              </div>
+            </div>
+            <div style="display:flex; gap:14px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:12px;">
+              <div style="width:76px; height:76px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:'Newsreader',serif; font-size:20px;">Milo</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#1F4D3A;">88%</span></div>
+                <div style="font-size:12.5px; color:#6B665C; margin-top:2px;">4 años · Gato criollo</div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:8px;"><span style="width:6px; height:6px; border-radius:50%; background:#B57C2E;"></span><span style="font-size:12.5px; color:#6B665C;">Esperando al refugio</span></div>
+              </div>
+            </div>
+            <div style="display:flex; gap:14px; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:12px;">
+              <div style="width:76px; height:76px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:baseline; gap:8px;"><span style="font-family:'Newsreader',serif; font-size:20px;">Canela</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#1F4D3A;">91%</span></div>
+                <div style="font-size:12.5px; color:#6B665C; margin-top:2px;">7 años · Labrador mix</div>
+                <div style="display:flex; align-items:center; gap:6px; margin-top:8px;"><span style="width:6px; height:6px; border-radius:50%; background:#B57C2E;"></span><span style="font-size:12.5px; color:#6B665C;">Revisando tu cuestionario</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-around; align-items:center; padding:12px 12px 30px; border-top:1px solid #E4DDCE; background:#FFFDF8;">
+            <div style="font-size:12px; color:#8A8172;">Descubrir</div>
+            <div style="font-size:12px; color:#1F4D3A; font-weight:600;">Matches</div>
+            <div style="font-size:12px; color:#8A8172;">Mensajes</div>
+            <div style="font-size:12px; color:#8A8172;">Perfil</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 07 CHAT -->
+    <div data-screen-label="07 Chat" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">07</span><span style="font-size:14.5px; font-weight:500;">Chat con el refugio</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:60px 0 0; display:flex; flex-direction:column;">
+          <div style="display:flex; align-items:center; gap:12px; padding:8px 18px 14px; border-bottom:1px solid #E4DDCE; background:#FFFDF8;">
+            <span style="font-size:16px; color:#6B665C;">←</span>
+            <div style="width:38px; height:38px; border-radius:10px; background:repeating-linear-gradient(135deg,#EDE6D8 0 6px,#E3DACA 6px 12px); border:1px solid #E4DDCE;"></div>
+            <div><div style="font-size:14.5px; font-weight:500;">Refugio Patitas Bogotá</div><div style="font-size:12px; color:#6B665C;">Sobre Luna</div></div>
+          </div>
+          <div style="flex:1; padding:20px 18px; display:flex; flex-direction:column; gap:12px;">
+            <div style="align-self:center; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8A8172;">Hoy</div>
+            <div style="align-self:center; text-align:center; font-size:12.5px; line-height:1.55; color:#6B665C; background:#F3EDE0; border:1px solid #E4DDCE; border-radius:12px; padding:11px 14px; text-wrap:pretty;">Esta conversación se abrió porque marcaste «me interesa» en Luna.</div>
+            <div style="align-self:flex-start; max-width:76%; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px 15px 15px 4px; padding:12px 14px; font-size:14.5px; line-height:1.5;">Hola Valentina, gracias por interesarte en Luna. Tu cuestionario encaja muy bien con ella.</div>
+            <div style="align-self:flex-end; max-width:76%; background:#1F4D3A; color:#F7F3EA; border-radius:15px 15px 4px 15px; padding:12px 14px; font-size:14.5px; line-height:1.5;">¡Qué alegría! Tengo una gata en casa, ¿Luna convive bien con gatos?</div>
+            <div style="align-self:flex-start; max-width:76%; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px 15px 15px 4px; padding:12px 14px; font-size:14.5px; line-height:1.5;">Sí, estuvo en hogar de paso con dos gatos tres meses sin problema.</div>
+            <div style="align-self:flex-start; max-width:76%; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px 15px 15px 4px; padding:12px 14px; font-size:14.5px; line-height:1.5;">¿Te sirve una visita el sábado a las 2 pm?</div>
+            <div style="align-self:flex-start; display:flex; gap:8px; margin-top:2px;">
+              <span style="font-size:13px; border:1px solid #1F4D3A; color:#1F4D3A; border-radius:20px; padding:8px 14px;">Sí, agendar</span>
+              <span style="font-size:13px; border:1px solid #E4DDCE; background:#FFFDF8; border-radius:20px; padding:8px 14px;">Proponer otra hora</span>
+            </div>
+          </div>
+          <div style="display:flex; gap:9px; padding:12px 18px 32px; border-top:1px solid #E4DDCE; background:#FFFDF8;">
+            <div style="flex:1; border:1px solid #E4DDCE; background:#F7F3EA; border-radius:22px; padding:13px 16px; font-size:14.5px; color:#8A8172;">Escribe un mensaje…</div>
+            <div style="width:46px; height:46px; border-radius:50%; background:#1F4D3A; color:#F7F3EA; display:flex; align-items:center; justify-content:center; font-size:15px;">↑</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 08 APADRINAR -->
+    <div data-screen-label="08 Apadrinar" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">08</span><span style="font-size:14.5px; font-weight:500;">Apadrinar</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:60px 0 0; display:flex; flex-direction:column;">
+          <div style="padding:8px 22px 18px;">
+            <div style="font-family:'Newsreader',serif; font-size:26px; letter-spacing:-0.015em;">Apadrinar</div>
+            <p style="margin:6px 0 0; font-size:13.5px; line-height:1.6; color:#6B665C; text-wrap:pretty;">Si aún no puedes adoptar, cubre los gastos de una mascota mientras encuentra hogar.</p>
+          </div>
+          <div style="padding:0 22px; display:flex; gap:9px; margin-bottom:20px;">
+            <div style="flex:1; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:14px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:19px;">$30k</div><div style="font-size:11.5px; color:#6B665C; margin-top:2px;">mensual</div></div>
+            <div style="flex:1; background:#E8EFE9; border:1px solid #1F4D3A; border-radius:13px; padding:14px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:19px; color:#1F4D3A;">$70k</div><div style="font-size:11.5px; color:#2E5545; margin-top:2px;">mensual</div></div>
+            <div style="flex:1; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:14px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:19px;">Otro</div><div style="font-size:11.5px; color:#6B665C; margin-top:2px;">monto</div></div>
+          </div>
+          <div style="padding:0 22px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172; margin-bottom:12px;">Necesitan apoyo ahora</div>
+          <div style="flex:1; padding:0 22px; display:flex; flex-direction:column; gap:12px;">
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:14px; display:flex; gap:14px;">
+              <div style="width:64px; height:64px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1;">
+                <div style="font-family:'Newsreader',serif; font-size:18px;">Canela</div>
+                <div style="font-size:12.5px; color:#6B665C; margin:2px 0 9px;">Tratamiento de cadera · 6 meses</div>
+                <div style="height:5px; background:#EFE9DC; border-radius:5px; overflow:hidden;"><div style="width:64%; height:100%; background:#1F4D3A;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6B665C; margin-top:6px;">64% cubierto</div>
+              </div>
+            </div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:14px; display:flex; gap:14px;">
+              <div style="width:64px; height:64px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1;">
+                <div style="font-family:'Newsreader',serif; font-size:18px;">Toribio</div>
+                <div style="font-size:12.5px; color:#6B665C; margin:2px 0 9px;">Vacunas y esterilización</div>
+                <div style="height:5px; background:#EFE9DC; border-radius:5px; overflow:hidden;"><div style="width:38%; height:100%; background:#1F4D3A;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6B665C; margin-top:6px;">38% cubierto</div>
+              </div>
+            </div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:14px; display:flex; gap:14px;">
+              <div style="width:64px; height:64px; flex:none; border-radius:11px; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px);"></div>
+              <div style="flex:1;">
+                <div style="font-family:'Newsreader',serif; font-size:18px;">Pepa</div>
+                <div style="font-size:12.5px; color:#6B665C; margin:2px 0 9px;">Heno y alojamiento mensual</div>
+                <div style="height:5px; background:#EFE9DC; border-radius:5px; overflow:hidden;"><div style="width:81%; height:100%; background:#1F4D3A;"></div></div>
+                <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#6B665C; margin-top:6px;">81% cubierto</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; justify-content:space-around; align-items:center; padding:12px 12px 30px; border-top:1px solid #E4DDCE; background:#FFFDF8;">
+            <div style="font-size:12px; color:#8A8172;">Descubrir</div>
+            <div style="font-size:12px; color:#8A8172;">Matches</div>
+            <div style="font-size:12px; color:#8A8172;">Mensajes</div>
+            <div style="font-size:12px; color:#8A8172;">Perfil</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 09 PERFIL -->
+    <div data-screen-label="09 Mi perfil" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">09</span><span style="font-size:14.5px; font-weight:500;">Mi perfil</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:874px; background:#F7F3EA; padding:60px 0 0; display:flex; flex-direction:column;">
+          <div style="padding:14px 22px 20px; display:flex; flex-direction:column; align-items:center; text-align:center;">
+            <div style="width:88px; height:88px; border-radius:50%; background:repeating-linear-gradient(135deg,#EDE6D8 0 8px,#E3DACA 8px 16px); border:1px solid #E4DDCE; margin-bottom:14px;"></div>
+            <div style="font-family:'Newsreader',serif; font-size:26px; letter-spacing:-0.015em;">Valentina Ríos</div>
+            <div style="font-size:13px; color:#6B665C; margin-top:3px;">Bogotá · Chapinero</div>
+            <div style="display:flex; gap:6px; margin-top:12px;">
+              <span style="font-size:12px; color:#1F4D3A; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:20px; padding:5px 11px;">Identidad verificada</span>
+              <span style="font-size:12px; color:#1F4D3A; background:#E8EFE9; border:1px solid #CFDFD3; border-radius:20px; padding:5px 11px;">Cuestionario completo</span>
+            </div>
+          </div>
+          <div style="padding:0 22px; display:flex; gap:9px; margin-bottom:18px;">
+            <div style="flex:1; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:15px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:24px;">3</div><div style="font-size:11.5px; color:#6B665C; margin-top:2px;">Matches</div></div>
+            <div style="flex:1; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:15px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:24px;">1</div><div style="font-size:11.5px; color:#6B665C; margin-top:2px;">Visita</div></div>
+            <div style="flex:1; background:#FFFDF8; border:1px solid #E4DDCE; border-radius:13px; padding:15px 12px; text-align:center;"><div style="font-family:'Newsreader',serif; font-size:24px;">2</div><div style="font-size:11.5px; color:#6B665C; margin-top:2px;">Apadrina</div></div>
+          </div>
+          <div style="flex:1; padding:0 22px;">
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:18px;">
+              <div style="font-family:'Newsreader',serif; font-size:18px; margin-bottom:14px;">Mi hogar</div>
+              <div style="display:flex; flex-direction:column; gap:11px;">
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #EFE9DC; padding-bottom:9px;"><span style="font-size:13.5px; color:#6B665C;">Vivienda</span><span style="font-size:13.5px;">Apartamento</span></div>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #EFE9DC; padding-bottom:9px;"><span style="font-size:13.5px; color:#6B665C;">Personas</span><span style="font-size:13.5px;">2 adultos</span></div>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #EFE9DC; padding-bottom:9px;"><span style="font-size:13.5px; color:#6B665C;">Otras mascotas</span><span style="font-size:13.5px;">1 gato</span></div>
+                <div style="display:flex; justify-content:space-between;"><span style="font-size:13.5px; color:#6B665C;">Horas fuera</span><span style="font-size:13.5px;">6–8 h</span></div>
+              </div>
+            </div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:16px 18px; margin-top:12px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:14.5px;">Editar cuestionario</span><span style="color:#8A8172;">›</span></div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:15px; padding:16px 18px; margin-top:12px; display:flex; justify-content:space-between; align-items:center;"><span style="font-size:14.5px;">Ajustes</span><span style="color:#8A8172;">›</span></div>
+          </div>
+          <div style="display:flex; justify-content:space-around; align-items:center; padding:12px 12px 30px; border-top:1px solid #E4DDCE; background:#FFFDF8;">
+            <div style="font-size:12px; color:#8A8172;">Descubrir</div>
+            <div style="font-size:12px; color:#8A8172;">Matches</div>
+            <div style="font-size:12px; color:#8A8172;">Mensajes</div>
+            <div style="font-size:12px; color:#1F4D3A; font-weight:600;">Perfil</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <!-- 10 AJUSTES -->
+    <div data-screen-label="10 Ajustes" style="display:flex; flex-direction:column; gap:12px; width:402px;">
+      <div style="display:flex; align-items:baseline; gap:10px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#8A8172;">10</span><span style="font-size:14.5px; font-weight:500;">Ajustes</span></div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+        <div style="min-height:874px; background:#F7F3EA; padding:60px 22px 40px;">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;"><span style="font-size:16px; color:#6B665C;">←</span><div style="font-family:'Newsreader',serif; font-size:26px; letter-spacing:-0.015em;">Ajustes</div></div>
+
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172; margin-bottom:9px;">Cuenta</div>
+          <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:14px; margin-bottom:22px;">
+            <div style="display:flex; justify-content:space-between; padding:15px 17px; border-bottom:1px solid #EFE9DC;"><span style="font-size:14.5px;">Correo</span><span style="font-size:14px; color:#6B665C;">valentina@correo.co</span></div>
+            <div style="display:flex; justify-content:space-between; padding:15px 17px; border-bottom:1px solid #EFE9DC;"><span style="font-size:14.5px;">Teléfono</span><span style="font-size:14px; color:#6B665C;">+57 310 ••• 4412</span></div>
+            <div style="display:flex; justify-content:space-between; padding:15px 17px;"><span style="font-size:14.5px;">Ciudad</span><span style="font-size:14px; color:#6B665C;">Bogotá D.C.</span></div>
+          </div>
+
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172; margin-bottom:9px;">Notificaciones</div>
+          <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:14px; margin-bottom:22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 17px; border-bottom:1px solid #EFE9DC;"><div><div style="font-size:14.5px;">Nuevos perfiles cerca</div><div style="font-size:12.5px; color:#6B665C; margin-top:2px;">Máximo uno al día</div></div><span style="width:44px; height:26px; border-radius:22px; background:#1F4D3A; position:relative; flex:none;"><span style="position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 17px; border-bottom:1px solid #EFE9DC;"><div><div style="font-size:14.5px;">Respuestas del refugio</div><div style="font-size:12.5px; color:#6B665C; margin-top:2px;">Push y correo</div></div><span style="width:44px; height:26px; border-radius:22px; background:#1F4D3A; position:relative; flex:none;"><span style="position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 17px;"><div><div style="font-size:14.5px;">Campañas de donación</div><div style="font-size:12.5px; color:#6B665C; margin-top:2px;">Resumen mensual</div></div><span style="width:44px; height:26px; border-radius:22px; background:#E4DDCE; position:relative; flex:none;"><span style="position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+          </div>
+
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:#8A8172; margin-bottom:9px;">Privacidad</div>
+          <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:14px; margin-bottom:22px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:15px 17px; border-bottom:1px solid #EFE9DC;"><div style="max-width:230px;"><div style="font-size:14.5px;">Mostrar mi barrio al refugio</div><div style="font-size:12.5px; color:#6B665C; margin-top:2px;">Solo tras hacer match</div></div><span style="width:44px; height:26px; border-radius:22px; background:#1F4D3A; position:relative; flex:none;"><span style="position:absolute; top:2px; right:2px; width:22px; height:22px; border-radius:50%; background:#FFFDF8;"></span></span></div>
+            <div style="display:flex; justify-content:space-between; padding:15px 17px;"><span style="font-size:14.5px;">Descargar mis datos</span><span style="color:#8A8172;">›</span></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:12px; padding:16px 18px; font-size:14.5px;">Cerrar sesión</div>
+            <div style="background:#FFFDF8; border:1px solid #E4DDCE; border-radius:12px; padding:16px 18px; font-size:14.5px; color:#9B3B2E;">Eliminar mi cuenta</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>
