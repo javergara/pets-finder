@@ -38,3 +38,8 @@
 ## 2026-07-31 — Fase 8: Verificación
 - `bash init.sh` corrido de nuevo desde working tree limpio: en verde. `docs/verification.md` con evidencia real (salida completa, cobertura de tests por feature, verificación manual E2E en navegador, confirmación de ADR 0002/0003 en código).
 - App levantada en local (`dev.sh`) a pedido del usuario para verla en su navegador.
+
+## 2026-07-31 — Fase 9: Cierre
+- `CLAUDE.md` escrito: resumen del proyecto, cómo levantarlo, mapa del repo, reglas de trabajo, estado actual y próximos pasos sugeridos.
+- `CHANGELOG.md` actualizado a `[0.1.0] - 2026-07-31` (primer MVP funcional), con sección `Added`/`Fixed` completa.
+- Bootstrap del proyecto (las 9 fases de `plan.md`) completo. Commit final de cierre.
