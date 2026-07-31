@@ -1,17 +1,19 @@
 # Estado actual
 
-**Fase activa:** 2 — Investigación de producto (completa, pendiente checkpoint del usuario)
+**Fase activa:** 3 — Arquitectura y ADRs (completa, pendiente checkpoint del usuario)
 **Feature en progreso:** ninguna (todas en `todo`; la primera se activa al iniciar Fase 7)
 
 ## Hecho en esta fase
-- `docs/product-research.md`: producto, roles, decisiones de mecánica ya tomadas (y por qué), flujo de adopción E2E, fórmula de afinidad, validación de las 11 pantallas de `design/prototypes/HANDOFF.md`, alcance MVP vs. backlog.
-- `feature_list.json` poblado con 15 items: 5 `milestone: mvp` (01-05), 2 `post-mvp` (06-07), 8 `backlog` (08-15). Todos en `status: todo`, ids únicos, cero `in_progress`.
+- `docs/architecture.md`: vista general (monorepo `src/api`+`src/web`), capas del backend (models/schemas/services/routers), frontend (tokens compartidos con design-system, gestos con Pointer Events crudos reutilizando el prototipo), datos/seed, arranque de un solo comando, y qué queda fuera deliberadamente (auth, realtime, migraciones formales) y por qué no es deuda técnica todavía.
+- `docs/decisions/0001-stack-tecnico.md`: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local; por qué no Supabase/Firebase todavía (HANDOFF.md lo sugiere para chat en tiempo real, que es backlog).
+- `docs/decisions/0002-mecanica-match-no-mutuo.md`: el match no-mutuo y el HomeProfile obligatorio como reglas de negocio de **backend** (Swipe crea Match automáticamente), no solo de copy — para que no se implemente por error un flujo de doble consentimiento.
+- `docs/decisions/0003-afinidad-calculada-al-vuelo.md`: por qué el score no se persiste (evita invalidación de caché al editar HomeProfile/Pet).
 
 ## Decisiones vigentes (ver plan.md)
 - Producto = **Adopta**, es-CO únicamente.
 - Fuente de verdad de producto: `design/prototypes/HANDOFF.md`.
-- Stack MVP: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (ADR pendiente en Fase 3).
-- Match no mutuo; cuestionario de hogar obligatorio → en MVP se resuelve con `HomeProfile` sintético (flujo interactivo = feature 08, backlog).
+- Stack MVP: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (formalizado en ADR 0001).
+- Match no mutuo (ADR 0002); afinidad al vuelo (ADR 0003).
 
 ## Próximo paso
-Checkpoint de Fase 2 con el usuario. Luego Fase 3: `docs/architecture.md` + ADRs (stack, match no-mutuo/reglas de negocio en backend).
+Checkpoint de Fase 3 con el usuario. Luego Fase 4: `docs/conventions.md` + linters/formatters + pre-commit.
