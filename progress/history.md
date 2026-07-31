@@ -23,3 +23,7 @@
 - `memory/memory.md`, `changes.md`, `CHANGELOG.md` creados.
 - 5 subagentes en `.claude/agents/` (leader, implementer, reviewer, researcher, designer) y 5 skills en `.claude/skills/` (seed-data, db-migrations, run-verification, update-memory, match-scoring).
 - `.claude/settings.json` + hooks de post-edit (lint/format) y validación de `feature_list.json` (probados: bloquean con exit 2 un estado inválido).
+
+## 2026-07-31 — Fase 6: Diseño formalizado
+- `design/design-system.md` formalizado desde `design/prototypes/HANDOFF.md` §3/§9 (color, tipografía, forma, imágenes, estados, accesibilidad, gesto de swipe). Sin modo oscuro (no estaba diseñado, no se inventó).
+- `design/screens/*.md`: las 11 pantallas, detalle completo para las 4 del alcance MVP (descubrir, mascota-detalle, match-modal, mis-matches) y breve para el resto (backlog/post-MVP), cada una etiquetada con su id de `feature_list.json`.
