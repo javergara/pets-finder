@@ -1,0 +1,29 @@
+{
+  "$comment": "Reglas de routing de subagentes/skills: ver AGENTS.md (tabla de routing). Este archivo solo configura hooks y permisos, no las duplica.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Write",
+        "hooks": [
+          { "type": "command", "command": "bash .claude/hooks/validate-feature-list.sh" },
+          { "type": "command", "command": "bash .claude/hooks/post-edit-format.sh" }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash(bash init.sh)",
+      "Bash(python3 scripts/validate_feature_list.py *)",
+      "Bash(python3 scripts/seed.py)",
+      "Bash(pytest *)",
+      "Bash(ruff *)",
+      "Bash(black *)",
+      "Bash(npm run *)",
+      "Bash(npm test)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)"
+    ]
+  }
+}

@@ -16,3 +16,10 @@
 ## 2026-07-31 — Fase 4: Convenciones de desarrollo
 - `docs/conventions.md`: estructura de carpetas, nombres, manejo de errores, tests, lint/formato, commits/ramas.
 - `pyproject.toml` (ruff+black), `.prettierrc.json`, `.pre-commit-config.yaml` (ruff/ruff-format/prettier + hook local que valida máximo 1 `in_progress` en `feature_list.json`, probado en aislado).
+
+## 2026-07-31 — Fase 5: Sistema de harness engineering
+- `AGENTS.md`, `CHECKPOINTS.md`, `init.sh` (probado en verde dos veces, idempotente), `scripts/validate_feature_list.py` (probado: rechaza >1 in_progress).
+- Corregido `.pre-commit-config.yaml`: el tag `v3.3.3` de `mirrors-prettier` no existe en el repo real; se cambió a `v3.1.0` (última estable disponible). Gotcha registrado en `memory/memory.md`.
+- `memory/memory.md`, `changes.md`, `CHANGELOG.md` creados.
+- 5 subagentes en `.claude/agents/` (leader, implementer, reviewer, researcher, designer) y 5 skills en `.claude/skills/` (seed-data, db-migrations, run-verification, update-memory, match-scoring).
+- `.claude/settings.json` + hooks de post-edit (lint/format) y validación de `feature_list.json` (probados: bloquean con exit 2 un estado inválido).
