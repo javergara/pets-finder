@@ -92,8 +92,8 @@ if command -v ruff >/dev/null 2>&1 && [ -d src/api ] && find src/api -name '*.py
 else
   skip "sin archivos .py en src/api todavía"
 fi
-if [ -f src/web/package.json ] && (cd src/web && npm run --silent | grep -q '^  lint$' 2>/dev/null); then
-  (cd src/web && npm run lint --silent) && ok "eslint sin errores" || fail "eslint encontró errores en src/web"
+if [ -f src/web/package.json ] && node -e "process.exit(require('./src/web/package.json').scripts.lint ? 0 : 1)"; then
+  (cd src/web && npm run lint --silent) && ok "lint sin errores" || fail "lint encontró errores en src/web"
 else
   skip "sin script 'lint' en src/web todavía"
 fi
@@ -105,7 +105,7 @@ if [ -d tests/api ] && find tests/api -name 'test_*.py' -print -quit | grep -q .
 else
   skip "sin tests en tests/api todavía"
 fi
-if [ -f src/web/package.json ] && (cd src/web && npm run --silent | grep -q '^  test$' 2>/dev/null); then
+if [ -f src/web/package.json ] && node -e "process.exit(require('./src/web/package.json').scripts.test ? 0 : 1)"; then
   (cd src/web && npm run test --silent) && ok "tests de web pasan" || fail "tests de web fallaron"
 else
   skip "sin script 'test' en src/web todavía"

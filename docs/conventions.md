@@ -41,8 +41,8 @@ Regla: si un archivo mezcla lógica de negocio con manejo de HTTP/DB, se está p
 
 ## 5. Formato y lint
 
-- **Python:** [`ruff`](https://docs.astral.sh/ruff/) para lint (incluye orden de imports) + `black` para formato. Config en `pyproject.toml` (raíz). Línea máxima 100.
-- **TypeScript:** `eslint` (config del scaffold de Vite + reglas de React Hooks) + `prettier` para formato. Config en `src/web/` (se genera al scaffoldear en la Fase 7, siguiendo estas mismas convenciones).
+- **Python:** [`ruff`](https://docs.astral.sh/ruff/) para lint (incluye orden de imports) + `black` para formato. Config en `pyproject.toml` (raíz). Línea máxima 100. `target-version`/`target-version` de ambos apuntan a la versión real del intérprete disponible (3.10), no a una asumida de antemano.
+- **TypeScript:** el scaffold de Vite (Fase 7) trajo [`oxlint`](https://oxc.rs/docs/guide/usage/linter.html) por defecto en vez de `eslint` — se mantiene esa elección (más rápido, cero config adicional) en vez de reemplazarlo por lo que este documento asumía originalmente. Formato con `prettier` (`.prettierrc.json`, raíz). Config de oxlint en `src/web/.oxlintrc.json`.
 - Ningún archivo se commitea con lint en rojo; el hook de pre-commit (§7) lo impide.
 
 ## 6. Commits y ramas

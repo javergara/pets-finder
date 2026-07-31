@@ -1,22 +1,22 @@
 # Estado actual
 
-**Fase activa:** 7 — MVP local con datos artificiales
-**Feature en progreso:** `01-foundations-data` (backend completo; frontend pendiente en el siguiente paso)
+**Fase activa:** 7 — MVP local con datos artificiales (implementación completa; falta revisión formal del revisor)
+**Feature en progreso:** `01-foundations-data` (backend + frontend implementados y verificados manualmente; pendiente de aprobación por el revisor antes de pasar a `done`)
 
-## Hecho en esta fase (backend)
-- Modelos SQLAlchemy: `User`, `HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match` (sin columna de afinidad en `Match`, ADR 0003).
-- Schemas Pydantic In/Out por entidad.
-- `services/affinity.py`: `calcular_afinidad(pet, home)` pura, ponderación de `docs/product-research.md` §5, reglas duras (niños/gatos). **Probada** con 4 tests (alta afinidad, baja afinidad, 2 reglas duras).
-- `services/matching.py`: `registrar_swipe` — crea `Match` de inmediato en `like` (ADR 0002).
-- Routers `pets`/`swipes`/`matches` + `main.py` (CORS, lifespan moderno — no `on_event` deprecado, media estático).
-- `scripts/seed.py`: **corrido de verdad**, 3 refugios, 17 mascotas, 5 adoptantes con `HomeProfile` sintético diseñado para casos de alta/baja afinidad y ambas reglas duras. Fotos reales descargadas de `placedog.net`/`cataas.com` (17/17 esta vez, red disponible); fallback SVG local implementado y documentado en `.claude/skills/seed-data/SKILL.md` aunque no se ejercitó (no hubo fallo de red en esta corrida).
-- 9 tests (`tests/api/`) todos en verde: persistencia (las 6 entidades), afinidad (4 casos), endpoints (listar/excluir swipeadas, swipe crea match, pass no crea match).
-- `ruff`/`black` limpios sobre `src/api`, `tests/api`, `scripts` (ajustes: `target-version` a py310 para que coincida con el intérprete real, `B008` ignorado por ser el idiom de FastAPI, `E501` ignorado solo en `scripts/seed.py` para las historias de mascotas).
-- Probado manualmente con `curl` contra el servidor real: `/health`, `GET /api/pets` (orden por afinidad correcto), `POST /api/swipes` (crea match), `GET /api/matches`, `/media/*` (fotos servidas). DB reseteada al estado limpio del seed después de la prueba.
+## Hecho en esta fase (frontend)
+- Scaffold Vite + React + TypeScript (`src/web`), + React Router, Tailwind v4 (`@tailwindcss/vite`, tokens en `@theme` de `index.css` mapeados 1:1 a `design/design-system.md`), Vitest + Testing Library.
+- `api/client.ts` + `api/types.ts`: cliente tipado hacia el backend.
+- `components/SwipeCard.tsx`: gesto de swipe con Pointer Events (arrastre, umbral 110px, sellos, retorno animado) + equivalentes de teclado (`←`/`→`/`Enter`) y botones — la ruta accesible obligatoria del design-system. 3 tests (render, click, teclado) en verde.
+- `components/MatchModal.tsx`, `screens/{Descubrir,MascotaDetalle,MisMatches}.tsx` — cubren `02-swipe-deck`, `03-pet-profile`, `04-matches`.
+- `dev.sh`: un solo comando levanta API (uvicorn) + web (vite) en paralelo.
+- **Verificado en navegador real** (Chrome): deck con fotos reales cargó y ordenó por afinidad, like creó el match y disparó el modal, matches y ficha de mascota mostraron los datos correctos, sin errores de consola.
+- Corregido: detección de scripts `lint`/`test` de `src/web` en `init.sh` era frágil (parseaba `npm run --silent`, que suprime el listado) — reemplazada por lectura directa de `package.json`.
+- `bash init.sh` corre **completo y en verde**: sistema, `feature_list.json`, venv, pre-commit, seed, npm install, ruff+black, oxlint, pytest (9/9), vitest (3/3).
 
 ## Decisiones vigentes (ver plan.md)
-- Producto = **Adopta**, es-CO únicamente. Stack: React+Vite+TS+Tailwind / FastAPI+SQLAlchemy / SQLite local (ADR 0001). Match no mutuo (ADR 0002); afinidad al vuelo (ADR 0003).
-- Usuario demo: `id=1` (Ana Martínez), sembrado siempre primero por `scripts/seed.py`.
+- Producto = **Adopta**, es-CO únicamente. Stack: React+Vite+TS+Tailwind (v4) / FastAPI+SQLAlchemy / SQLite local. Match no mutuo (ADR 0002); afinidad al vuelo (ADR 0003).
+- Desviaciones documentadas de lo anticipado en fases anteriores: oxlint en vez de eslint (memory.md), Tailwind v4 con `@theme` en vez de config JS+PostCSS, ruff/black `target-version=py310` (no py311).
+- Usuario demo: `id=1` (Ana Martínez).
 
 ## Próximo paso
-Frontend (`src/web`, Vite+React+TS+Tailwind): deck de swipe, ficha de mascota, modal de match, matches — pasos 7-8 del plan de esta feature (ver commits anteriores de esta sesión para el detalle del plan completo).
+Invocar al **revisor** (`.claude/agents/reviewer.md`) para una verificación independiente contra `CHECKPOINTS.md` antes de marcar `01-05` como `done` en `feature_list.json` — el implementador (esta sesión) no se autoaprueba.
