@@ -83,6 +83,40 @@ export const FILTROS_DEFAULT: Filtros = {
   distanciaKm: 15,
 };
 
+export interface HomeProfile {
+  vivienda: string;
+  espacio_exterior: string;
+  personas_en_casa: number;
+  tiene_ninos: boolean;
+  tiene_otros_perros: boolean;
+  tiene_otros_gatos: boolean;
+  horas_fuera_dia: number;
+  experiencia_previa: string;
+  presupuesto_mensual_cop: number;
+  preferencia_especies: string[];
+  preferencia_tamanos: string[];
+  preferencia_energia: string;
+}
+
+export interface UserMetrics {
+  matches_activos: number;
+  visitas_agendadas: number;
+  apadrinamientos: number;
+}
+
+export interface UserProfile {
+  id: number;
+  nombre: string;
+  email: string;
+  ciudad: string;
+  barrio: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  creado_en: string;
+  home_profile: HomeProfile | null;
+  metricas: UserMetrics | null;
+}
+
 export interface MatchWithPet {
   id: number;
   estado: string;

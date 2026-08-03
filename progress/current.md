@@ -1,35 +1,23 @@
 # Estado actual
 
 **Fase activa:** post-MVP — cola de `feature_list.json`
-**Feature en progreso:** ninguna. `06-filters` fue revisada y **aprobada** (2026-08-03), `status: done` en `feature_list.json`.
-**Siguiente sugerida:** `07-adopter-profile` (plan ya existe en `/Users/javergara/.claude/plans/ahora-has-un-nuevo-structured-pretzel.md`, sección "Feature `07-adopter-profile`").
+**Feature en progreso:** ninguna. `07-adopter-profile` fue revisada por un agente revisor independiente (sesión fresca, 2026-08-03) y **APROBADA**: `status` pasó a `done` en `feature_list.json`. `06-filters` sigue `done` (commiteada en `c1f4149`). No queda ningún item `in_progress`.
 
-## Veredicto de revisión — `06-filters` (APROBADA)
+## Veredicto de revisión — `07-adopter-profile` (APROBADA)
 
-Revisor independiente, sesión fresca sin memoria de la implementación. Verificación hecha de cero, no se confió en las notas del implementador.
+- `bash init.sh` corrido de verdad en esta sesión: verde de punta a punta — 55 tests de API (incluye `tests/api/test_users.py`, 5 tests nuevos) + 17 de frontend (incluye `MiPerfil.test.tsx`, 2 tests nuevos), `ruff`/`black`/oxlint/prettier limpios, `feature_list.json` válido.
+- Acceptance 1 (`GET /api/users/{id}` devuelve perfil + HomeProfile + métricas): cubierto por `tests/api/test_users.py` — conteos exactos de `matches_activos`/`visitas_agendadas` contra un seed local con `Match` en los 5 estados de ADR 0002, caso con `HomeProfile`, caso sin `HomeProfile` (`home_profile: null`, status 200, no 404 — verificado explícitamente, no solo inferido), 404 en español para usuario inexistente, y `apadrinamientos == 0` explícito.
+- Acceptance 2 ("Mi hogar" refleja HomeProfile): cubierto por `MiPerfil.test.tsx` — valores mockeados de `HomeProfile` visibles en el DOM, variante `home_profile: null` con placeholder sin romper.
+- Convenciones (`docs/conventions.md`): estructura de carpetas respetada (`schemas/user.py`, `routers/users.py`, lógica de agregación en el router vía `func.count()`, sin negocio embebido en componentes React); `UserOut`/`UserMetricsOut`/`HomeProfileOut` siguen el sufijo `Out`; error 404 vía `HTTPException` con mensaje en español (`f"El usuario {user_id} no existe"`); sin `except Exception` genérico en ningún archivo tocado.
+- Arquitectura §6 / ADR 0002: no se creó modelo `Sponsorship` — `apadrinamientos` es `0` fijo en `UserMetricsOut` con comentario explícito (`# Siempre 0: no existe tabla Sponsorship todavía (feature 12-sponsorship, backlog).`). La decisión de `home_profile: null` (200, no 404) en `GET /api/users/{id}` no contradice el ADR 0002 (que exige `HomeProfile` obligatorio solo en el flujo de afinidad de `GET /api/pets`, sin tocarlo) — está documentada palabra por palabra en el docstring del router, con las dos definiciones exactas de métricas reproducidas en el test. No se introdujo ningún endpoint de "aceptar match".
+- `changes.md` tiene 3 entradas nuevas referenciando `07-adopter-profile` (pasos 1, 2-3, 4) con detalle técnico y estados de test.
+- Ninguna otra feature quedó `in_progress` en simultáneo (confirmado en `feature_list.json` antes de tocarlo).
+- Verificación manual en navegador real (hecha en esta sesión por otro agente, no repetida por mí): `/perfil` cargó con datos del usuario semilla `id=1` (Ana Martínez), métricas en 0, HomeProfile completo, bio — sin errores de consola. `/descubrir` con filtros funcionando. DB reseteada a estado limpio tras esa verificación.
+- Único detalle menor, no bloqueante: el implementador no pudo hacer la verificación manual en navegador en su propia sesión (sin herramienta de automatización disponible); quedó cubierta por la verificación posterior de otro agente en esta misma sesión de revisión, ya referenciada arriba.
 
-- `bash init.sh` corrido de verdad en esta sesión: **verde de punta a punta** — seed determinista (5 usuarios/17 mascotas, sin duplicar en corridas repetidas), `ruff`/`black`/`oxlint`/`prettier`/`tsc -b` limpios, **50 tests de API + 15 de frontend**, todos en verde.
-- Cobertura de `acceptance` vs. tests, verificada leyendo el código de los tests (no solo el conteo):
-  - "`GET /api/pets` acepta query params de filtro y devuelve solo coincidencias" → `tests/api/test_filters.py` (12 tests de integración: un test por dimensión + combinación + default implícito + 2 tests de coordenadas faltantes) + `tests/api/test_filters_service.py` (15 unitarios) + `tests/api/test_geo.py` (5 unitarios). Todos pasan.
-  - "El contador 'N perfiles cerca de ti' se actualiza al cambiar filtros" → `src/web/src/screens/Descubrir.test.tsx` (contador refleja longitud del array mockeado; clic en chip dispara refetch y el contador cambia).
-  - "Botón 'Restablecer filtros' vuelve al estado por defecto (15 km)" → `FiltrosPanel.test.tsx` (dispara `onReset`) + `Descubrir.test.tsx` (tras reset, `listarMascotas` se llama con `FILTROS_DEFAULT`, `distanciaKm: 15`).
-- Consistencia con el diseño aprobado (`ahora-has-un-nuevo-structured-pretzel.md`, sección `06-filters`), verificada leyendo el código real, no las notas:
-  - `services/geo.py` es un archivo nuevo, separado de `deck.py`, función pura `distancia_km` (solo `math`, sin imports del resto de la app).
-  - `services/filters.py` es independiente de la regla dura: `services/affinity.py` **no fue tocado** (`git diff` confirmado, cero cambios), los toggles `apto_*` conviven con la regla dura sin fusionarse.
-  - `edad_categoria`/`EDAD_CATEGORIA_RANGOS` importa `EDAD_MESES_SENIOR` de `services/deck.py` (`from .deck import EDAD_MESES_SENIOR`) — no redefine el 84.
-  - Coordenadas faltantes no excluyen por distancia: confirmado en código (`aplicar_filtros` solo evalúa el filtro de distancia si ambos lados tienen lat/lng) y en test real (`test_distancia_no_excluye_cuando_falta_lat_lng_del_usuario` y `..._de_la_mascota` en `tests/api/test_filters.py`, ambos pasan).
-  - Default `distancia_km=15.0` está también en el backend (`routers/pets.py`, default del query param), verificado además por `test_default_distancia_15km_implicito`.
-- `docs/conventions.md`: estructura de carpetas respetada (`services/` para lógica pura, `routers/` delgado, `components/` presentacional sin fetch propio en `FiltrosPanel.tsx`), nombres consistentes (`snake_case`/`PascalCase`/sufijo `Out`), sin manejo de excepciones genéricas nuevo.
-- ADR 0003 (afinidad al vuelo): los filtros tampoco se persisten — se calculan y aplican en cada request de `GET /api/pets`, sin columna nueva de filtro guardado. Consistente.
-- `changes.md` tiene 6 entradas fechadas 2026-08-03 referenciando cada paso de `06-filters` (aunque el trabajo está sin commitear todavía — ver nota abajo).
-- Ninguna otra feature quedó `in_progress` en simultáneo (`06-filters` era la única, confirmado con `feature_list.json` y `scripts/validate_feature_list.py`, exit 0).
-- El implementador no había marcado la feature como `done` — lo hizo este revisor tras la verificación.
+## Próximos pasos
 
-**Nota operativa:** todo el trabajo de `06-filters` (backend + frontend + tests + `changes.md`) está en el working tree, **sin commitear**. `feature_list.json` fue actualizado por este revisor a `status: done`. Queda pendiente que alguien con permiso de commit (líder/implementador) cree el/los commit(s) Conventional Commits correspondientes — el revisor no comitea código de producto, solo deja el estado verificado en disco.
-
-## Después de esta feature
-
-No arrancar `07-adopter-profile` hasta commitear `06-filters`. El plan completo de `07-adopter-profile` ya existe en `/Users/javergara/.claude/plans/ahora-has-un-nuevo-structured-pretzel.md` para cuando toque planificarla.
+Backlog completo, empezando por `08-onboarding-cuestionario` (cuestionario de hogar interactivo real, hoy sintético en el seed — nota: cuando se implemente, revisar si el criterio "home_profile: null, no 404" de `07-adopter-profile` sigue siendo el comportamiento correcto para un usuario recién registrado sin cuestionario completado, probablemente sí). Requiere retomar con más cuidado por el ADR de auth/onboarding (no hay auth real todavía, ver `docs/architecture.md` §6). Luego `09-shelter-panel`/`10-adoption-request-flow` (cerrar el ciclo de la solicitud de adopción). `11-chat` requiere reabrir el ADR 0001 de stack.
 
 ## Nota operativa
 Si quedan servidores de `bash dev.sh` corriendo en segundo plano de una sesión anterior, deténlos (Ctrl+C o `pkill`) antes de correr `init.sh`/tests para evitar conflictos de puerto.

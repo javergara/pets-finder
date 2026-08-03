@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import { Descubrir } from './screens/Descubrir';
 import { MascotaDetalle } from './screens/MascotaDetalle';
+import { MiPerfil } from './screens/MiPerfil';
 import { MisMatches } from './screens/MisMatches';
 
 function Nav() {
@@ -16,6 +17,9 @@ function Nav() {
       <NavLink to="/matches" className={linkClass}>
         Mis matches
       </NavLink>
+      <NavLink to="/perfil" className={linkClass}>
+        Mi perfil
+      </NavLink>
     </nav>
   );
 }
@@ -29,6 +33,7 @@ function App() {
         <Route path="/descubrir" element={<Descubrir />} />
         <Route path="/mascota/:id" element={<MascotaDetalle />} />
         <Route path="/matches" element={<MisMatches />} />
+        <Route path="/perfil" element={<MiPerfil />} />
       </Routes>
     </div>
   );

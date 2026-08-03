@@ -1,4 +1,11 @@
-import { FILTROS_DEFAULT, type Filtros, type MatchWithPet, type Pet, type Swipe } from './types';
+import {
+  FILTROS_DEFAULT,
+  type Filtros,
+  type MatchWithPet,
+  type Pet,
+  type Swipe,
+  type UserProfile,
+} from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -51,4 +58,8 @@ export function registrarSwipe(
 
 export function listarMatches(userId: number): Promise<MatchWithPet[]> {
   return request(`/api/matches?user_id=${userId}`);
+}
+
+export function obtenerPerfil(userId: number): Promise<UserProfile> {
+  return request(`/api/users/${userId}`);
 }

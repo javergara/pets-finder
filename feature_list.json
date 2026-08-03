@@ -87,7 +87,7 @@
       "id": "07-adopter-profile",
       "title": "Perfil del adoptante",
       "description": "Vista de 'Mi perfil': cabecera, métricas (matches activos, visitas agendadas, apadrinamientos), resumen del HomeProfile y texto 'Sobre mí'.",
-      "status": "todo",
+      "status": "done",
       "milestone": "post-mvp",
       "depends_on": ["01-foundations-data"],
       "acceptance": [
