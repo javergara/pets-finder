@@ -99,10 +99,17 @@
       "id": "08-onboarding-cuestionario",
       "title": "Onboarding: cuestionario de hogar interactivo",
       "description": "Flujo de registro + cuestionario de 6 pasos que crea el HomeProfile real y bloquea /descubrir hasta completarse (design/prototypes/HANDOFF.md §5.1). Reemplaza el HomeProfile sintético del seed por uno editable.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["01-foundations-data"],
-      "acceptance": []
+      "acceptance": [
+        "POST /api/users crea un adoptante nuevo sin HomeProfile (home_profile: null en la respuesta) y rechaza con 409 un email ya registrado",
+        "PUT /api/users/{id}/home-profile crea el HomeProfile si no existe y lo reemplaza por completo si ya existe (mismo endpoint sirve para completar por primera vez y para editar desde Mi perfil)",
+        "El wizard de /cuestionario tiene 6 pasos con barra de progreso 'Paso N de 6' y no permite llegar a /descubrir sin completarlo",
+        "El frontend usa un usuario activo persistido en localStorage (no DEMO_USER_ID hardcodeado) en Descubrir, Matches, Mi perfil y Ficha de mascota, con DEMO_USER_ID como valor por defecto para no romper el flujo de los usuarios semilla",
+        "Un adoptante sin HomeProfile que intenta acceder a /descubrir, /matches o /mascota/:id es redirigido a /cuestionario; un adoptante semilla (con HomeProfile ya sembrado) accede sin fricción",
+        "Editar el HomeProfile desde /cuestionario en modo edición recalcula la afinidad mostrada de inmediato en /descubrir, sin caché que invalidar (ADR 0003)"
+      ]
     },
     {
       "id": "09-shelter-panel",

@@ -1,6 +1,7 @@
 import {
   FILTROS_DEFAULT,
   type Filtros,
+  type HomeProfile,
   type MatchWithPet,
   type Pet,
   type Swipe,
@@ -62,4 +63,23 @@ export function listarMatches(userId: number): Promise<MatchWithPet[]> {
 
 export function obtenerPerfil(userId: number): Promise<UserProfile> {
   return request(`/api/users/${userId}`);
+}
+
+export function registrarUsuario(datos: {
+  nombre: string;
+  email: string;
+  ciudad: string;
+  barrio?: string;
+}): Promise<UserProfile> {
+  return request('/api/users', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function guardarHomeProfile(userId: number, home: HomeProfile): Promise<HomeProfile> {
+  return request(`/api/users/${userId}/home-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(home),
+  });
 }

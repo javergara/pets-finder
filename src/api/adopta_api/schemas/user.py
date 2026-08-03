@@ -3,9 +3,31 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
 
+class UserIn(BaseModel):
+    nombre: str
+    email: str
+    ciudad: str = "Bogotá"
+    barrio: str | None = None
+
+
 class HomeProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    vivienda: str
+    espacio_exterior: str
+    personas_en_casa: int
+    tiene_ninos: bool
+    tiene_otros_perros: bool
+    tiene_otros_gatos: bool
+    horas_fuera_dia: int
+    experiencia_previa: str
+    presupuesto_mensual_cop: int
+    preferencia_especies: list[str]
+    preferencia_tamanos: list[str]
+    preferencia_energia: str
+
+
+class HomeProfileIn(BaseModel):
     vivienda: str
     espacio_exterior: str
     personas_en_casa: int

@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { mediaUrl, obtenerPerfil } from '../api/client';
 import type { HomeProfile, UserProfile } from '../api/types';
-import { DEMO_USER_ID } from '../lib/constants';
+import { getActiveUserId } from '../lib/session';
 
 const VIVIENDA_LABEL: Record<string, string> = {
   apartamento: 'Apartamento',
@@ -56,7 +57,7 @@ export function MiPerfil() {
   const [perfil, setPerfil] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    obtenerPerfil(DEMO_USER_ID).then(setPerfil);
+    obtenerPerfil(getActiveUserId()).then(setPerfil);
   }, []);
 
   if (perfil === null) {
@@ -114,7 +115,15 @@ export function MiPerfil() {
       </div>
 
       <section className="rounded-2xl border border-line bg-surface p-6">
-        <h2 className="mb-4 font-display text-lg text-ink">Mi hogar</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="font-display text-lg text-ink">Mi hogar</h2>
+          <Link
+            to="/cuestionario"
+            className="font-mono text-xs tracking-wide text-forest uppercase hover:underline"
+          >
+            {perfil.home_profile ? 'Editar cuestionario' : 'Completar cuestionario'}
+          </Link>
+        </div>
         {perfil.home_profile ? (
           <HogarResumen home={perfil.home_profile} />
         ) : (

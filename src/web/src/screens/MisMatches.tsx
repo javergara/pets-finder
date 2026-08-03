@@ -2,13 +2,13 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listarMatches, mediaUrl } from '../api/client';
 import type { MatchWithPet } from '../api/types';
-import { DEMO_USER_ID } from '../lib/constants';
+import { getActiveUserId } from '../lib/session';
 
 export function MisMatches() {
   const [matches, setMatches] = useState<MatchWithPet[] | null>(null);
 
   useEffect(() => {
-    listarMatches(DEMO_USER_ID).then(setMatches);
+    listarMatches(getActiveUserId()).then(setMatches);
   }, []);
 
   if (matches === null) {

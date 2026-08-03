@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { mediaUrl, obtenerMascota, registrarSwipe } from '../api/client';
 import type { Pet } from '../api/types';
-import { DEMO_USER_ID } from '../lib/constants';
+import { getActiveUserId } from '../lib/session';
 
 export function MascotaDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -11,7 +11,7 @@ export function MascotaDetalle() {
 
   useEffect(() => {
     if (!id) return;
-    obtenerMascota(Number(id), DEMO_USER_ID).then(setPet);
+    obtenerMascota(Number(id), getActiveUserId()).then(setPet);
   }, [id]);
 
   if (!pet) {
@@ -20,7 +20,7 @@ export function MascotaDetalle() {
 
   async function meInteresa() {
     if (!pet) return;
-    await registrarSwipe(DEMO_USER_ID, pet.id, 'like');
+    await registrarSwipe(getActiveUserId(), pet.id, 'like');
     navigate('/matches');
   }
 

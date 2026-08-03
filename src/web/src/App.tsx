@@ -1,8 +1,11 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
+import { RequiereHomeProfile } from './components/RequiereHomeProfile';
+import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
 import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MiPerfil } from './screens/MiPerfil';
 import { MisMatches } from './screens/MisMatches';
+import { Registro } from './screens/Registro';
 
 function Nav() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -30,9 +33,15 @@ function App() {
       <Nav />
       <Routes>
         <Route path="/" element={<Navigate to="/descubrir" replace />} />
-        <Route path="/descubrir" element={<Descubrir />} />
-        <Route path="/mascota/:id" element={<MascotaDetalle />} />
-        <Route path="/matches" element={<MisMatches />} />
+        {/* /registro y /cuestionario quedan fuera de RequiereHomeProfile (paso 6):
+            envolverlas causaría un ciclo de redirección. */}
+        <Route path="/registro" element={<Registro />} />
+        <Route path="/cuestionario" element={<Cuestionario />} />
+        <Route element={<RequiereHomeProfile />}>
+          <Route path="/descubrir" element={<Descubrir />} />
+          <Route path="/mascota/:id" element={<MascotaDetalle />} />
+          <Route path="/matches" element={<MisMatches />} />
+        </Route>
         <Route path="/perfil" element={<MiPerfil />} />
       </Routes>
     </div>

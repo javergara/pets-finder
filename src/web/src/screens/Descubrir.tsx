@@ -5,7 +5,7 @@ import { FILTROS_DEFAULT, type Filtros, type Pet } from '../api/types';
 import { FiltrosPanel } from '../components/FiltrosPanel';
 import { MatchModal } from '../components/MatchModal';
 import { SwipeCard } from '../components/SwipeCard';
-import { DEMO_USER_ID } from '../lib/constants';
+import { getActiveUserId } from '../lib/session';
 
 export function Descubrir() {
   const [mascotas, setMascotas] = useState<Pet[] | null>(null);
@@ -15,7 +15,7 @@ export function Descubrir() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    listarMascotas(DEMO_USER_ID, filtros)
+    listarMascotas(getActiveUserId(), filtros)
       .then(setMascotas)
       .catch(() => setError('No pudimos cargar las mascotas. Intenta de nuevo en un momento.'));
   }, [filtros]);
@@ -26,7 +26,7 @@ export function Descubrir() {
     if (!actual) return;
     setMascotas((prev) => (prev ? prev.slice(1) : prev));
     try {
-      const swipe = await registrarSwipe(DEMO_USER_ID, actual.id, direccion);
+      const swipe = await registrarSwipe(getActiveUserId(), actual.id, direccion);
       if (swipe.match) setMatchPet(actual);
     } catch {
       // El swipe nunca se bloquea por un error de red (docs/conventions.md §3);

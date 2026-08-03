@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { UserProfile } from '../api/types';
@@ -12,6 +13,14 @@ vi.mock('../api/client', async () => {
 afterEach(() => {
   vi.resetAllMocks();
 });
+
+function renderConRouter() {
+  return render(
+    <MemoryRouter>
+      <MiPerfil />
+    </MemoryRouter>,
+  );
+}
 
 const PERFIL_BASE: UserProfile = {
   id: 1,
@@ -47,7 +56,7 @@ describe('MiPerfil', () => {
   it('muestra cabecera, métricas, hogar y bio con un perfil completo', async () => {
     vi.mocked(client.obtenerPerfil).mockResolvedValue(PERFIL_BASE);
 
-    render(<MiPerfil />);
+    renderConRouter();
 
     expect(await screen.findByText('Ana Martínez')).toBeInTheDocument();
     expect(screen.getByText(/Bogotá · Chapinero/)).toBeInTheDocument();
@@ -67,15 +76,18 @@ describe('MiPerfil', () => {
     expect(
       screen.getByText('Amo los animales y tengo experiencia con perros grandes.'),
     ).toBeInTheDocument();
+
+    const link = screen.getByRole('link', { name: 'Editar cuestionario' });
+    expect(link).toHaveAttribute('href', '/cuestionario');
   });
 
-  it('muestra un placeholder de hogar cuando home_profile es null, sin romper', async () => {
+  it('muestra un placeholder de hogar cuando home_profile es null, sin romper, con link para completarlo', async () => {
     vi.mocked(client.obtenerPerfil).mockResolvedValue({
       ...PERFIL_BASE,
       home_profile: null,
     });
 
-    render(<MiPerfil />);
+    renderConRouter();
 
     expect(await screen.findByText('Ana Martínez')).toBeInTheDocument();
     expect(
@@ -83,5 +95,8 @@ describe('MiPerfil', () => {
         'Aún no completaste el cuestionario de hogar. Cuando lo hagas, aquí verás un resumen.',
       ),
     ).toBeInTheDocument();
+
+    const link = screen.getByRole('link', { name: 'Completar cuestionario' });
+    expect(link).toHaveAttribute('href', '/cuestionario');
   });
 });
