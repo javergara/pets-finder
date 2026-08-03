@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.home_profile import HomeProfile
 from ..models.pet import Pet
+from ..models.shelter import Shelter
 from ..models.swipe import Swipe
 from ..models.user import User
-from ..schemas.pet import AfinidadOut, PetOut, ShelterOut
+from ..schemas.pet import AfinidadOut, PetIn, PetOut, ShelterOut
 from ..services.affinity import calcular_afinidad
 from ..services.db import get_session
 from ..services.deck import ordenar_deck
@@ -81,6 +82,26 @@ def listar_mascotas(
         resultados = ordenar_deck(resultados)
 
     return resultados
+
+
+@router.post("", response_model=PetOut, status_code=status.HTTP_201_CREATED)
+def publicar_mascota(payload: PetIn, session: Session = Depends(get_session)) -> PetOut:
+    """Publica una mascota nueva asociada a un refugio existente (feature `09-shelter-panel`).
+
+    Valida que `shelter_id` exista ANTES de insertar. `estado` no viene en el payload:
+    queda en su default `"disponible"` del modelo. Sin `lat`/`lng` (el formulario de
+    publicación no captura ubicación individual, ver `schemas/pet.py::PetIn`).
+    """
+    shelter = session.get(Shelter, payload.shelter_id)
+    if shelter is None:
+        raise HTTPException(404, f"El refugio {payload.shelter_id} no existe")
+
+    pet = Pet(**payload.model_dump())
+    session.add(pet)
+    session.commit()
+    session.refresh(pet)
+
+    return _pet_out(pet, home=None)
 
 
 @router.get("/{pet_id}", response_model=PetOut)

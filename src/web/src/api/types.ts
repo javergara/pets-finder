@@ -131,3 +131,70 @@ export interface MatchWithPet {
   };
   afinidad: Afinidad;
 }
+
+export interface ShelterMetrics {
+  mascotas_publicadas: number;
+  interesados_este_mes: number;
+  visitas_agendadas: number;
+  adopciones_cerradas: number;
+  // Siempre 0 en el MVP: no existe tabla Sponsorship todavía (feature 12-sponsorship, backlog).
+  apadrinamientos_recaudados_cop: number;
+}
+
+export interface ShelterProfile {
+  id: number;
+  nombre: string;
+  ciudad: string;
+  verificado: boolean;
+  tiempo_respuesta_horas: number;
+  logo_url: string | null;
+  metricas: ShelterMetrics;
+}
+
+export interface SolicitanteResumen {
+  id: number;
+  nombre: string;
+}
+
+export interface SolicitudPetResumen {
+  id: number;
+  nombre: string;
+  raza: string;
+  fotos: string[];
+}
+
+export interface Solicitud {
+  id: number; // id del Match, no un id de "solicitud" separado (no existe esa entidad).
+  estado: string;
+  creado_en: string;
+  adoptante: SolicitanteResumen;
+  pet: SolicitudPetResumen;
+  afinidad: Afinidad;
+  etiqueta: string;
+}
+
+export interface SolicitudDetalle extends Solicitud {
+  bio: string | null;
+  home_profile: HomeProfile;
+}
+
+export interface PetIn {
+  shelter_id: number;
+  nombre: string;
+  especie: string;
+  raza: string;
+  sexo: string;
+  edad_meses: number;
+  tamano: string;
+  energia: string;
+  historia: string;
+  tags?: string[];
+  esterilizado?: boolean;
+  vacunas_al_dia?: boolean;
+  microchip?: boolean;
+  desparasitado?: boolean;
+  apto_ninos?: boolean;
+  apto_perros?: boolean;
+  apto_gatos?: boolean;
+  fotos?: string[];
+}

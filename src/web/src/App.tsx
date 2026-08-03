@@ -5,7 +5,10 @@ import { Descubrir } from './screens/Descubrir';
 import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MiPerfil } from './screens/MiPerfil';
 import { MisMatches } from './screens/MisMatches';
+import { PanelRefugio } from './screens/PanelRefugio';
+import { PublicarMascota } from './screens/PublicarMascota';
 import { Registro } from './screens/Registro';
+import { SolicitudDetalle } from './screens/SolicitudDetalle';
 
 function Nav() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -22,6 +25,9 @@ function Nav() {
       </NavLink>
       <NavLink to="/perfil" className={linkClass}>
         Mi perfil
+      </NavLink>
+      <NavLink to="/refugio" className={linkClass}>
+        Panel del refugio
       </NavLink>
     </nav>
   );
@@ -43,6 +49,11 @@ function App() {
           <Route path="/matches" element={<MisMatches />} />
         </Route>
         <Route path="/perfil" element={<MiPerfil />} />
+        {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
+            lado adoptante (cuestionario de hogar), no aplica a la vista del refugio. */}
+        <Route path="/refugio" element={<PanelRefugio />} />
+        <Route path="/refugio/publicar" element={<PublicarMascota />} />
+        <Route path="/refugio/solicitudes/:matchId" element={<SolicitudDetalle />} />
       </Routes>
     </div>
   );

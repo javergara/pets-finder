@@ -4,6 +4,10 @@ import {
   type HomeProfile,
   type MatchWithPet,
   type Pet,
+  type PetIn,
+  type ShelterProfile,
+  type Solicitud,
+  type SolicitudDetalle,
   type Swipe,
   type UserProfile,
 } from './types';
@@ -81,5 +85,24 @@ export function guardarHomeProfile(userId: number, home: HomeProfile): Promise<H
   return request(`/api/users/${userId}/home-profile`, {
     method: 'PUT',
     body: JSON.stringify(home),
+  });
+}
+
+export function obtenerRefugio(shelterId: number): Promise<ShelterProfile> {
+  return request(`/api/shelters/${shelterId}`);
+}
+
+export function listarSolicitudes(shelterId: number): Promise<Solicitud[]> {
+  return request(`/api/shelters/${shelterId}/solicitudes`);
+}
+
+export function obtenerSolicitud(shelterId: number, matchId: number): Promise<SolicitudDetalle> {
+  return request(`/api/shelters/${shelterId}/solicitudes/${matchId}`);
+}
+
+export function publicarMascota(payload: PetIn): Promise<Pet> {
+  return request('/api/pets', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }

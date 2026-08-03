@@ -129,3 +129,107 @@ def test_obtener_mascota_inexistente_devuelve_404(client, db_session):
     respuesta = client.get("/api/pets/9999")
 
     assert respuesta.status_code == 404
+
+
+def test_publicar_mascota_devuelve_201_con_campos_reflejados(client, db_session):
+    shelter, _pet, _user = _seed_minimo(db_session)
+
+    payload = {
+        "shelter_id": shelter.id,
+        "nombre": "Luna",
+        "especie": "gato",
+        "raza": "Siames",
+        "sexo": "hembra",
+        "edad_meses": 8,
+        "tamano": "pequeño",
+        "energia": "baja",
+        "historia": "Una gata tranquila que ama dormir al sol.",
+        "tags": ["tranquila", "cariñosa"],
+        "esterilizado": True,
+        "vacunas_al_dia": True,
+        "microchip": True,
+        "desparasitado": True,
+        "apto_ninos": False,
+        "apto_perros": False,
+        "apto_gatos": True,
+        "fotos": ["/media/luna_1.jpg"],
+    }
+
+    respuesta = client.post("/api/pets", json=payload)
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["shelter_id"] == shelter.id
+    assert cuerpo["nombre"] == "Luna"
+    assert cuerpo["especie"] == "gato"
+    assert cuerpo["raza"] == "Siames"
+    assert cuerpo["sexo"] == "hembra"
+    assert cuerpo["edad_meses"] == 8
+    assert cuerpo["tamano"] == "pequeño"
+    assert cuerpo["energia"] == "baja"
+    assert cuerpo["historia"] == payload["historia"]
+    assert cuerpo["tags"] == ["tranquila", "cariñosa"]
+    assert cuerpo["esterilizado"] is True
+    assert cuerpo["vacunas_al_dia"] is True
+    assert cuerpo["microchip"] is True
+    assert cuerpo["desparasitado"] is True
+    assert cuerpo["apto_ninos"] is False
+    assert cuerpo["apto_perros"] is False
+    assert cuerpo["apto_gatos"] is True
+    assert cuerpo["fotos"] == ["/media/luna_1.jpg"]
+    assert cuerpo["estado"] == "disponible"
+
+
+def test_publicar_mascota_aplica_defaults_documentados(client, db_session):
+    shelter, _pet, _user = _seed_minimo(db_session)
+
+    payload = {
+        "shelter_id": shelter.id,
+        "nombre": "Max",
+        "especie": "perro",
+        "raza": "Criollo",
+        "sexo": "macho",
+        "edad_meses": 36,
+        "tamano": "grande",
+        "energia": "alta",
+        "historia": "Un perro juguetón que necesita espacio.",
+    }
+
+    respuesta = client.post("/api/pets", json=payload)
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["tags"] == []
+    assert cuerpo["fotos"] == []
+    assert cuerpo["esterilizado"] is False
+    assert cuerpo["vacunas_al_dia"] is False
+    assert cuerpo["microchip"] is False
+    assert cuerpo["desparasitado"] is False
+    assert cuerpo["apto_ninos"] is True
+    assert cuerpo["apto_perros"] is True
+    assert cuerpo["apto_gatos"] is True
+    assert cuerpo["estado"] == "disponible"
+
+
+def test_publicar_mascota_shelter_inexistente_devuelve_404_y_no_inserta(client, db_session):
+    _seed_minimo(db_session)
+
+    payload = {
+        "shelter_id": 9999,
+        "nombre": "Rocky",
+        "especie": "perro",
+        "raza": "Criollo",
+        "sexo": "macho",
+        "edad_meses": 12,
+        "tamano": "mediano",
+        "energia": "media",
+        "historia": "Un perro amistoso.",
+    }
+
+    respuesta = client.post("/api/pets", json=payload)
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
+
+    mascotas = client.get("/api/pets").json()
+    assert all(mascota["nombre"] != "Rocky" for mascota in mascotas)

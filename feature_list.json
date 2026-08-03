@@ -115,10 +115,17 @@
       "id": "09-shelter-panel",
       "title": "Panel del refugio",
       "description": "Publicación de mascotas, revisión de solicitudes con cuestionario adjunto, agendar visita / pedir info / descartar con motivo, métricas del refugio.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["04-matches"],
-      "acceptance": []
+      "acceptance": [
+        "GET /api/shelters/{id} devuelve perfil + 4 métricas (mascotas_publicadas, interesados_este_mes, visitas_agendadas, adopciones_cerradas) y 404 en español si el refugio no existe",
+        "GET /api/shelters/{id}/solicitudes lista los Match de las mascotas de ese refugio con adoptante, mascota, afinidad y una etiqueta de estado calculada (Cuestionario nuevo / Sin responder · N días / Visita agendada), ordenados por creado_en descendente",
+        "GET /api/shelters/{id}/solicitudes/{match_id} muestra el cuestionario completo del adoptante (HomeProfile) y su 'Sobre mí', y devuelve 404 si el match no pertenece a ese refugio",
+        "POST /api/pets publica una mascota nueva asociada a un shelter_id existente (201) y devuelve 404 en español si el refugio no existe",
+        "La pantalla /refugio muestra la cabecera, las 4 métricas y la tabla de solicitudes; el detalle de una solicitud no incluye botones de Agendar visita / Pedir información / Descartar (quedan en 10-adoption-request-flow)",
+        "Ningún endpoint de esta feature muta Match.estado — verificado explícitamente por el revisor antes de aprobar (ADR 0002)"
+      ]
     },
     {
       "id": "10-adoption-request-flow",
