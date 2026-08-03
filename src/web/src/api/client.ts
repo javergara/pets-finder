@@ -106,3 +106,26 @@ export function publicarMascota(payload: PetIn): Promise<Pet> {
     body: JSON.stringify(payload),
   });
 }
+
+export function agendarVisita(shelterId: number, matchId: number): Promise<SolicitudDetalle> {
+  return request(`/api/shelters/${shelterId}/solicitudes/${matchId}/agendar-visita`, {
+    method: 'POST',
+  });
+}
+
+export function pedirInformacion(shelterId: number, matchId: number): Promise<SolicitudDetalle> {
+  return request(`/api/shelters/${shelterId}/solicitudes/${matchId}/pedir-informacion`, {
+    method: 'POST',
+  });
+}
+
+export function descartarSolicitud(
+  shelterId: number,
+  matchId: number,
+  motivo: string,
+): Promise<SolicitudDetalle> {
+  return request(`/api/shelters/${shelterId}/solicitudes/${matchId}/descartar`, {
+    method: 'POST',
+    body: JSON.stringify({ motivo }),
+  });
+}

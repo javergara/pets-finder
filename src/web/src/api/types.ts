@@ -178,6 +178,10 @@ export interface SolicitudDetalle extends Solicitud {
   home_profile: HomeProfile;
 }
 
+export interface DescartarIn {
+  motivo: string;
+}
+
 export interface PetIn {
   shelter_id: number;
   nombre: string;

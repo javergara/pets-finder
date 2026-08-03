@@ -20,3 +20,4 @@ class Match(Base):
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
+    motivo_descarte: Mapped[str | None] = mapped_column(String(500), nullable=True)

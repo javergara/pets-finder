@@ -56,4 +56,42 @@ describe('MisMatches', () => {
     expect(screen.getByText('94%')).toBeInTheDocument();
     expect(screen.getByText('● Esperando refugio')).toBeInTheDocument();
   });
+
+  const casosEstado: Array<{
+    estado: MatchWithPet['estado'];
+    texto: string;
+    clase: string;
+  }> = [
+    { estado: 'solicitado', texto: '● Esperando refugio', clase: 'text-ochre' },
+    { estado: 'en_revision', texto: '● En revisión', clase: 'text-ochre' },
+    { estado: 'visita_agendada', texto: '● Visita agendada', clase: 'text-forest' },
+    { estado: 'adoptado', texto: '● Adopción cerrada', clase: 'text-forest' },
+    { estado: 'cerrado', texto: '● Solicitud cerrada', clase: 'text-muted' },
+  ];
+
+  it.each(casosEstado)(
+    'muestra "$texto" con la clase "$clase" para el estado $estado',
+    async ({ estado, texto, clase }) => {
+      const match: MatchWithPet = {
+        id: 1,
+        estado,
+        creado_en: '2026-01-01T00:00:00Z',
+        pet: {
+          id: 17,
+          nombre: 'Canela',
+          raza: 'Cocker mestizo',
+          edad_meses: 42,
+          fotos: [],
+          estado: 'disponible',
+        },
+        afinidad: { score: 94, explicacion: '', incompatible: false },
+      };
+      vi.mocked(client.listarMatches).mockResolvedValue([match]);
+
+      renderConRouter();
+
+      const badge = await screen.findByText(texto);
+      expect(badge).toHaveClass(clase);
+    },
+  );
 });

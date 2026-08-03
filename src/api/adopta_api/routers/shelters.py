@@ -1,9 +1,20 @@
-"""Panel del refugio — feature 09-shelter-panel, solo lectura (ADR 0002).
+"""Panel del refugio — lectura (feature 09-shelter-panel) + acciones sobre la
+solicitud (feature 10-adoption-request-flow).
 
-Ningún endpoint de este router muta `Match.estado`: las transiciones de una solicitud
-(`en_revision`, `visita_agendada`, `adoptado`, `cerrado`) son de la feature de backlog
-`10-adoption-request-flow`. Acá solo se lee `Match.estado` para filtrar/calcular
-métricas y la etiqueta de cada solicitud.
+Los 3 `GET` de este router (`obtener_refugio`, `listar_solicitudes`, `obtener_solicitud`)
+NO mutan `Match.estado`: solo lo leen para filtrar/calcular métricas y la etiqueta de
+cada solicitud.
+
+Los 3 `POST` (`agendar-visita`, `pedir-informacion`, `descartar`) SÍ mutan
+`Match.estado` (y, solo en el caso de `descartar`, también `Match.motivo_descarte`).
+Esto es exactamente lo que ADR 0002 (`docs/decisions/0002-mecanica-match-no-mutuo.md`)
+asigna a esta feature: el `Match` en sí se crea de forma automática e inmutable al hacer
+`like` (no hay "aceptar match"), pero las transiciones de la **solicitud** posterior
+(`solicitado` -> `en_revision`/`visita_agendada`/`cerrado`/`adoptado`) sí las controla
+el refugio, y es precisamente el backlog `10-adoption-request-flow` el que las
+implementa. La matriz de transiciones válidas vive en `services/solicitudes.py`
+(`validar_transicion`/`TRANSICIONES_VALIDAS`), no en este router: acá solo se llama,
+se atrapa `TransicionInvalidaError` como 409, y se persiste.
 """
 
 from datetime import datetime, timezone
@@ -19,6 +30,7 @@ from ..models.shelter import Shelter
 from ..models.user import User
 from ..schemas.pet import AfinidadOut
 from ..schemas.shelter import (
+    DescartarIn,
     ShelterMetricsOut,
     ShelterProfileOut,
     SolicitanteResumen,
@@ -29,9 +41,58 @@ from ..schemas.shelter import (
 from ..schemas.user import HomeProfileOut
 from ..services.affinity import calcular_afinidad
 from ..services.db import get_session
-from ..services.solicitudes import calcular_etiqueta_solicitud
+from ..services.solicitudes import (
+    TransicionInvalidaError,
+    calcular_etiqueta_solicitud,
+    validar_transicion,
+)
 
 router = APIRouter(prefix="/api/shelters", tags=["shelters"])
+
+
+def _cargar_match_o_404(session: Session, shelter_id: int, match_id: int) -> Match:
+    """404 si el refugio no existe, o si el match no existe, o si el match existe pero
+    pertenece a OTRO refugio -- se verifica `match.shelter_id == shelter_id` explícito,
+    no solo que el match exista, para no filtrar ni mutar datos de otro refugio."""
+    shelter = session.get(Shelter, shelter_id)
+    if shelter is None:
+        raise HTTPException(404, f"El refugio {shelter_id} no existe")
+
+    match = session.get(Match, match_id)
+    if match is None or match.shelter_id != shelter_id:
+        raise HTTPException(404, f"La solicitud {match_id} no existe en el refugio {shelter_id}")
+    return match
+
+
+def _solicitud_detalle_out(session: Session, match: Match) -> SolicitudDetalleOut:
+    """Construye el detalle completo de una solicitud: cuestionario (`HomeProfile`),
+    afinidad, etiqueta y "Sobre mí" del adoptante."""
+    pet = session.get(Pet, match.pet_id)
+    user = session.get(User, match.user_id)
+    home = session.get(HomeProfile, match.user_id)
+    if home is None:
+        # Mismo criterio defensivo que matches.py: sin HomeProfile no hay cuestionario
+        # que mostrar, y es el contenido principal de esta pantalla.
+        raise HTTPException(
+            404, f"El adoptante {match.user_id} no tiene HomeProfile (cuestionario)"
+        )
+
+    afinidad = calcular_afinidad(pet, home)
+    return SolicitudDetalleOut(
+        id=match.id,
+        estado=match.estado,
+        creado_en=match.creado_en,
+        adoptante=SolicitanteResumen(id=user.id, nombre=user.nombre),
+        pet=SolicitudPetResumen(id=pet.id, nombre=pet.nombre, raza=pet.raza, fotos=pet.fotos),
+        afinidad=AfinidadOut(
+            score=afinidad.score,
+            explicacion=afinidad.explicacion,
+            incompatible=afinidad.incompatible,
+        ),
+        etiqueta=calcular_etiqueta_solicitud(match.estado, match.creado_en),
+        bio=user.bio,
+        home_profile=HomeProfileOut.model_validate(home),
+    )
 
 
 @router.get("/{shelter_id}", response_model=ShelterProfileOut)
@@ -152,43 +213,71 @@ def listar_solicitudes(
 def obtener_solicitud(
     shelter_id: int, match_id: int, session: Session = Depends(get_session)
 ) -> SolicitudDetalleOut:
-    """Detalle de una solicitud: cuestionario completo (`HomeProfile`) + "Sobre mí".
+    """Detalle de una solicitud: cuestionario completo (`HomeProfile`) + "Sobre mí"."""
+    match = _cargar_match_o_404(session, shelter_id, match_id)
+    return _solicitud_detalle_out(session, match)
 
-    404 si el refugio no existe, o si el match no existe, o si el match existe pero
-    pertenece a OTRO refugio — se verifica `match.shelter_id == shelter_id` explícito,
-    no solo que el match exista, para no filtrar datos de otro refugio.
+
+@router.post(
+    "/{shelter_id}/solicitudes/{match_id}/agendar-visita", response_model=SolicitudDetalleOut
+)
+def agendar_visita(
+    shelter_id: int, match_id: int, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """Agenda una visita: válido desde `solicitado`/`en_revision` (ver
+    `services/solicitudes.py::TRANSICIONES_VALIDAS`). 409 en cualquier otro estado."""
+    match = _cargar_match_o_404(session, shelter_id, match_id)
+    try:
+        validar_transicion(match.estado, "agendar-visita")
+    except TransicionInvalidaError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    match.estado = "visita_agendada"
+    session.commit()
+    return _solicitud_detalle_out(session, match)
+
+
+@router.post(
+    "/{shelter_id}/solicitudes/{match_id}/pedir-informacion", response_model=SolicitudDetalleOut
+)
+def pedir_informacion(
+    shelter_id: int, match_id: int, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """Pide información adicional al adoptante: válido solo desde `solicitado`. 409 en
+    cualquier otro estado (incluyendo `en_revision`, no es un no-op idempotente)."""
+    match = _cargar_match_o_404(session, shelter_id, match_id)
+    try:
+        validar_transicion(match.estado, "pedir-informacion")
+    except TransicionInvalidaError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+    match.estado = "en_revision"
+    session.commit()
+    return _solicitud_detalle_out(session, match)
+
+
+@router.post("/{shelter_id}/solicitudes/{match_id}/descartar", response_model=SolicitudDetalleOut)
+def descartar_solicitud(
+    shelter_id: int,
+    match_id: int,
+    payload: DescartarIn,
+    session: Session = Depends(get_session),
+) -> SolicitudDetalleOut:
+    """Descarta la solicitud con un motivo obligatorio: válido desde
+    `solicitado`/`en_revision`/`visita_agendada`. 409 en cualquier otro estado.
+
+    `motivo_descarte` se persiste pero nunca se devuelve al adoptante -- ni en
+    `SolicitudDetalleOut` (contrato mínimo, decisión explícita del documento de diseño)
+    ni en `MatchWithPetOut` (`schemas/match.py`, lado adoptante, sin tocar en esta
+    feature): el adoptante nunca ve el motivo en crudo (`docs/product-research.md`).
     """
-    shelter = session.get(Shelter, shelter_id)
-    if shelter is None:
-        raise HTTPException(404, f"El refugio {shelter_id} no existe")
+    match = _cargar_match_o_404(session, shelter_id, match_id)
+    try:
+        validar_transicion(match.estado, "descartar")
+    except TransicionInvalidaError as exc:
+        raise HTTPException(409, str(exc)) from exc
 
-    match = session.get(Match, match_id)
-    if match is None or match.shelter_id != shelter_id:
-        raise HTTPException(404, f"La solicitud {match_id} no existe en el refugio {shelter_id}")
-
-    pet = session.get(Pet, match.pet_id)
-    user = session.get(User, match.user_id)
-    home = session.get(HomeProfile, match.user_id)
-    if home is None:
-        # Mismo criterio defensivo que matches.py: sin HomeProfile no hay cuestionario
-        # que mostrar, y es el contenido principal de esta pantalla.
-        raise HTTPException(
-            404, f"El adoptante {match.user_id} no tiene HomeProfile (cuestionario)"
-        )
-
-    afinidad = calcular_afinidad(pet, home)
-    return SolicitudDetalleOut(
-        id=match.id,
-        estado=match.estado,
-        creado_en=match.creado_en,
-        adoptante=SolicitanteResumen(id=user.id, nombre=user.nombre),
-        pet=SolicitudPetResumen(id=pet.id, nombre=pet.nombre, raza=pet.raza, fotos=pet.fotos),
-        afinidad=AfinidadOut(
-            score=afinidad.score,
-            explicacion=afinidad.explicacion,
-            incompatible=afinidad.incompatible,
-        ),
-        etiqueta=calcular_etiqueta_solicitud(match.estado, match.creado_en),
-        bio=user.bio,
-        home_profile=HomeProfileOut.model_validate(home),
-    )
+    match.estado = "cerrado"
+    match.motivo_descarte = payload.motivo
+    session.commit()
+    return _solicitud_detalle_out(session, match)

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .pet import AfinidadOut
 from .user import HomeProfileOut
@@ -53,3 +53,21 @@ class SolicitudOut(BaseModel):
 class SolicitudDetalleOut(SolicitudOut):
     bio: str | None = None
     home_profile: HomeProfileOut
+
+
+class DescartarIn(BaseModel):
+    """Body de `POST .../descartar` (feature 10-adoption-request-flow).
+
+    `motivo` es obligatorio y no puede ser vacío ni solo espacios en blanco -- el
+    refugio siempre deja constancia de por qué descarta una solicitud, aunque ese
+    texto no se le muestre de vuelta al adoptante (ver ADR 0002 y `schemas/match.py`).
+    """
+
+    motivo: str = Field(min_length=1)
+
+    @field_validator("motivo")
+    @classmethod
+    def motivo_no_vacio(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("El motivo no puede estar vacío")
+        return v.strip()

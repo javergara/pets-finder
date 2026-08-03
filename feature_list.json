@@ -131,10 +131,17 @@
       "id": "10-adoption-request-flow",
       "title": "Solicitud de adopción y visita",
       "description": "Paso posterior al match: el refugio acepta/rechaza la solicitud de adopción (no el match) y agenda visita; estados 'esperando refugio' / 'visita agendada'.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["09-shelter-panel"],
-      "acceptance": []
+      "acceptance": [
+        "El refugio puede agendar visita (desde 'solicitado' o 'en_revision'), pedir más información (desde 'solicitado') o descartar con motivo obligatorio (desde 'solicitado', 'en_revision' o 'visita_agendada') vía nuevos endpoints POST en routers/shelters.py; ninguna acción muta el match si la solicitud está en estado terminal ('adoptado'/'cerrado') o si la transición no es válida — responde 409 en español",
+        "La validación de la matriz de transiciones vive en una función pura y testeada (services/solicitudes.py::validar_transicion), no en el router; calcular_etiqueta_solicitud distingue 'en_revision' de 'solicitado' con su propia etiqueta",
+        "El motivo de descarte se persiste en Match.motivo_descarte pero nunca se expone en GET /api/matches (lado adoptante) ni en schemas/match.py — verificado con un test explícito",
+        "SolicitudDetalle.tsx muestra los 3 botones de acción con estado habilitado/deshabilitado según la matriz de transiciones válidas para el estado actual, y un formulario con motivo obligatorio para descartar",
+        "MisMatches.tsx (lado adoptante) refleja los 5 estados posibles de un match con copy propio para cada uno, sin exponer el motivo de descarte y sin lenguaje que culpe al refugio",
+        "bash init.sh pasa completo (backend + frontend) incluyendo los tests nuevos de transición, 409, 404 cruzado entre refugios y los 5 estados visuales"
+      ]
     },
     {
       "id": "11-chat",

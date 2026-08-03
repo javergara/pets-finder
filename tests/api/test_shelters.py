@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from adopta_api.models.home_profile import HomeProfile
 from adopta_api.models.match import Match
 from adopta_api.models.pet import Pet
@@ -39,6 +41,27 @@ def _crear_pet(db_session, shelter, **overrides):
     db_session.add(pet)
     db_session.flush()
     return pet
+
+
+def _crear_match(db_session, adoptante, pet, shelter, estado="solicitado", motivo_descarte=None):
+    match = Match(
+        user_id=adoptante.id,
+        pet_id=pet.id,
+        shelter_id=shelter.id,
+        estado=estado,
+        motivo_descarte=motivo_descarte,
+    )
+    db_session.add(match)
+    db_session.commit()
+    db_session.refresh(match)
+    return match
+
+
+def _post_accion(client, shelter_id, match_id, endpoint, body=None):
+    url = f"/api/shelters/{shelter_id}/solicitudes/{match_id}/{endpoint}"
+    if body is None:
+        return client.post(url)
+    return client.post(url, json=body)
 
 
 def _crear_adoptante_con_home(db_session, nombre="Ana", email="ana@example.co", bio="Amo perros."):
@@ -182,7 +205,7 @@ def test_listar_solicitudes_ordenada_con_afinidad_y_etiqueta(client, db_session)
     assert len(cuerpo) == 2
     # Orden: creado_en desc -> el más reciente primero.
     assert cuerpo[0]["id"] == match_reciente.id
-    assert cuerpo[0]["etiqueta"] == "Cuestionario nuevo"
+    assert cuerpo[0]["etiqueta"] == "En revisión"
     assert cuerpo[1]["id"] == match_viejo.id
     assert cuerpo[1]["etiqueta"] == "Sin responder · 3 días"
     assert cuerpo[0]["adoptante"]["nombre"] == "Ana"
@@ -283,13 +306,10 @@ def test_calcular_etiqueta_solicitado_reciente_es_cuestionario_nuevo():
     assert calcular_etiqueta_solicitud("solicitado", creado_en, ahora=ahora) == "Cuestionario nuevo"
 
 
-def test_calcular_etiqueta_en_revision_viejo_es_sin_responder_con_dias_exactos():
+def test_calcular_etiqueta_en_revision_viejo_es_en_revision():
     ahora = datetime(2026, 8, 10, tzinfo=timezone.utc)
     creado_en = ahora - timedelta(days=5)
-    assert (
-        calcular_etiqueta_solicitud("en_revision", creado_en, ahora=ahora)
-        == "Sin responder · 5 días"
-    )
+    assert calcular_etiqueta_solicitud("en_revision", creado_en, ahora=ahora) == "En revisión"
 
 
 def test_calcular_etiqueta_con_creado_en_naive_no_lanza_typeerror():
@@ -301,3 +321,166 @@ def test_calcular_etiqueta_con_creado_en_naive_no_lanza_typeerror():
     resultado = calcular_etiqueta_solicitud("solicitado", creado_en_naive, ahora=ahora)
 
     assert resultado == "Sin responder · 5 días"
+
+
+# --- POST .../agendar-visita, .../pedir-informacion, .../descartar (feature 10) ---
+
+
+@pytest.mark.parametrize(
+    "endpoint,estado_inicial,estado_esperado",
+    [
+        ("agendar-visita", "solicitado", "visita_agendada"),
+        ("agendar-visita", "en_revision", "visita_agendada"),
+        ("pedir-informacion", "solicitado", "en_revision"),
+        ("descartar", "solicitado", "cerrado"),
+        ("descartar", "en_revision", "cerrado"),
+        ("descartar", "visita_agendada", "cerrado"),
+    ],
+)
+def test_transicion_valida_actualiza_estado_y_persiste(
+    client, db_session, endpoint, estado_inicial, estado_esperado
+):
+    shelter = _crear_shelter(db_session)
+    pet = _crear_pet(db_session, shelter)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    match = _crear_match(db_session, adoptante, pet, shelter, estado=estado_inicial)
+
+    body = {"motivo": "No cumple con el espacio requerido."} if endpoint == "descartar" else None
+    respuesta = _post_accion(client, shelter.id, match.id, endpoint, body)
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == match.id
+    assert cuerpo["estado"] == estado_esperado
+
+    db_session.refresh(match)
+    assert match.estado == estado_esperado
+    if endpoint == "descartar":
+        assert match.motivo_descarte == "No cumple con el espacio requerido."
+    else:
+        assert match.motivo_descarte is None
+
+
+def test_descartar_recorta_espacios_del_motivo(client, db_session):
+    shelter = _crear_shelter(db_session)
+    pet = _crear_pet(db_session, shelter)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    match = _crear_match(db_session, adoptante, pet, shelter, estado="solicitado")
+
+    respuesta = _post_accion(
+        client,
+        shelter.id,
+        match.id,
+        "descartar",
+        {"motivo": "   No cumple con el espacio requerido.   "},
+    )
+
+    assert respuesta.status_code == 200
+    db_session.refresh(match)
+    assert match.motivo_descarte == "No cumple con el espacio requerido."
+
+
+@pytest.mark.parametrize("motivo", ["", "   ", "\n\t"])
+def test_descartar_con_motivo_vacio_o_solo_espacios_devuelve_422(client, db_session, motivo):
+    shelter = _crear_shelter(db_session)
+    pet = _crear_pet(db_session, shelter)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    match = _crear_match(db_session, adoptante, pet, shelter, estado="solicitado")
+
+    respuesta = _post_accion(client, shelter.id, match.id, "descartar", {"motivo": motivo})
+
+    assert respuesta.status_code == 422
+    db_session.refresh(match)
+    assert match.estado == "solicitado"
+    assert match.motivo_descarte is None
+
+
+# Matriz completa de transiciones inválidas: terminal (adoptado/cerrado) -> cualquier
+# acción; visita_agendada -> agendar-visita/pedir-informacion; en_revision ->
+# pedir-informacion. Ver `services/solicitudes.py::TRANSICIONES_VALIDAS`.
+TRANSICIONES_INVALIDAS = [
+    ("agendar-visita", "visita_agendada"),
+    ("agendar-visita", "adoptado"),
+    ("agendar-visita", "cerrado"),
+    ("pedir-informacion", "en_revision"),
+    ("pedir-informacion", "visita_agendada"),
+    ("pedir-informacion", "adoptado"),
+    ("pedir-informacion", "cerrado"),
+    ("descartar", "adoptado"),
+    ("descartar", "cerrado"),
+]
+
+
+@pytest.mark.parametrize("endpoint,estado_inicial", TRANSICIONES_INVALIDAS)
+def test_transicion_invalida_devuelve_409_y_no_muta_estado(
+    client, db_session, endpoint, estado_inicial
+):
+    shelter = _crear_shelter(db_session)
+    pet = _crear_pet(db_session, shelter)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    match = _crear_match(db_session, adoptante, pet, shelter, estado=estado_inicial)
+
+    body = {"motivo": "Motivo cualquiera."} if endpoint == "descartar" else None
+    respuesta = _post_accion(client, shelter.id, match.id, endpoint, body)
+
+    assert respuesta.status_code == 409
+    detalle = respuesta.json()["detail"]
+    assert detalle
+    assert estado_inicial in detalle
+
+    db_session.refresh(match)
+    assert match.estado == estado_inicial
+
+
+@pytest.mark.parametrize("endpoint", ["agendar-visita", "pedir-informacion", "descartar"])
+def test_accion_refugio_inexistente_devuelve_404(client, db_session, endpoint):
+    body = {"motivo": "x"} if endpoint == "descartar" else None
+    respuesta = _post_accion(client, 9999, 1, endpoint, body)
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
+
+
+@pytest.mark.parametrize("endpoint", ["agendar-visita", "pedir-informacion", "descartar"])
+def test_accion_match_inexistente_devuelve_404(client, db_session, endpoint):
+    shelter = _crear_shelter(db_session)
+
+    body = {"motivo": "x"} if endpoint == "descartar" else None
+    respuesta = _post_accion(client, shelter.id, 9999, endpoint, body)
+
+    assert respuesta.status_code == 404
+
+
+@pytest.mark.parametrize("endpoint", ["agendar-visita", "pedir-informacion", "descartar"])
+def test_accion_match_de_otro_refugio_devuelve_404(client, db_session, endpoint):
+    shelter_a = _crear_shelter(db_session, nombre="Refugio A")
+    shelter_b = _crear_shelter(db_session, nombre="Refugio B")
+    pet_a = _crear_pet(db_session, shelter_a)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    match_de_a = _crear_match(db_session, adoptante, pet_a, shelter_a, estado="solicitado")
+
+    body = {"motivo": "x"} if endpoint == "descartar" else None
+    respuesta = _post_accion(client, shelter_b.id, match_de_a.id, endpoint, body)
+
+    assert respuesta.status_code == 404
+
+
+def test_get_matches_adoptante_no_expone_motivo_descarte(client, db_session):
+    """`motivo_descarte` se persiste (ver tests de arriba) pero nunca debe filtrarse al
+    adoptante: ni `schemas/match.py::MatchWithPetOut` ni el router de matches lo
+    exponen. Este test lee la respuesta JSON real de `GET /api/matches`, no solo el
+    schema en abstracto, para confirmarlo en el contrato HTTP efectivo."""
+    shelter = _crear_shelter(db_session)
+    pet = _crear_pet(db_session, shelter)
+    adoptante, _home = _crear_adoptante_con_home(db_session)
+    _crear_match(
+        db_session, adoptante, pet, shelter, estado="cerrado", motivo_descarte="Motivo interno."
+    )
+
+    respuesta = client.get(f"/api/matches?user_id={adoptante.id}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert len(cuerpo) == 1
+    for elemento in cuerpo:
+        assert "motivo_descarte" not in elemento
