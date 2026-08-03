@@ -27,6 +27,20 @@ DEMO_USER_ID = 1  # Ana Martínez, primer usuario insertado — usado por src/we
 IMAGES_DIR = REPO_ROOT / "data" / "seed" / "images"
 DOWNLOAD_TIMEOUT_SECONDS = 4
 
+# Bogotá: lat ~4.55-4.80, lng ~-74.20 a -74.00 (usado por el filtro de distancia, feature 06-filters).
+BOGOTA_LAT_RANGE = (4.55, 4.80)
+BOGOTA_LNG_RANGE = (-74.20, -74.00)
+
+# Coordenadas reales aproximadas del centro de cada barrio de los adoptantes semilla — deterministas
+# (no generadas al azar) porque el barrio ya es un dato fijo de cada USERS[i].
+BARRIO_COORDS = {
+    "Usaquén": (4.6946, -74.0307),
+    "Chapinero": (4.6486, -74.0629),
+    "Suba": (4.7448, -74.0827),
+    "Engativá": (4.6900, -74.1170),
+    "Kennedy": (4.6280, -74.1497),
+}
+
 SHELTERS = [
     dict(
         nombre="Refugio Huellas de Bogotá",
@@ -535,7 +549,9 @@ def main() -> None:
         pets = []
         for pet_data in PETS:
             shelter_idx = pet_data.pop("shelter_idx")
-            pets.append(Pet(shelter_id=shelters[shelter_idx].id, **pet_data))
+            lat = round(random.uniform(*BOGOTA_LAT_RANGE), 6)
+            lng = round(random.uniform(*BOGOTA_LNG_RANGE), 6)
+            pets.append(Pet(shelter_id=shelters[shelter_idx].id, lat=lat, lng=lng, **pet_data))
         session.add_all(pets)
         session.flush()
 
@@ -546,7 +562,8 @@ def main() -> None:
 
         for user_data in USERS:
             home_data = user_data.pop("home")
-            user = User(**user_data)
+            lat, lng = BARRIO_COORDS[user_data["barrio"]]
+            user = User(lat=lat, lng=lng, **user_data)
             session.add(user)
             session.flush()
             session.add(HomeProfile(user_id=user.id, **home_data))

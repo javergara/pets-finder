@@ -27,6 +27,9 @@ const pet: Pet = {
   publicado_en: '2026-01-01T00:00:00Z',
   shelter: null,
   afinidad: { score: 94, explicacion: 'Buena combinación.', incompatible: false },
+  lat: null,
+  lng: null,
+  distancia_km: null,
 };
 
 describe('SwipeCard', () => {

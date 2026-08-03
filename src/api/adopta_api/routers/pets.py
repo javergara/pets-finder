@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models.home_profile import HomeProfile
 from ..models.pet import Pet
 from ..models.swipe import Swipe
+from ..models.user import User
 from ..schemas.pet import AfinidadOut, PetOut, ShelterOut
 from ..services.affinity import calcular_afinidad
 from ..services.db import get_session
 from ..services.deck import ordenar_deck
+from ..services.filters import FiltrosDeck, aplicar_filtros
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -30,6 +32,14 @@ def _pet_out(pet: Pet, home: HomeProfile | None) -> PetOut:
 def listar_mascotas(
     user_id: int | None = None,
     incluir_incompatibles: bool = False,
+    especie: list[str] | None = Query(None),
+    tamano: list[str] | None = Query(None),
+    energia: list[str] | None = Query(None),
+    edad_categoria: list[str] | None = Query(None),
+    apto_ninos: bool | None = None,
+    apto_perros: bool | None = None,
+    apto_gatos: bool | None = None,
+    distancia_km: float | None = 15.0,
     session: Session = Depends(get_session),
 ) -> list[PetOut]:
     query = select(Pet).where(Pet.estado == "disponible")
@@ -41,12 +51,30 @@ def listar_mascotas(
     pets = session.execute(query).scalars().all()
 
     home = None
+    user_lat: float | None = None
+    user_lng: float | None = None
     if user_id is not None:
         home = session.get(HomeProfile, user_id)
         if home is None:
             raise HTTPException(404, f"El usuario {user_id} no tiene HomeProfile (cuestionario)")
+        user = session.get(User, user_id)
+        if user is not None:
+            user_lat = user.lat
+            user_lng = user.lng
 
     resultados = [_pet_out(pet, home) for pet in pets]
+
+    filtros = FiltrosDeck(
+        especie=especie,
+        tamano=tamano,
+        energia=energia,
+        edad_categoria=edad_categoria,
+        apto_ninos=apto_ninos,
+        apto_perros=apto_perros,
+        apto_gatos=apto_gatos,
+        distancia_km=distancia_km,
+    )
+    resultados = aplicar_filtros(resultados, filtros, user_lat, user_lng)
 
     if home is not None and not incluir_incompatibles:
         resultados = [r for r in resultados if not (r.afinidad and r.afinidad.incompatible)]

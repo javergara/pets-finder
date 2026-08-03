@@ -74,7 +74,7 @@
       "id": "06-filters",
       "title": "Filtros de descubrimiento",
       "description": "Filtros de especie, tamaño, distancia, edad, nivel de energía y convivencia sobre el deck, aplicados al instante (design/prototypes/HANDOFF.md §5.2).",
-      "status": "todo",
+      "status": "done",
       "milestone": "post-mvp",
       "depends_on": ["02-swipe-deck"],
       "acceptance": [

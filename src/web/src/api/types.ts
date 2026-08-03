@@ -38,6 +38,9 @@ export interface Pet {
   publicado_en: string;
   shelter: Shelter | null;
   afinidad: Afinidad | null;
+  lat: number | null;
+  lng: number | null;
+  distancia_km: number | null;
 }
 
 export interface Match {
@@ -57,6 +60,28 @@ export interface Swipe {
   creado_en: string;
   match: Match | null;
 }
+
+export interface Filtros {
+  especie: string[];
+  tamano: string[];
+  energia: string[];
+  edadCategoria: string[];
+  aptoNinos: boolean;
+  aptoPerros: boolean;
+  aptoGatos: boolean;
+  distanciaKm: number;
+}
+
+export const FILTROS_DEFAULT: Filtros = {
+  especie: [],
+  tamano: [],
+  energia: [],
+  edadCategoria: [],
+  aptoNinos: false,
+  aptoPerros: false,
+  aptoGatos: false,
+  distanciaKm: 15,
+};
 
 export interface MatchWithPet {
   id: number;

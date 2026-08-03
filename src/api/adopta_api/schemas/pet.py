@@ -47,3 +47,6 @@ class PetOut(BaseModel):
     publicado_en: datetime
     shelter: ShelterOut | None = None
     afinidad: AfinidadOut | None = None
+    lat: float | None = None
+    lng: float | None = None
+    distancia_km: float | None = None
