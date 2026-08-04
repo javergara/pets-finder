@@ -43,3 +43,13 @@
 - `CLAUDE.md` escrito: resumen del proyecto, cómo levantarlo, mapa del repo, reglas de trabajo, estado actual y próximos pasos sugeridos.
 - `CHANGELOG.md` actualizado a `[0.1.0] - 2026-07-31` (primer MVP funcional), con sección `Added`/`Fixed` completa.
 - Bootstrap del proyecto (las 9 fases de `plan.md`) completo. Commit final de cierre.
+
+## 2026-08-03/04 — Cierre del backlog completo (features 06-15)
+
+Tras el cierre del MVP (Fase 9, `01`-`05`), se retomó el proyecto en una sesión continua que completó las 10 features restantes de `feature_list.json`, en orden: `06-filters`, `07-adopter-profile`, `08-onboarding-cuestionario`, `09-shelter-panel`, `10-adoption-request-flow`, `11-chat`, `12-sponsorship`, `13-favorites`, `14-shelter-map`, `15-public-landing`. Las 15 features del proyecto quedan en `status: "done"`.
+
+Cada feature siguió el ciclo completo líder→implementador→revisor (`AGENTS.md`), con el líder completando primero el `acceptance` de las features de backlog que lo tenían vacío (`08`-`15` no traían criterios de aceptación desde la investigación original, a diferencia de `01`-`07`). Las features sin diseño previo en `design/` (`13-favorites`, `14-shelter-map`) se diseñaron desde cero con `AskUserQuestion` para decisiones de arquitectura ambiguas. `11-chat` reabrió el ADR 0001 (documentado en el ADR nuevo 0004): se decidió WebSockets nativos sobre FastAPI en vez de migrar a un BaaS, preservando la reproducibilidad 100% local. `12-sponsorship` y `14-shelter-map` tomaron la misma decisión de fondo (sin pasarela de pago real / sin mapa con tiles externos) por la misma razón.
+
+Cada feature se verificó manualmente en navegador real (Chrome) antes de la aprobación del revisor, además de `bash init.sh` en verde. Estado final: 195 tests de backend (pytest) + 93 de frontend (Vitest), todos en verde. Commits: `c1f4149` (06), `b165cca` (07), `c73ece3` (08), `60528e9` (09), `50c4482` (10), `254192c` (11), `9c5f25f` (12), `9f8e4d6` (13), `c2fb3e2` (14), `cd3467e` (15).
+
+Gotcha de proceso documentado en `memory/memory.md`: el agente revisor rompió temporalmente su propio cambio a `feature_list.json` varias veces (por `git checkout` accidental o por reserialización completa vía `json.dump`), siempre detectado y corregido en la misma sesión antes de commitear.
