@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import { RequiereHomeProfile } from './components/RequiereHomeProfile';
+import { Apadrinar } from './screens/Apadrinar';
 import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
 import { MascotaDetalle } from './screens/MascotaDetalle';
@@ -28,6 +29,9 @@ function Nav() {
       <NavLink to="/perfil" className={linkClass}>
         Mi perfil
       </NavLink>
+      <NavLink to="/apadrinar" className={linkClass}>
+        Apadrinar
+      </NavLink>
       <NavLink to="/refugio" className={linkClass}>
         Panel del refugio
       </NavLink>
@@ -52,6 +56,9 @@ function App() {
           <Route path="/matches/:matchId/mensajes" element={<MensajesMatch />} />
         </Route>
         <Route path="/perfil" element={<MiPerfil />} />
+        {/* /apadrinar queda fuera de RequiereHomeProfile, igual que /perfil: no hay
+            razón funcional para exigir el cuestionario de hogar para donar. */}
+        <Route path="/apadrinar" element={<Apadrinar />} />
         {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
             lado adoptante (cuestionario de hogar), no aplica a la vista del refugio. */}
         <Route path="/refugio" element={<PanelRefugio />} />

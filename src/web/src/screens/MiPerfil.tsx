@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mediaUrl, obtenerPerfil } from '../api/client';
-import type { UserProfile } from '../api/types';
+import { listarApadrinamientos, mediaUrl, obtenerPerfil } from '../api/client';
+import type { Sponsorship, UserProfile } from '../api/types';
 import { HogarResumen } from '../components/HogarResumen';
 import { getActiveUserId } from '../lib/session';
+
+function formatoCop(valor: number): string {
+  return `$${valor.toLocaleString('es-CO')}`;
+}
+
+function etiquetaPeriodicidad(periodicidad: Sponsorship['periodicidad']): string {
+  return periodicidad === 'mensual' ? 'Mensual' : 'Pago único';
+}
 
 function iniciales(nombre: string): string {
   return nombre
@@ -22,9 +30,11 @@ function miembroDesde(creadoEn: string): string {
 
 export function MiPerfil() {
   const [perfil, setPerfil] = useState<UserProfile | null>(null);
+  const [apadrinamientos, setApadrinamientos] = useState<Sponsorship[] | null>(null);
 
   useEffect(() => {
     obtenerPerfil(getActiveUserId()).then(setPerfil);
+    listarApadrinamientos(getActiveUserId()).then(setApadrinamientos);
   }, []);
 
   if (perfil === null) {
@@ -107,6 +117,61 @@ export function MiPerfil() {
             ? perfil.bio
             : 'Todavía no escribiste nada sobre ti. Esto lo ven los refugios al recibir tu solicitud.'}
         </p>
+      </section>
+
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <h2 className="mb-4 font-display text-lg text-ink">Mis apadrinamientos</h2>
+        {apadrinamientos === null ? (
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-alt" />
+            ))}
+          </div>
+        ) : apadrinamientos.length === 0 ? (
+          <p className="text-sm text-muted">
+            Todavía no apadrinas ninguna mascota.{' '}
+            <Link to="/apadrinar" className="text-forest hover:underline">
+              Apadrina una ahora
+            </Link>
+            .
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {apadrinamientos.map((apadrinamiento) => (
+              <li
+                key={apadrinamiento.id}
+                className="flex gap-4 rounded-2xl border border-line bg-surface-alt p-4"
+              >
+                {apadrinamiento.pet.fotos[0] && (
+                  <img
+                    src={mediaUrl(apadrinamiento.pet.fotos[0])}
+                    alt={`Foto de ${apadrinamiento.pet.nombre}`}
+                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                  />
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-display text-lg text-ink">{apadrinamiento.pet.nombre}</p>
+                    {!apadrinamiento.activo && (
+                      <span className="rounded-full bg-surface px-2 py-0.5 font-mono text-[10px] tracking-wide text-muted uppercase">
+                        Inactivo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-ink-soft">
+                    {formatoCop(apadrinamiento.monto_cop)} ·{' '}
+                    {etiquetaPeriodicidad(apadrinamiento.periodicidad)}
+                  </p>
+                  {apadrinamiento.novedad && (
+                    <p className="mt-2 rounded-xl bg-forest-tint p-3 text-sm text-ink">
+                      {apadrinamiento.novedad}
+                    </p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

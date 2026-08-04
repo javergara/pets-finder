@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..models.home_profile import HomeProfile
 from ..models.match import Match
+from ..models.sponsorship import Sponsorship
 from ..models.user import User
 from ..schemas.user import HomeProfileIn, HomeProfileOut, UserIn, UserMetricsOut, UserOut
 from ..services.db import get_session
@@ -86,6 +87,8 @@ def obtener_perfil(user_id: int, session: Session = Depends(get_session)) -> Use
     - `matches_activos` = count de `Match` del usuario con `estado NOT IN
       ('adoptado', 'cerrado')` (incluye `solicitado`, `en_revision`, `visita_agendada`).
     - `visitas_agendadas` = count de `Match` del usuario con `estado == 'visita_agendada'`.
+    - `apadrinamientos` = count de `Sponsorship` del usuario con `activo == True`
+      (feature `12-sponsorship`).
 
     A diferencia de `GET /api/pets`, `home_profile` es `None` (no 404) si el usuario
     todavía no completó el cuestionario de hogar.
@@ -106,6 +109,12 @@ def obtener_perfil(user_id: int, session: Session = Depends(get_session)) -> Use
         .where(Match.user_id == user_id, Match.estado == "visita_agendada")
     ).scalar_one()
 
+    apadrinamientos = session.execute(
+        select(func.count())
+        .select_from(Sponsorship)
+        .where(Sponsorship.user_id == user_id, Sponsorship.activo.is_(True))
+    ).scalar_one()
+
     home = session.get(HomeProfile, user_id)
 
     return UserOut(
@@ -121,6 +130,6 @@ def obtener_perfil(user_id: int, session: Session = Depends(get_session)) -> Use
         metricas=UserMetricsOut(
             matches_activos=matches_activos,
             visitas_agendadas=visitas_agendadas,
-            apadrinamientos=0,
+            apadrinamientos=apadrinamientos,
         ),
     )

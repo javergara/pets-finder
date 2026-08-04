@@ -2,12 +2,15 @@ import {
   FILTROS_DEFAULT,
   type Filtros,
   type HomeProfile,
+  type MascotaNecesitaApoyo,
   type MatchWithPet,
   type Pet,
   type PetIn,
   type ShelterProfile,
   type Solicitud,
   type SolicitudDetalle,
+  type Sponsorship,
+  type SponsorshipIn,
   type Swipe,
   type ThreadConMensajes,
   type UserProfile,
@@ -147,4 +150,19 @@ export function descartarSolicitud(
     method: 'POST',
     body: JSON.stringify({ motivo }),
   });
+}
+
+export function listarNecesitanApoyo(): Promise<MascotaNecesitaApoyo[]> {
+  return request('/api/pets/necesitan-apoyo');
+}
+
+export function crearApadrinamiento(payload: SponsorshipIn): Promise<Sponsorship> {
+  return request('/api/sponsorships', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listarApadrinamientos(userId: number): Promise<Sponsorship[]> {
+  return request(`/api/users/${userId}/sponsorships`);
 }

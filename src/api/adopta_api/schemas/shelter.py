@@ -11,7 +11,8 @@ class ShelterMetricsOut(BaseModel):
     interesados_este_mes: int
     visitas_agendadas: int
     adopciones_cerradas: int
-    # Siempre 0: no existe tabla Sponsorship todavía (feature 12-sponsorship, backlog).
+    # Suma de Sponsorship.monto_cop activos de las mascotas de este refugio
+    # (feature 12-sponsorship).
     apadrinamientos_recaudados_cop: int
 
 

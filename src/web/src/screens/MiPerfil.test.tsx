@@ -2,12 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
-import type { UserProfile } from '../api/types';
+import type { Sponsorship, UserProfile } from '../api/types';
 import { MiPerfil } from './MiPerfil';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, obtenerPerfil: vi.fn() };
+  return { ...actual, obtenerPerfil: vi.fn(), listarApadrinamientos: vi.fn() };
 });
 
 afterEach(() => {
@@ -52,9 +52,21 @@ const PERFIL_BASE: UserProfile = {
   },
 };
 
+const APADRINAMIENTO_BASE: Sponsorship = {
+  id: 1,
+  pet: { id: 10, nombre: 'Rocky', fotos: ['/media/rocky.jpg'] },
+  monto_cop: 70000,
+  periodicidad: 'mensual',
+  activo: true,
+  iniciado_en: '2025-06-01T00:00:00Z',
+  novedad:
+    '¡Rocky está mejor gracias a tu ayuda! Este mes comió bien y tuvo su chequeo veterinario.',
+};
+
 describe('MiPerfil', () => {
   it('muestra cabecera, métricas, hogar y bio con un perfil completo', async () => {
     vi.mocked(client.obtenerPerfil).mockResolvedValue(PERFIL_BASE);
+    vi.mocked(client.listarApadrinamientos).mockResolvedValue([]);
 
     renderConRouter();
 
@@ -86,6 +98,7 @@ describe('MiPerfil', () => {
       ...PERFIL_BASE,
       home_profile: null,
     });
+    vi.mocked(client.listarApadrinamientos).mockResolvedValue([]);
 
     renderConRouter();
 
@@ -98,5 +111,34 @@ describe('MiPerfil', () => {
 
     const link = screen.getByRole('link', { name: 'Completar cuestionario' });
     expect(link).toHaveAttribute('href', '/cuestionario');
+  });
+
+  it('muestra un estado vacío con link a /apadrinar cuando no hay apadrinamientos', async () => {
+    vi.mocked(client.obtenerPerfil).mockResolvedValue(PERFIL_BASE);
+    vi.mocked(client.listarApadrinamientos).mockResolvedValue([]);
+
+    renderConRouter();
+
+    expect(await screen.findByText('Ana Martínez')).toBeInTheDocument();
+    expect(screen.getByText(/Todavía no apadrinas ninguna mascota\./)).toBeInTheDocument();
+
+    const link = screen.getByRole('link', { name: 'Apadrina una ahora' });
+    expect(link).toHaveAttribute('href', '/apadrinar');
+  });
+
+  it('muestra la mascota, el monto formateado, la periodicidad y la novedad de un apadrinamiento activo', async () => {
+    vi.mocked(client.obtenerPerfil).mockResolvedValue(PERFIL_BASE);
+    vi.mocked(client.listarApadrinamientos).mockResolvedValue([APADRINAMIENTO_BASE]);
+
+    renderConRouter();
+
+    expect(await screen.findByText('Rocky')).toBeInTheDocument();
+    expect(screen.getByText('$70.000 · Mensual')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '¡Rocky está mejor gracias a tu ayuda! Este mes comió bien y tuvo su chequeo veterinario.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Inactivo')).not.toBeInTheDocument();
   });
 });

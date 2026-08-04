@@ -27,6 +27,7 @@ from ..models.home_profile import HomeProfile
 from ..models.match import Match
 from ..models.pet import Pet
 from ..models.shelter import Shelter
+from ..models.sponsorship import Sponsorship
 from ..models.user import User
 from ..schemas.pet import AfinidadOut
 from ..schemas.shelter import (
@@ -110,8 +111,9 @@ def obtener_refugio(shelter_id: int, session: Session = Depends(get_session)) ->
       en `routers/users.py`, ahora filtrado por refugio en vez de por adoptante).
     - `adopciones_cerradas` = columna `Shelter.adopciones_cerradas` directa: ya es un
       contador almacenado, no se recalcula contando `Match` con `estado == "adoptado"`.
-    - `apadrinamientos_recaudados_cop` = siempre 0, no existe tabla `Sponsorship`
-      todavía (feature `12-sponsorship`, backlog).
+    - `apadrinamientos_recaudados_cop` = suma de `Sponsorship.monto_cop` con
+      `activo == True` sobre las mascotas de este refugio (join por `Pet.shelter_id`,
+      feature `12-sponsorship`).
     """
     shelter = session.get(Shelter, shelter_id)
     if shelter is None:
@@ -138,6 +140,15 @@ def obtener_refugio(shelter_id: int, session: Session = Depends(get_session)) ->
         .where(Match.shelter_id == shelter_id, Match.estado == "visita_agendada")
     ).scalar_one()
 
+    apadrinamientos_recaudados_cop = (
+        session.execute(
+            select(func.sum(Sponsorship.monto_cop))
+            .join(Pet, Pet.id == Sponsorship.pet_id)
+            .where(Pet.shelter_id == shelter_id, Sponsorship.activo.is_(True))
+        ).scalar_one()
+        or 0
+    )
+
     return ShelterProfileOut(
         id=shelter.id,
         nombre=shelter.nombre,
@@ -150,7 +161,7 @@ def obtener_refugio(shelter_id: int, session: Session = Depends(get_session)) ->
             interesados_este_mes=interesados_este_mes,
             visitas_agendadas=visitas_agendadas,
             adopciones_cerradas=shelter.adopciones_cerradas,
-            apadrinamientos_recaudados_cop=0,
+            apadrinamientos_recaudados_cop=apadrinamientos_recaudados_cop,
         ),
     )
 

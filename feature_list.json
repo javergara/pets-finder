@@ -164,10 +164,18 @@
       "id": "12-sponsorship",
       "title": "Apadrinamiento",
       "description": "Niveles de donación recurrente, lista de mascotas que necesitan apoyo, novedades mensuales al padrino.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["01-foundations-data"],
-      "acceptance": []
+      "acceptance": [
+        "GET /api/pets/necesitan-apoyo devuelve solo mascotas que cumplen services/deck.py::es_dificil_de_ubicar, cada una con monto_recaudado_cop (suma de Sponsorship.activo) y porcentaje_cubierto contra una meta ilustrativa fija de demo, con tope de 100%",
+        "POST /api/sponsorships crea el compromiso (user_id, pet_id, monto_cop, periodicidad mensual|unico) con 201, 404 en español si user_id o pet_id no existen, y rechaza monto_cop <= 0",
+        "GET /api/users/{user_id}/sponsorships lista los apadrinamientos del usuario con resumen de la mascota y una novedad de ejemplo estática por apadrinamiento activo (sin scheduler real, decisión documentada de alcance)",
+        "UserMetricsOut.apadrinamientos y ShelterMetricsOut.apadrinamientos_recaudados_cop (features 07 y 09, ya aprobadas) dejan de estar fijos en 0 y reflejan datos reales de Sponsorship, sin reabrir el resto de esas features",
+        "La pantalla /apadrinar muestra los tres niveles ($30.000, $70.000 destacado, monto libre), el selector mensual/pago único, la lista 'Necesitan apoyo ahora' con barra de progreso y %, y el botón Apadrinar por mascota",
+        "Mi perfil muestra una sección 'Mis apadrinamientos' con los apadrinamientos activos del usuario y su novedad",
+        "Cero integración con ninguna pasarela de pago real (sin Stripe/PSE/Wompi/URLs externas de cobro) — verificado explícitamente por el revisor antes de aprobar, consistente con HANDOFF §11"
+      ]
     },
     {
       "id": "13-favorites",

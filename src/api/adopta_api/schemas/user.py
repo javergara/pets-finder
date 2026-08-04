@@ -45,7 +45,7 @@ class HomeProfileIn(BaseModel):
 class UserMetricsOut(BaseModel):
     matches_activos: int
     visitas_agendadas: int
-    # Siempre 0: no existe tabla Sponsorship todavía (feature 12-sponsorship, backlog).
+    # Count de Sponsorship activos del usuario (feature 12-sponsorship).
     apadrinamientos: int
 
 

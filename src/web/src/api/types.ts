@@ -137,7 +137,7 @@ export interface ShelterMetrics {
   interesados_este_mes: number;
   visitas_agendadas: number;
   adopciones_cerradas: number;
-  // Siempre 0 en el MVP: no existe tabla Sponsorship todavía (feature 12-sponsorship, backlog).
+  // Suma de Sponsorship.monto_cop activos de las mascotas de este refugio (feature 12-sponsorship).
   apadrinamientos_recaudados_cop: number;
 }
 
@@ -199,6 +199,39 @@ export interface Thread {
 export interface ThreadConMensajes {
   thread: Thread;
   mensajes: Message[];
+}
+
+export interface SponsorshipPetResumen {
+  id: number;
+  nombre: string;
+  fotos: string[];
+}
+
+export interface Sponsorship {
+  id: number;
+  pet: SponsorshipPetResumen;
+  monto_cop: number;
+  periodicidad: 'mensual' | 'unico';
+  activo: boolean;
+  iniciado_en: string;
+  // Plantilla estática por apadrinamiento activo (sin scheduler real, feature 12-sponsorship).
+  novedad: string | null;
+}
+
+export interface SponsorshipIn {
+  user_id: number;
+  pet_id: number;
+  monto_cop: number;
+  periodicidad: 'mensual' | 'unico';
+}
+
+export interface MascotaNecesitaApoyo {
+  id: number;
+  nombre: string;
+  fotos: string[];
+  historia: string;
+  monto_recaudado_cop: number;
+  porcentaje_cubierto: number;
 }
 
 export interface PetIn {

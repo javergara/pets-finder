@@ -25,7 +25,7 @@ Monorepo de dos paquetes (`src/api`, `src/web`) más `scripts/` y `data/`, en ve
 
 FastAPI + SQLAlchemy, capas:
 
-- **`models/`** — entidades SQLAlchemy: `User`, `HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match` (alcance MVP), más `Thread`/`Message` (`models/chat.py`, feature `11-chat`, ver ADR 0004). `Sponsorship` se añade cuando se retome la feature de backlog `12`.
+- **`models/`** — entidades SQLAlchemy: `User`, `HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match` (alcance MVP), más `Thread`/`Message` (`models/chat.py`, feature `11-chat`, ver ADR 0004) y `Sponsorship` (`models/sponsorship.py`, feature `12-sponsorship`: registro de compromiso de apadrinamiento, sin pasarela de pago real, ver `design/prototypes/HANDOFF.md` §11).
 - **`schemas/`** — Pydantic, entrada/salida de la API, separados de los modelos de DB para no filtrar detalles de persistencia al contrato HTTP.
 - **`services/`** — lógica de negocio pura, testeable sin FastAPI ni DB real: en particular `affinity.py` (score adoptante↔mascota, ver ADR 0003) y `matching.py` (crear Match al registrar un Swipe con dirección `like`, ver ADR 0002).
 - **`routers/`** — endpoints HTTP delgados que llaman a `services/`, sin lógica de negocio propia.

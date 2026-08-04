@@ -98,7 +98,10 @@ def test_obtener_perfil_usuario_inexistente_devuelve_404(client, db_session):
     assert "9999" in respuesta.json()["detail"]
 
 
-def test_obtener_perfil_apadrinamientos_siempre_cero(client, db_session):
+def test_obtener_perfil_apadrinamientos_es_cero_sin_sponsorships(client, db_session):
+    """`apadrinamientos` es un count real de `Sponsorship.activo` (feature
+    12-sponsorship): con cero apadrinamientos creados, el conteo real da 0 -- no es
+    un valor fijo. Ver `test_sponsorships.py` para la regresión con datos reales."""
     _shelter, _pet, user = _seed_usuario_con_matches(db_session, con_home_profile=True)
 
     respuesta = client.get(f"/api/users/{user.id}")

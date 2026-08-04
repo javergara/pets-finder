@@ -4,6 +4,7 @@ from .home_profile import HomeProfile
 from .match import Match
 from .pet import Pet
 from .shelter import Shelter
+from .sponsorship import Sponsorship
 from .swipe import Swipe
 from .user import User
 
@@ -19,4 +20,5 @@ __all__ = [
     "Match",
     "Thread",
     "Message",
+    "Sponsorship",
 ]
