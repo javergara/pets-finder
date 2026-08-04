@@ -1,9 +1,10 @@
-import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
+import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { RequiereHomeProfile } from './components/RequiereHomeProfile';
 import { Apadrinar } from './screens/Apadrinar';
 import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
 import { Favoritos } from './screens/Favoritos';
+import { LandingPublica } from './screens/LandingPublica';
 import { Mapa } from './screens/Mapa';
 import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MensajesMatch } from './screens/MensajesMatch';
@@ -47,36 +48,46 @@ function Nav() {
   );
 }
 
+function AppLayout() {
+  return (
+    <>
+      <Nav />
+      <Outlet />
+    </>
+  );
+}
+
 function App() {
   return (
     <div className="min-h-svh bg-bg">
-      <Nav />
       <Routes>
-        <Route path="/" element={<Navigate to="/descubrir" replace />} />
-        {/* /registro y /cuestionario quedan fuera de RequiereHomeProfile (paso 6):
-            envolverlas causaría un ciclo de redirección. */}
-        <Route path="/registro" element={<Registro />} />
-        <Route path="/cuestionario" element={<Cuestionario />} />
-        <Route element={<RequiereHomeProfile />}>
-          <Route path="/descubrir" element={<Descubrir />} />
-          <Route path="/mascota/:id" element={<MascotaDetalle />} />
-          <Route path="/favoritos" element={<Favoritos />} />
-          <Route path="/matches" element={<MisMatches />} />
-          <Route path="/matches/:matchId/mensajes" element={<MensajesMatch />} />
+        <Route path="/" element={<LandingPublica />} />
+        <Route element={<AppLayout />}>
+          {/* /registro y /cuestionario quedan fuera de RequiereHomeProfile (paso 6):
+              envolverlas causaría un ciclo de redirección. */}
+          <Route path="/registro" element={<Registro />} />
+          <Route path="/cuestionario" element={<Cuestionario />} />
+          <Route element={<RequiereHomeProfile />}>
+            <Route path="/descubrir" element={<Descubrir />} />
+            <Route path="/mascota/:id" element={<MascotaDetalle />} />
+            <Route path="/favoritos" element={<Favoritos />} />
+            <Route path="/matches" element={<MisMatches />} />
+            <Route path="/matches/:matchId/mensajes" element={<MensajesMatch />} />
+          </Route>
+          <Route path="/perfil" element={<MiPerfil />} />
+          {/* /apadrinar queda fuera de RequiereHomeProfile, igual que /perfil: no hay
+              razón funcional para exigir el cuestionario de hogar para donar. */}
+          <Route path="/apadrinar" element={<Apadrinar />} />
+          {/* /mapa queda fuera de RequiereHomeProfile, igual que /apadrinar y /perfil: no
+              hay razón funcional para exigir el cuestionario de hogar para ver el mapa. */}
+          <Route path="/mapa" element={<Mapa />} />
+          {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
+              lado adoptante (cuestionario de hogar), no aplica a la vista del refugio. */}
+          <Route path="/refugio" element={<PanelRefugio />} />
+          <Route path="/refugio/publicar" element={<PublicarMascota />} />
+          <Route path="/refugio/solicitudes/:matchId" element={<SolicitudDetalle />} />
+          <Route path="/refugio/solicitudes/:matchId/mensajes" element={<MensajesSolicitud />} />
         </Route>
-        <Route path="/perfil" element={<MiPerfil />} />
-        {/* /apadrinar queda fuera de RequiereHomeProfile, igual que /perfil: no hay
-            razón funcional para exigir el cuestionario de hogar para donar. */}
-        <Route path="/apadrinar" element={<Apadrinar />} />
-        {/* /mapa queda fuera de RequiereHomeProfile, igual que /apadrinar y /perfil: no
-            hay razón funcional para exigir el cuestionario de hogar para ver el mapa. */}
-        <Route path="/mapa" element={<Mapa />} />
-        {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
-            lado adoptante (cuestionario de hogar), no aplica a la vista del refugio. */}
-        <Route path="/refugio" element={<PanelRefugio />} />
-        <Route path="/refugio/publicar" element={<PublicarMascota />} />
-        <Route path="/refugio/solicitudes/:matchId" element={<SolicitudDetalle />} />
-        <Route path="/refugio/solicitudes/:matchId/mensajes" element={<MensajesSolicitud />} />
       </Routes>
     </div>
   );

@@ -1,187 +1,27 @@
 # Estado actual
 
-**Fase activa:** backlog — `feature_list.json`
-**Feature actual:** ninguna `in_progress`. `14-shelter-map` cerrada `done` (revisor, 2026-08-04, ver cierre resumido más abajo). `13-favorites` cerrada `done` (ver cierre resumido más abajo).
+**PROYECTO COMPLETO.** Las 15 features de `feature_list.json` están en `status: "done"` (confirmado programáticamente con `python3 -c "..."` sobre el archivo tras el cierre de `15-public-landing`, la última feature del alcance — ver veredicto abajo). `python3 scripts/validate_feature_list.py feature_list.json` → exit 0. Ninguna feature queda `in_progress`.
 
-## Contexto
+## Cierre de `15-public-landing` (revisor, sesión independiente, 2026-08-04) — ÚLTIMA FEATURE DEL PROYECTO
 
-`06`-`13` están `done` (ver cierres resumidos más abajo). `14-shelter-map` es la siguiente feature del backlog: "Vista de mapa con refugios cercanos y sus mascotas publicadas." `depends_on: ["01-foundations-data"]` (done), hoja del grafo.
+**APROBADA.** `bash init.sh` corrido dos veces en esta sesión (antes y después de pasar `status` a `done`), en verde de punta a punta ambas veces: **195 tests de API + 93 de frontend**, lint/formato limpios en ambos lados. `pytest tests/api -q` corrido de forma independiente por el revisor → 195/195, y `git diff --stat -- src/api tests/api scripts` confirmado **vacío**: el backend no tiene ningún cambio en esta feature, tal como se esperaba de una feature 100% frontend.
 
-Existe un documento de diseño **ya aprobado por el usuario** con todas las decisiones de esta feature tomadas: `/Users/javergara/.claude/plans/ahora-has-un-nuevo-structured-pretzel.md`. Este plan es una transcripción operativa de ese documento — **ninguna decisión de UX/arquitectura se reabre aquí**, incluida la decisión ya confirmada con el usuario de **no usar un mapa real con tiles externos** (Leaflet/Google Maps/OSM): en su lugar, un "mapa" propio en CSS/SVG puro, posicionando los pines por interpolación lineal de `lat`/`lng` real dentro del bounding box de Bogotá ya usado en el resto del proyecto, sin dependencia nueva ni conexión a internet en runtime.
+Las 7 líneas de `acceptance` verificadas una por una contra tests reales y lectura directa de código (no solo la palabra del implementador):
+1. `GET /` renderiza `LandingPublica`, `/descubrir` sigue funcionando → `App.test.tsx` (2 casos, uno por dirección, con mock de `api/client` en el caso de `/descubrir` igual que `Descubrir.test.tsx`).
+2. Sin llamada a la API → `grep -n "api/client" src/web/src/screens/LandingPublica.tsx` corrido por el propio revisor → única coincidencia es un comentario explicativo (línea 6), cero imports reales. `LandingPublica.test.tsx` además renderiza el componente sin mock de `api/client` y pasa.
+3. `<Nav/>` interno no aparece en `/`, nav pública propia → `App.test.tsx` caso 1 (`queryByRole('link', {name: 'Descubrir'})` es `null`) + `LandingPublica.test.tsx` (anclas de la nav pública).
+4. 5 CTAs con destino correcto (`/cuestionario`, `/refugio` ×2, `/descubrir`, `/apadrinar`) → `LandingPublica.test.tsx` caso dedicado, aserciones por `href` real.
+5. Anclas `#como`/`#apadrinar`/`#refugios` (nav + footer) sin depender de react-router → `LandingPublica.test.tsx` (confirmado además por lectura de código: son `<a href="#...">` HTML plano, no `<Link>`).
+6. Copy verbatim de las 6 secciones + 3 cifras + grid 2×2 → verificado por el revisor comparando línea por línea `LandingPublica.tsx` contra `design/prototypes/Adopta Landing.dc.html`: H1 del hero ("Adoptar bien empieza por conocerse bien."), párrafo del hero, 3 cifras (2.140/86/7%), los 4 pasos de "Cómo funciona" (títulos y descripciones), grid 2×2 (6/24 h/1/0 con sus etiquetas), franja de apadrinamiento (H2, copy, Canela/Toribio con sus motivos y porcentajes 64%/38%), sección refugios (H2, copy, tabla mock de 3 filas con los mismos valores), footer — texto idéntico, sin parafraseo. También cubierto por 7 de los 11 casos de `LandingPublica.test.tsx`.
+7. `bash init.sh` en verde (confirmado arriba, corrido por el revisor) + revisión manual en navegador de las 14 rutas internas — **ya realizada en esta misma sesión antes de invocar al revisor** (ver contexto de la tarea): `/` renderiza la landing completa, "Entrar a la app" navega a `/descubrir` con el `<Nav/>` interno intacto y funcional (7 links), `/refugio` visitada directamente funciona igual que antes; los únicos errores de consola encontrados eran "Failed to fetch" con timestamp anterior al reinicio del dev server (no reales). Servidores detenidos y `data/app.db` reseteado con `python3 scripts/seed.py` antes del cierre.
 
-**Como `13-favorites`, esta feature NO tiene diseño previo en `design/`** (las 11 pantallas del HANDOFF original no la contemplaban) — libertad de UX, atada a los tokens de `design/design-system.md` y a los patrones ya usados en el resto del repo (mismo criterio que `Apadrinar.tsx`/`Favoritos.tsx`).
+**Verificación crítica del riesgo mayor de la feature — `git diff src/web/src/App.tsx` leído completo por el revisor**: confirmado que la reestructuración a `AppLayout` (`<Nav/><Outlet/></>`) **no cambió ningún `path` ni `element`** de las 14 rutas internas preexistentes (`/registro`, `/cuestionario`, `/descubrir`, `/mascota/:id`, `/favoritos`, `/matches`, `/matches/:matchId/mensajes`, `/perfil`, `/apadrinar`, `/mapa`, `/refugio`, `/refugio/publicar`, `/refugio/solicitudes/:matchId`, `/refugio/solicitudes/:matchId/mensajes`) — el único cambio de comportamiento real es `path="/"`, que pasó de `<Navigate to="/descubrir" replace />` a `<LandingPublica />`, exactamente lo que pedía la feature. El guard `<Route element={<RequiereHomeProfile />}>` sigue envolviendo las mismas 5 rutas de siempre. Conteo propio de rutas internas por el revisor (lectura directa de `App.tsx`, no solo `grep`): 14, coincide con el `acceptance` corregido por el líder (17→14).
 
-**`acceptance` estaba vacío** en `feature_list.json` para este item; el documento de diseño ya lo proponía (§4, 6 líneas) y el líder lo escribió tal cual al poner la feature en `in_progress` en esta sesión (ver más abajo).
+Convenciones (`docs/conventions.md`) respetadas: `LandingPublica.tsx` sigue el patrón plano existente de `screens/` (archivo único por pantalla, no carpeta — confirmado que es el patrón real de las otras 13 pantallas del repo, pese a la redacción literal de §1 del documento, que no es una regresión de esta feature); funciones internas sin exportar por sección, mismo patrón que `NivelCard` en `Apadrinar.tsx`; tokens de `index.css` reutilizados tal cual, sin hex crudo fuera de los ya usados en el prototipo. Ningún ADR violado: la feature no toca `Match`/mecánica de swipe mutuo (ADR 0002 intacto, consistente con que el backend no tiene diff alguno), no introduce ninguna decisión de arquitectura nueva que requiriera un ADR. `changes.md` tiene 3 entradas fechadas 2026-08-04 cubriendo los 3 pasos de implementación (`App.tsx`, `LandingPublica.tsx`, tests), cada una referenciando `15-public-landing`. Confirmado programáticamente (`python3 scripts/validate_feature_list.py feature_list.json` → exit 0) que `15-public-landing` era la única feature `in_progress` antes de este cierre, y que las 15 features quedan `done` tras el cambio.
 
-## Verificación del líder antes de planificar (2026-08-04, releído el código real, no solo el documento de diseño)
+### Cierre del proyecto
 
-- `src/api/adopta_api/models/shelter.py`: confirmado, **no tiene** `lat`/`lng` todavía (solo `id`, `nombre`, `ciudad`, `verificado`, `adopciones_cerradas`, `tiempo_respuesta_horas`, `logo_url`).
-- `src/api/adopta_api/schemas/user.py::UserOut`: confirmado, **no expone** `lat`/`lng` todavía (campos actuales: `id`, `nombre`, `email`, `ciudad`, `barrio`, `avatar_url`, `bio`, `creado_en`, `home_profile`, `metricas`).
-- `src/api/adopta_api/routers/shelters.py`: confirmado, **no existe** un `GET /api/shelters` (plural, sin id) — los 6 endpoints actuales son todos `/{shelter_id}[...]` (`obtener_refugio`, `listar_solicitudes`, `obtener_solicitud`, `agendar-visita`, `pedir-informacion`, `descartar`).
-- `scripts/seed.py`: confirmado, `BOGOTA_LAT_RANGE = (4.55, 4.80)` (línea 31) y `BOGOTA_LNG_RANGE = (-74.20, -74.00)` (línea 32) siguen con los valores citados en el documento de diseño — el bounding box que usará `lib/mapa.ts::posicionEnMapa` en el frontend. `SHELTERS` (línea 44) es una lista de 3 dicts sin `lat`/`lng` propios todavía (se agregan en el Paso 1).
-- Patrón `lat`/`lng` ya existente a replicar: `models/user.py` (líneas 23-24) y `models/pet.py` (líneas 35-36) ya usan `Mapped[float | None] = mapped_column(Float, nullable=True)` — mismo patrón exacto para `Shelter.lat/lng` en el Paso 1.
-- `routers/users.py`: confirmadas las **dos** construcciones manuales de `UserOut` (`registrar_usuario` y `obtener_perfil`, sin `model_validate`) que el documento de diseño señala como puntos que hay que tocar explícitamente para que `lat`/`lng` no queden ausentes pese a estar en el schema.
-- `services/geo.py::distancia_km` confirmado existente (fórmula haversine pura, usada hoy por `services/filters.py`) — reutilizable tal cual para `distancia_km` en `GET /api/shelters`.
-- `schemas/shelter.py` confirmado: no tiene aún `ShelterMapOut`/`ShelterMapPetOut` (se agregan en el Paso 2).
-- Confirmado programáticamente que ningún otro item de `feature_list.json` quedó `in_progress` antes de poner `14-shelter-map` en ese estado (`python3 scripts/validate_feature_list.py feature_list.json` → exit 0 antes y después del cambio).
-
-Conclusión: el documento de diseño sigue 100% vigente, sin necesidad de ajustar ninguna decisión.
-
-## Decisiones ya tomadas en el documento de diseño (NO reabrir)
-
-Documento de diseño aprobado por el usuario (base de este plan): `/Users/javergara/.claude/plans/ahora-has-un-nuevo-structured-pretzel.md`
-
-| Pregunta | Decisión | Por qué |
-|---|---|---|
-| Mapa real (Leaflet/Google Maps/OSM) vs. propio | **Propio, CSS/SVG puro, sin dependencia externa ni red en runtime** | Coherente con cada decisión de esta sesión de mantener reproducibilidad 100% local (mismo espíritu que ADR 0004, WebSockets propios en vez de un BaaS para el chat). |
-| `Shelter.lat/lng` propios o derivados de sus mascotas | **Propios** (columnas nuevas, nullable, sembradas con valores fijos) | Un refugio es un lugar físico estable; derivarlo de `Pet` rompe con 0 mascotas disponibles, es inestable (el pin se movería con cada publicación/adopción), y acopla el endpoint del mapa a `Pet` sin necesidad. Mismo patrón que `User.lat/lng`. |
-| `UserOut` expone `lat/lng` | **Sí, se agregan** | Ya existen en `User` desde la feature 06, solo falta exponerlos — sin esto no hay marcador "tú estás aquí" en el mapa. |
-| Mini-lista de mascotas por refugio: ¿misma respuesta o llamada aparte? | **Incluida en `GET /api/shelters`** | `GET /api/pets` no soporta filtrar por `shelter_id` hoy; con 3 refugios/17 mascotas del seed, una llamada adicional por click no aporta nada. |
-
-**Backend**
-- `models/shelter.py` (vía skill `db-migrations`): agregar `lat: Mapped[float | None]` / `lng: Mapped[float | None]` (mismo patrón que `Pet.lat/lng`).
-- `scripts/seed.py`: coordenadas **fijas** por refugio en `SHELTERS` (no `random.uniform` — cambiar el orden de draws aleatorios alteraría silenciosamente las coordenadas ya sembradas de `Pet`/`User` más abajo en el script). 3 puntos reales aproximados dentro de `BOGOTA_LAT_RANGE`/`BOGOTA_LNG_RANGE`, mismo estilo de comentario que `BARRIO_COORDS`.
-- `schemas/shelter.py` — nuevos schemas:
-  ```python
-  class ShelterMapPetOut(BaseModel):
-      model_config = ConfigDict(from_attributes=True)
-      id: int
-      nombre: str
-      fotos: list[str]
-
-  class ShelterMapOut(BaseModel):
-      id: int
-      nombre: str
-      verificado: bool
-      lat: float | None
-      lng: float | None
-      mascotas_disponibles: int
-      mascotas: list[ShelterMapPetOut]
-      distancia_km: float | None = None  # solo si user_id válido y ambos lados tienen lat/lng
-  ```
-- `schemas/user.py::UserOut` — agregar `lat: float | None`, `lng: float | None`. Actualizar las **dos** construcciones manuales de `UserOut` en `routers/users.py` (`registrar_usuario` y `obtener_perfil`) para pasar `lat=user.lat, lng=user.lng` explícitamente.
-- Endpoint nuevo — `GET /api/shelters` en `routers/shelters.py` (antes de `obtener_refugio` en el archivo, mismo criterio de orden que `pets.py`):
-  - Query param opcional `user_id`. Si se pasa y no existe → 404 español.
-  - Para cada `Shelter`: cuenta `Pet.estado == "disponible"` de ese refugio → `mascotas_disponibles` (campo **nuevo**, distinto de `ShelterMetricsOut.mascotas_publicadas` que cuenta el histórico total). Incluye la lista de esas mascotas disponibles (`ShelterMapPetOut`).
-  - `distancia_km` vía `services/geo.py::distancia_km` — solo si `user_id` válido y tanto usuario como refugio tienen `lat`/`lng` no nulos; `None` en cualquier otro caso (degradación elegante, mismo criterio que `services/filters.py`).
-  - Lista vacía (200, no 404) si no hay refugios.
-
-**Frontend**
-- `api/types.ts`: `ShelterMapPet`, `ShelterMap` (mirror de los schemas); agregar `lat`/`lng` a `UserProfile`.
-- `api/client.ts`: `listarRefugiosMapa(userId?: number): Promise<ShelterMap[]>` → `GET /api/shelters?user_id=...`.
-- `lib/mapa.ts` (nuevo) — constantes de interpolación (duplican intencionalmente el bounding box de `scripts/seed.py`, documentado con comentario que debe mantenerse en sync):
-  ```typescript
-  const LAT_MIN = 4.55, LAT_MAX = 4.8, LNG_MIN = -74.2, LNG_MAX = -74.0;
-
-  export function posicionEnMapa(lat: number, lng: number): { left: string; top: string } {
-    const left = ((lng - LNG_MIN) / (LNG_MAX - LNG_MIN)) * 100;
-    const top = ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * 100;  // eje lat invertido: mayor lat = más al norte = arriba
-    return { left: `${left}%`, top: `${top}%` };
-  }
-  ```
-  Caso conocido para test: punto medio (`lat=4.675, lng=-74.10`) → `left=50%, top=50%`.
-- `screens/Mapa.tsx` (nuevo):
-  - Ruta `/mapa`, **fuera** de `RequiereHomeProfile` (mismo criterio que `/apadrinar`/`/perfil`).
-  - `useEffect`: `listarRefugiosMapa(getActiveUserId())` + `obtenerPerfil(getActiveUserId())` (ya existe, para leer `lat/lng` del usuario y pintar "tú estás aquí"; si son `null`, se omite el marcador sin error).
-  - Lienzo: `<div className="relative aspect-[4/3] w-full rounded-2xl border border-line bg-surface-alt">`, proporción fija.
-  - Refugios con `lat`/`lng` no nulos → `<button>` `absolute` posicionado con `posicionEnMapa`, `-translate-x-1/2 -translate-y-1/2`. Pin `rounded-full bg-forest`; verificados con distinción visual adicional (anillo/punto interior, sin salir de la paleta). Refugios sin coordenadas no se renderizan.
-  - Marcador "tú estás aquí": mismo mecanismo, forma/color distinto (`bg-ochre`) para no confundir con un refugio.
-  - Click en un pin abre un panel (tarjeta simple, no modal/portal — mismo patrón que `Apadrinar.tsx`/`Favoritos.tsx`) con: nombre, insignia "Verificado" si aplica, distancia si no es `null` (`font-mono text-[11px]`, primer uso real de `distancia_km` en la UI, sigue la tipografía mono de metadatos del design-system), y mini-lista de `mascotas` (foto+nombre, cada una `<Link to={`/mascota/${id}`}>`). Sin mascotas disponibles → mensaje corto, panel no se oculta.
-  - Skeleton `animate-pulse` mientras carga (nunca spinner).
-- `App.tsx`: ruta `/mapa` fuera del guard + `NavLink` "Mapa".
-
-**Sin librería de mapas** — cero dependencia nueva, cero conexión a internet en runtime. Único uso de datos geográficos: interpolación lineal en CSS/SVG local.
-
-## Tests requeridos (documento de diseño §3)
-
-**Backend** (extender `tests/api/test_shelters.py`, reutiliza fixtures existentes): `mascotas_disponibles` cuenta solo `estado=="disponible"` (mascota adoptada/cerrada no aparece en la lista); sin `user_id` → `distancia_km` es `None` en todos; con `user_id` válido y coordenadas conocidas → `distancia_km` calculado correctamente (mismo patrón que `test_geo.py`); `user_id` inexistente → 404; lista vacía sin shelters → 200 (regresión del criterio ya usado en `09-shelter-panel`); suite completa de `test_shelters.py` sigue pasando tras agregar `Shelter.lat/lng` (columnas nullable, no requieren tocar `_crear_shelter`). Extender `tests/api/test_users.py`: `GET /api/users/{id}` y `POST /api/users` exponen `lat`/`lng` (aunque sea `null`).
-
-**Frontend**: `lib/mapa.test.ts` (casos conocidos de `posicionEnMapa`: centro, esquina). `screens/Mapa.test.tsx` (patrón de `Favoritos.test.tsx`): skeleton, pines en la posición calculada correcta (`data-testid` por refugio), click abre el panel con nombre/insignia/distancia/mini-lista con links correctos, refugio sin mascotas muestra el mensaje sin ocultar el panel, refugio con `lat`/`lng` null no renderiza pin.
-
-## `acceptance` de `14-shelter-map` (6 líneas, ya escritas en `feature_list.json` en esta sesión)
-
-1. `GET /api/shelters` (sin id) lista todos los refugios con id, nombre, verificado, lat, lng y `mascotas_disponibles` (conteo de `Pet.estado == 'disponible'` de ese refugio, distinto de `ShelterMetricsOut.mascotas_publicadas` que cuenta el histórico total).
-2. `GET /api/shelters` incluye `distancia_km` (haversine vía `services/geo.py`) solo cuando se pasa `user_id` y tanto el usuario como el refugio tienen `lat`/`lng`; ausente/null en cualquier otro caso, y 404 en español si `user_id` no existe.
-3. `GET /api/shelters` incluye, por refugio, la lista de sus mascotas disponibles (id, nombre, fotos) para el panel de detalle del mapa, sin requerir una llamada adicional a `GET /api/pets`.
-4. Existe la pantalla `/mapa` (fuera del guard de `HomeProfile`, igual que `/apadrinar` y `/perfil`) con un lienzo propio en CSS/SVG donde cada refugio se posiciona interpolando linealmente su `lat`/`lng` dentro del bounding box de Bogotá; refugios verificados se distinguen visualmente de los que no lo son.
-5. Click en un pin abre un panel con nombre del refugio, insignia de verificado, distancia (si está disponible) y una mini-lista de sus mascotas disponibles, cada una enlazando a `/mascota/:id`.
-6. La feature no introduce ninguna dependencia externa de mapas ni conexión a internet en runtime — verificado explícitamente por el revisor con grep de `leaflet`/`mapbox`/`google.maps`/URLs de tiles, y confirmando que `package.json`/`requirements` no ganan una dependencia nueva de mapas.
-
-## Restricción central de esta feature (repetir en cada paso, verificar explícitamente en el cierre)
-
-**Sin mapa real, sin dependencia externa, sin red en runtime.** Ningún paso debe:
-- agregar `leaflet`, `react-leaflet`, `mapbox-gl`, `@googlemaps/*` (o similar) a `package.json`,
-- hacer `fetch`/`import` de tiles (OpenStreetMap, Mapbox, Google Maps) en runtime,
-- agregar ninguna dependencia de mapas a `requirements.txt`/`pyproject.toml`.
-
-El revisor debe verificarlo explícitamente con grep en el Paso 5 (línea 6 del `acceptance`), no asumirlo.
-
-## Secuenciación de pasos verificables (documento de diseño §5)
-
-**Paso 0 — Líder (COMPLETADO en esta sesión, 2026-08-04):** `14-shelter-map` → `in_progress`, `acceptance` (6 líneas) escrito en `feature_list.json`, este plan escrito en `progress/current.md`. Verificación del código real (arriba) confirmó que el documento de diseño sigue 100% vigente.
-
-**Paso 1 — Backend: modelo + seed + `UserOut.lat/lng` (HECHO, implementador, 2026-08-04)**
-- `models/shelter.py`: `Shelter.lat`/`lng` (`Mapped[float | None]`, `Float` nullable) agregados, mismo patrón que `Pet.lat/lng`.
-- `scripts/seed.py::SHELTERS`: coordenadas fijas agregadas (Teusaquillo/Fontibón/Bosa, reales, repartidas), sin tocar el orden de `random.uniform` que consumen `Pet`/`User` más abajo.
-- `schemas/user.py::UserOut`: `lat`/`lng` agregados. `routers/users.py`: las dos construcciones manuales de `UserOut` (`registrar_usuario`, `obtener_perfil`) actualizadas con `lat=user.lat, lng=user.lng`.
-- `data/app.db` recreado con `python3 scripts/seed.py`. Verificado: `pytest tests/api -q` → 188/188 sin regresión; `ruff check`/`black --check` limpios; `bash init.sh` completo en verde (188 API + 73 frontend). Detalle en `changes.md` (entrada 2026-08-04). No se tocó `routers/shelters.py` ni frontend — sigue pendiente el Paso 2.
-
-**Paso 2 — Backend: `ShelterMapOut`/`ShelterMapPetOut` + `GET /api/shelters` + tests (HECHO, implementador, 2026-08-04)**
-- `schemas/shelter.py`: `ShelterMapPetOut`/`ShelterMapOut` agregados tal cual el diseño.
-- `routers/shelters.py`: `GET /api/shelters` agregado (antes de `obtener_refugio`), `user_id` opcional (404 español si no existe), `mascotas_disponibles`/`mascotas` filtrando `Pet.estado == "disponible"`, `distancia_km` vía `services/geo.py::distancia_km` solo si `user_id` válido y ambos lados tienen `lat`/`lng`, lista vacía (200) si no hay refugios.
-- `tests/api/test_shelters.py`: nueva sección "GET /api/shelters (feature 14-shelter-map)" con 5 casos (vacío→200, conteo solo `disponible`, sin `user_id`→`distancia_km` null, con `user_id`+coordenadas conocidas→distancia correcta vía `pytest.approx`, `user_id` inexistente→404). `tests/api/test_users.py`: 2 casos nuevos (`lat`/`lng` en `GET /api/users/{id}` y `POST /api/users`).
-- Verificado: `pytest tests/api -q` → 195/195 (188 previos + 7 nuevos) sin regresión; `ruff check`/`black --check` limpios; `bash init.sh` completo en verde (195 API + 73 frontend). Detalle en `changes.md` (entrada 2026-08-04, paso 2). No se tocó frontend — pasos 3-4 pendientes.
-
-**Paso 3 — Frontend: tipos/cliente + `lib/mapa.ts` (HECHO, implementador, 2026-08-04)**
-- `api/types.ts`: `ShelterMapPet`/`ShelterMap` agregados (mirror exacto de los schemas backend); `UserProfile` gana `lat: number | null`/`lng: number | null`.
-- `api/client.ts`: `listarRefugiosMapa(userId?: number)` → `GET /api/shelters` con `?user_id=` condicional (template string, sin `URLSearchParams` — un solo param opcional).
-- `lib/mapa.ts` (nuevo): `posicionEnMapa` tal cual el diseño, constantes verificadas idénticas a `scripts/seed.py::BOGOTA_LAT_RANGE/BOGOTA_LNG_RANGE`; resultado redondeado a 4 decimales para evitar ruido de punto flotante en el caso del centro exacto.
-- `lib/mapa.test.ts` (nuevo, 3 tests): centro → 50%/50%, esquina noroeste → 0%/0%, esquina sureste → 100%/100%.
-- Efecto colateral necesario: 4 tests existentes con fixtures `UserProfile` (`RequiereHomeProfile.test.tsx`, `Cuestionario.test.tsx`, `MiPerfil.test.tsx`, `Registro.test.tsx`) actualizados con `lat: null, lng: null` para volver a compilar, sin tocar sus aserciones.
-- Verificado: `npx tsc -b` sin errores; `npm test -- --run` → 76/76 (73 previos + 3 nuevos) sin regresión; `npm run lint` (oxlint) y `npx prettier --check .` limpios. Detalle en `changes.md` (entrada 2026-08-04, paso 3). No se creó `Mapa.tsx` ni se tocó `App.tsx` — paso 4 pendiente.
-
-**Paso 4 — Frontend: `screens/Mapa.tsx` + ruta/nav + tests (HECHO, implementador, 2026-08-04)**
-- `screens/Mapa.tsx` (nuevo): skeleton `animate-pulse` mientras `listarRefugiosMapa`/`obtenerPerfil` no resolvieron, lienzo `aspect-4/3` (misma clase Tailwind v4 que `Favoritos.tsx`/`MascotaDetalle.tsx`/`MisMatches.tsx`, no `aspect-[4/3]`), pines de refugios posicionados con `posicionEnMapa` + `data-testid="pin-refugio-{id}"` (verificados con punto interior `bg-bg`; sin `lat`/`lng` no se renderizan), marcador "tú estás aquí" (`bg-ochre` + `rotate-45`, solo si el usuario activo tiene `lat`/`lng`), panel de detalle al hacer click (nombre, insignia "Verificado", distancia si `distancia_km !== null`, mini-lista de mascotas con link a `/mascota/:id`, mensaje "Sin mascotas disponibles ahora mismo." si `mascotas.length === 0` sin ocultar el panel, mensaje de selección si no hay refugio elegido).
-- `App.tsx`: ruta `/mapa` fuera de `RequiereHomeProfile` (junto a `/apadrinar`/`/perfil`) + `NavLink` "Mapa" entre "Apadrinar" y "Panel del refugio".
-- `screens/Mapa.test.tsx` (nuevo, 6 casos): skeleton, pines en la posición correcta (`data-testid` por refugio, verificado contra `posicionEnMapa` importada directamente en el test), click abre panel con nombre/insignia/distancia/mini-lista con links correctos, refugio sin mascotas sin ocultar el panel, refugio con `lat`/`lng` null no renderiza pin, mensaje de selección inicial.
-- Verificado: `npx vitest run` → 82/82 en verde (76 previos + 6 nuevos); `npx tsc -b` sin errores; `npm run lint` (oxlint) y `npx prettier --check .` limpios (tras `prettier --write` sobre los 2 archivos nuevos); `bash init.sh` completo en verde de punta a punta: **195 tests de API + 82 de frontend**. Detalle en `changes.md` (entrada 2026-08-04, paso 4). Cierra los 4 pasos de implementación — falta solo el Paso 5 (cierre del revisor).
-
-**Paso 5 — Cierre del revisor (agente independiente, NO el líder ni el implementador)**
-- `bash init.sh` completo en verde (backend + frontend), corrido en esa sesión (no heredado).
-- Grep explícito de `leaflet|mapbox|google\.maps|tile.*openstreetmap` (y variantes) sobre el código nuevo de la feature → cero resultados esperados.
-- Confirmar que `src/web/package.json` y `src/api/requirements.txt`/`pyproject.toml` no ganaron ninguna dependencia nueva de mapas (diff contra el estado previo a la feature).
-- Verificar las 6 líneas de `acceptance` una por una contra un test real (tabla acceptance↔test, mismo formato que cierres anteriores).
-- Recorrido manual en navegador real (`bash dev.sh`): abrir `/mapa`, confirmar que los 3 refugios sembrados aparecen en posiciones razonables dentro del lienzo (no amontonados, no fuera del cuadro), que el refugio verificado se distingue visualmente, que el marcador "tú estás aquí" aparece para el usuario semilla (id=1, Ana Martínez); click en un pin abre el panel con distancia real y la mini-lista de mascotas navegable a su ficha.
-- Confirmar programáticamente que ningún otro item de `feature_list.json` quedó `in_progress`.
-- Resetear `data/app.db` con `python3 scripts/seed.py` después de la verificación manual.
-- Solo entonces `status` → `done` en `feature_list.json`.
-
-## Verificación end-to-end esperada
-
-- `bash init.sh` en verde tras cada paso (backend y frontend por separado durante implementación; completo al cierre).
-- Recorrido manual en navegador real, detallado en el Paso 5.
-- Resetear `data/app.db` con `python3 scripts/seed.py` después de cualquier verificación manual que haya mutado datos.
-
-## Cobertura de tests vs. `acceptance` de `14-shelter-map` (implementador, 2026-08-04, tras el Paso 4)
-
-Repasada línea por línea contra tests reales, antes de invocar al revisor:
-
-1. **`GET /api/shelters` lista todos los refugios con id/nombre/verificado/lat/lng/`mascotas_disponibles`** → `tests/api/test_shelters.py::test_listar_refugios_mapa_sin_refugios_devuelve_200_vacio` (200 con lista vacía) + `test_listar_refugios_mapa_cuenta_solo_mascotas_disponibles` (conteo correcto, distinto del histórico de `ShelterMetricsOut`). Cubierta.
-2. **`distancia_km` solo con `user_id` válido y ambos lados con `lat`/`lng`; 404 si `user_id` no existe** → `test_listar_refugios_mapa_sin_user_id_distancia_es_null`, `test_listar_refugios_mapa_con_user_id_calcula_distancia_km` (vs. `pytest.approx` del valor real de `distancia_km()`), `test_listar_refugios_mapa_user_id_inexistente_devuelve_404`. Cubierta.
-3. **Mini-lista de mascotas disponibles (id/nombre/fotos) incluida en la misma respuesta** → cubierta por el mismo `test_listar_refugios_mapa_cuenta_solo_mascotas_disponibles` (verifica tanto el conteo como el contenido de la lista) — no hay un test que llame a `GET /api/pets` desde este endpoint, confirmando por lectura de código (`routers/shelters.py`) que no hace ninguna llamada HTTP adicional, solo una query a `Pet` por refugio dentro del mismo handler.
-4. **Pantalla `/mapa` fuera del guard, lienzo propio con interpolación lineal, refugios verificados distinguidos visualmente** → ruta confirmada en `App.tsx` (fuera de `<Route element={<RequiereHomeProfile />}>`); `screens/Mapa.test.tsx` (posición de pines vs. `posicionEnMapa` real, pin ausente si `lat`/`lng` null) + `lib/mapa.test.ts` (3 casos de la interpolación en sí, del paso 3). La distinción visual de "verificado" (punto interior `bg-bg`) no tiene aserción de estilo/clase directa en el test (jsdom no evalúa estilos computados de forma fiable para esto) — verificada por lectura de código (`shelter.verificado && <span className="... bg-bg" />` dentro del pin) y queda para el recorrido manual del Paso 5 confirmarla visualmente.
-5. **Click en un pin abre panel con nombre/insignia/distancia/mini-lista enlazada a `/mascota/:id`** → `screens/Mapa.test.tsx` (caso "click en un pin abre el panel...") cubre las 4 piezas en un solo test con datos concretos (`3.5 km`, links a `/mascota/10` y `/mascota/11`); caso separado para "sin mascotas" (mensaje sin ocultar el panel). Cubierta.
-6. **Sin dependencia externa de mapas ni conexión a internet en runtime** → verificación explícita hecha en este paso (no delegada al revisor):
-   ```
-   grep -rniE "leaflet|mapbox|google\.maps|tile.*openstreetmap|openstreetmap" \
-     src/web/src src/api/adopta_api scripts/seed.py \
-     src/web/package.json pyproject.toml requirements-dev.txt
-   ```
-   Resultado: **una sola coincidencia**, el comentario de `src/web/src/lib/mapa.ts` línea 2 (`// (Leaflet/Google Maps/OSM) ni conexión a internet en runtime...`) que documenta explícitamente la ausencia de esas dependencias — no es uso real. `src/web/package.json::dependencies` confirmado sin cambios de mapas (`@tailwindcss/vite`, `react`, `react-dom`, `react-router-dom`, `tailwindcss`, sin nada nuevo desde `13-favorites`); `requirements.txt` de la API no tocado en esta feature. Cero conexión de red en runtime: `posicionEnMapa` es interpolación lineal pura, sin `fetch`/`import` de tiles. Cubierta.
-
-Sin huecos encontrados — las 6 líneas de `acceptance` tienen cobertura real. El revisor debe repetir el grep de forma independiente en el Paso 5 (no basta con este resultado, según el propio plan).
-
----
+Con `15-public-landing` aprobada, **las 15 features de `feature_list.json` están en `status: "done"`** — MVP (`01`-`05`), post-MVP (`06`-`07`) y todo el backlog (`08`-`15`), incluida la landing pública que era el último ítem pendiente. `bash init.sh` en verde de punta a punta: 195 tests de API + 93 de frontend, lint/formato limpios en Python y TypeScript. No queda trabajo planificado en `feature_list.json`; cualquier trabajo futuro requeriría una nueva ronda de investigación/planificación (ver `AGENTS.md`) para ampliar el alcance.
 
 ## Cierre de `14-shelter-map` (revisor, sesión independiente, 2026-08-04) — resumen
 
@@ -233,6 +73,35 @@ No se repitió el recorrido manual en navegador (ya hecho en esta misma sesión 
 
 **APROBADA** por el revisor (sesión independiente, 2026-08-03). `bash init.sh` en verde: 140 tests API + 45 frontend, lint/formato limpios. Matriz de transiciones backend (`services/solicitudes.py::validar_transicion`) vs. frontend (`SolicitudDetalle.tsx`) verificada línea por línea, sin discrepancias. `motivo_descarte` confirmado nunca expuesto al adoptante. Detalle completo en el commit `50c4482` y en la versión anterior de este archivo bajo control de versiones.
 
+## Progreso de `15-public-landing` dentro de la sesión actual
+
+**Paso 1 (reestructuración de `App.tsx`) COMPLETADO** (implementador, 2026-08-04). `AppLayout` (`<Nav/><Outlet/></>`) introducido; las **14 rutas internas** (recontadas por el propio implementador con `grep -n '<Route path=' App.tsx`, mismo resultado que el líder: 15 elementos `<Route path=` totales, 14 sin contar `"/"`) se movieron a estar anidadas bajo `<Route element={<AppLayout />}>`, preservando `path`/`element` idénticos y los 4 comentarios explicativos existentes; el guard `RequiereHomeProfile` sigue envolviendo exactamente las mismas 5 rutas. `path="/"` ahora renderiza un placeholder trivial (`LandingPublicaPlaceholder`, `<div>TODO: landing</div>`) en vez de `<Navigate to="/descubrir" replace />` — la landing real es el paso 2, pendiente. Resultado en `src/web/src/App.tsx`.
+
+Verificado en verde sin modificar ningún test preexistente: `npm test -- --run` → 82/82 (frontend, sin `App.test.tsx` todavía, eso es el paso 3), `npx tsc -b` sin errores, `npm run lint`/`npx prettier --check .` limpios, `bash init.sh` completo → 195 tests de API + 82 de frontend, backend sin diff. `git diff src/web/src/App.tsx` revisado línea por línea: solo cambió el `element` de `"/"` y el nivel de anidamiento JSX del resto, ningún `path`/`element` de las 14 rutas internas cambió. No se hizo verificación manual en navegador (sin herramientas de navegador disponibles en el contexto del implementador, documentado explícitamente en `changes.md`) — pendiente para el cierre del revisor (paso 4).
+
+**Paso 2 (`screens/LandingPublica.tsx`) COMPLETADO** (implementador, 2026-08-04). Nuevo `src/web/src/screens/LandingPublica.tsx` con las 7 secciones y copy verbatim de `design/prototypes/Adopta Landing.dc.html` (nav pública propia con anclas `<a href="#...">` HTML plano + CTA `<Link to="/descubrir">`; hero con H1 `text-[66px]`, 3 cifras de credibilidad y baraja de 2 tarjetas con gradiente CSS de placeholder; `#como` con los 4 pasos 01-04; "por qué el cuestionario" con grid 2×2; `#apadrinar` franja `bg-forest` con tarjetas Canela/Toribio; `#refugios` con tabla mock de 3 filas; footer), sin ninguna llamada a `api/client` (contenido 100% estático, confirmado por lectura propia del archivo). Funciones internas pequeñas sin exportar por sección (mismo patrón que `NivelCard` en `Apadrinar.tsx`). `App.tsx`: `LandingPublicaPlaceholder` eliminado, `path="/"` ahora renderiza `<LandingPublica />` real; ningún otro `path`/`element` tocado (`git diff` revisado).
+
+Verificado en verde: `npm test -- --run` → 82/82 (sin test nuevo todavía, eso es el paso 3), `npx tsc -b` sin errores, `npm run lint`/`npx prettier --check .` limpios. No se hizo verificación visual en navegador contra el prototipo HTML — sin herramientas de navegador disponibles en el contexto del implementador (documentado explícitamente, no se finge) — pendiente para el cierre del revisor.
+
+**Paso 3 (tests) COMPLETADO** (implementador, 2026-08-04). Nuevo `src/web/src/screens/LandingPublica.test.tsx` (11 casos, sin mock de `../api/client`, patrón de `Favoritos.test.tsx`) y nuevo `src/web/src/App.test.tsx` (2 casos: `/` renderiza la landing sin `<Nav/>` interno; `/descubrir` sí muestra `<Nav/>`, con mock de `api/client` igual que `Descubrir.test.tsx`). Detalle completo de qué cubre cada test en `changes.md` (entrada `15-public-landing`, paso 3 de 4).
+
+Verificado por el implementador: `npm test -- --run` → **93/93 en verde** (82 previos + 11 + 2 nuevos); `npx tsc -b` sin errores; `npm run lint` (oxlint) y `npx prettier --check .` limpios. `bash init.sh` completo corrido por el implementador → **195 tests de API + 93 de frontend**, lint/formato limpios en ambos lados, backend sin diff (feature 100% frontend).
+
+**Grep de la línea 2 del `acceptance` (sin llamada a la API), corrido explícitamente por el implementador**: `grep -n "api/client" src/web/src/screens/LandingPublica.tsx` → única coincidencia es la línea 6, un comentario explicativo (`// ... Sin llamadas a \`api/client\`: ...`), **cero imports reales**. Confirmado además indirectamente por el propio `LandingPublica.test.tsx`, que renderiza el componente sin ningún mock de `api/client` y pasa — si el componente intentara `fetch` real, el test habría fallado o quedado colgado.
+
+**Cobertura de `acceptance` de `15-public-landing` (7 líneas) vs. tests reales, repasada una por una por el implementador** (verificación final de punta a punta queda para el revisor en el cierre):
+1. `GET /` renderiza la landing, `/descubrir` sigue funcionando → `App.test.tsx` (los 2 casos, uno por dirección).
+2. Sin llamada a la API → grep de arriba + diseño del test de `LandingPublica.test.tsx` (sin mock de `api/client`).
+3. `<Nav/>` interno no aparece en `/`, nav pública propia con sus 4 items → `App.test.tsx` (caso 1, `queryByRole` ausente) + `LandingPublica.test.tsx` (anclas del nav pública). La preservación del `<Nav/>` interno en **todas** las 14 rutas restantes no se re-testea una por una (cada pantalla ya tiene su propio test que no pasa por `App`); `App.test.tsx` solo confirma la aserción puntual de que `/descubrir` lo conserva, tal como especificaba el plan del líder en §3.
+4. Los 5 CTAs con destino correcto → `LandingPublica.test.tsx` (caso "los CTAs navegan a los destinos correctos").
+5. Anclas `#como`/`#apadrinar`/`#refugios` (nav + footer) → `LandingPublica.test.tsx` (caso "las anclas del nav apuntan a las secciones correspondientes").
+6. Copy verbatim de las 6 secciones + 3 cifras + grid 2×2 → `LandingPublica.test.tsx` (casos de headline, cifras, pasos, grid, Canela/Toribio, tabla, footer — 7 de los 11 casos del archivo).
+7. `bash init.sh` en verde → confirmado arriba por el implementador (195 API + 93 frontend). La revisión manual en navegador de las 14 rutas internas **no se hizo** en este paso — sin herramientas de navegador disponibles en el contexto del implementador (mismo motivo documentado en los pasos 1 y 2); queda explícitamente pendiente para el cierre del revisor, tal como especifica el paso 4 del plan del líder (§ "Secuenciación de pasos verificables").
+
+No se encontró ningún hueco de cobertura que requiriera implementación adicional en este paso.
+
+**Siguiente paso: cierre del revisor** (paso 4 del plan del líder) — correr `bash init.sh` de forma independiente, hacer el recorrido manual en navegador de las 14 rutas internas + `/`, confirmar por `git diff` de `App.tsx` que ningún `path`/`element` cambió, confirmar la cifra de 14 rutas con su propio recuento, y solo entonces pasar `status` a `done` (última feature del proyecto, quedaría 15/15).
+
 ## Historial de cierres anteriores
 
-Ver `progress/history.md` para el detalle completo de features `01`-`09` (todas `done`, aprobadas por revisor independiente). Resumen: MVP (`01`-`05`) aprobado 2026-07-31; `06-filters`/`07-adopter-profile` aprobadas en sesión posterior; `08-onboarding-cuestionario` aprobada 2026-08-03; `09-shelter-panel` aprobada 2026-08-03; `10-adoption-request-flow` aprobada 2026-08-03; `11-chat` aprobada 2026-08-03 (157 tests API + 55 frontend en verde); `12-sponsorship` aprobada 2026-08-03 (176 tests API + 62 frontend en verde); `13-favorites` aprobada 2026-08-04 (188 tests API + 73 frontend en verde). `14-shelter-map` planificada por el líder, lista para que el implementador arranque por el Paso 1.
+Ver `progress/history.md` para el detalle completo de features `01`-`09` (todas `done`, aprobadas por revisor independiente). Resumen: MVP (`01`-`05`) aprobado 2026-07-31; `06-filters`/`07-adopter-profile` aprobadas en sesión posterior; `08-onboarding-cuestionario` aprobada 2026-08-03; `09-shelter-panel` aprobada 2026-08-03; `10-adoption-request-flow` aprobada 2026-08-03; `11-chat` aprobada 2026-08-03 (157 tests API + 55 frontend en verde); `12-sponsorship` aprobada 2026-08-03 (176 tests API + 62 frontend en verde); `13-favorites` aprobada 2026-08-04 (188 tests API + 73 frontend en verde); `14-shelter-map` aprobada 2026-08-04 (195 tests API + 82 frontend en verde). `15-public-landing` (última feature del proyecto) planificada por el líder, lista para que el implementador arranque por el Paso 1.

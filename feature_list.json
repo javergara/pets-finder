@@ -213,10 +213,18 @@
       "id": "15-public-landing",
       "title": "Landing pública",
       "description": "Página de marketing: propuesta de valor, cómo funciona, por qué el cuestionario va primero, franja de apadrinamiento, vista previa del panel de refugio.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": [],
-      "acceptance": []
+      "acceptance": [
+        "GET / (ruta raíz) renderiza la landing pública (LandingPublica) en vez de redirigir a /descubrir; /descubrir sigue siendo alcanzable y funciona exactamente igual que antes (regresión verificada con test)",
+        "La landing no realiza ninguna llamada a la API (sin imports de src/web/src/api/client): las cifras de credibilidad, las tarjetas Canela/Toribio y la tabla de vista previa del panel son contenido estático, tal como especifica el prototipo aprobado",
+        "El <Nav/> interno de la app no se renderiza en /; la landing tiene su propia barra de navegación pública (Cómo funciona / Para refugios / Apadrinar / Entrar a la app), y todas las rutas internas conservan el <Nav/> interno sin cambios",
+        "Los CTAs de la landing navegan a los destinos correctos: 'Empezar el cuestionario' → /cuestionario, 'Entrar a la app' → /descubrir, 'Soy un refugio' y 'Registrar mi refugio' → /refugio, 'Ver quién necesita apoyo' → /apadrinar",
+        "Los enlaces de ancla del nav y del footer (#como, #apadrinar, #refugios) llevan a las secciones correspondientes dentro de la misma página, sin depender de react-router",
+        "El copy de las 6 secciones coincide verbatim con design/prototypes/Adopta Landing.dc.html, incluidas las 3 cifras de credibilidad (2.140 / 86 / 7%) y el grid 2x2 (6 / 24 h / 1 / 0)",
+        "bash init.sh pasa en verde y una revisión manual en navegador confirma que ninguna de las 14 rutas internas preexistentes (/registro, /cuestionario, /descubrir, /mascota/:id, /favoritos, /matches, /matches/:matchId/mensajes, /perfil, /apadrinar, /mapa, /refugio, /refugio/publicar, /refugio/solicitudes/:matchId, /refugio/solicitudes/:matchId/mensajes) cambió de comportamiento tras la reestructuración de App.tsx"
+      ]
     }
   ]
 }
