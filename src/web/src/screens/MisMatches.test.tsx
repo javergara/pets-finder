@@ -57,6 +57,29 @@ describe('MisMatches', () => {
     expect(screen.getByText('● Esperando refugio')).toBeInTheDocument();
   });
 
+  it('cada tarjeta de match tiene un enlace "Abrir conversación" hacia su hilo', async () => {
+    const match: MatchWithPet = {
+      id: 7,
+      estado: 'solicitado',
+      creado_en: '2026-01-01T00:00:00Z',
+      pet: {
+        id: 17,
+        nombre: 'Canela',
+        raza: 'Cocker mestizo',
+        edad_meses: 42,
+        fotos: [],
+        estado: 'disponible',
+      },
+      afinidad: { score: 94, explicacion: '', incompatible: false },
+    };
+    vi.mocked(client.listarMatches).mockResolvedValue([match]);
+
+    renderConRouter();
+
+    const enlace = await screen.findByRole('link', { name: 'Abrir conversación' });
+    expect(enlace).toHaveAttribute('href', '/matches/7/mensajes');
+  });
+
   const casosEstado: Array<{
     estado: MatchWithPet['estado'];
     texto: string;

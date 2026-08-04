@@ -182,6 +182,25 @@ export interface DescartarIn {
   motivo: string;
 }
 
+export interface Message {
+  id: number;
+  autor_tipo: 'adoptante' | 'refugio' | 'sistema';
+  texto: string;
+  creado_en: string;
+}
+
+export interface Thread {
+  id: number;
+  match_id: number;
+  creado_en: string;
+  ultimo_mensaje_en: string;
+}
+
+export interface ThreadConMensajes {
+  thread: Thread;
+  mensajes: Message[];
+}
+
 export interface PetIn {
   shelter_id: number;
   nombre: string;

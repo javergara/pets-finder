@@ -1,6 +1,6 @@
 # Arquitectura — Adopta
 
-Ver decisiones individuales justificadas en `docs/decisions/`. Este documento explica cómo encajan las piezas y por qué esta forma es "buen trabajo" técnico para el alcance actual (MVP local, sin autenticación real, sin tiempo real).
+Ver decisiones individuales justificadas en `docs/decisions/`. Este documento explica cómo encajan las piezas y por qué esta forma es "buen trabajo" técnico para el alcance actual (MVP local, sin autenticación real; tiempo real limitado al chat vía WebSockets nativos, ver ADR 0004).
 
 ## 1. Vista general
 
@@ -25,7 +25,7 @@ Monorepo de dos paquetes (`src/api`, `src/web`) más `scripts/` y `data/`, en ve
 
 FastAPI + SQLAlchemy, capas:
 
-- **`models/`** — entidades SQLAlchemy: `User`, `HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match` (alcance MVP; `Thread`/`Message`/`Sponsorship` se añaden cuando se retomen las features de backlog 11 y 12).
+- **`models/`** — entidades SQLAlchemy: `User`, `HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match` (alcance MVP), más `Thread`/`Message` (`models/chat.py`, feature `11-chat`, ver ADR 0004). `Sponsorship` se añade cuando se retome la feature de backlog `12`.
 - **`schemas/`** — Pydantic, entrada/salida de la API, separados de los modelos de DB para no filtrar detalles de persistencia al contrato HTTP.
 - **`services/`** — lógica de negocio pura, testeable sin FastAPI ni DB real: en particular `affinity.py` (score adoptante↔mascota, ver ADR 0003) y `matching.py` (crear Match al registrar un Swipe con dirección `like`, ver ADR 0002).
 - **`routers/`** — endpoints HTTP delgados que llaman a `services/`, sin lógica de negocio propia.
@@ -51,5 +51,5 @@ La afinidad **no se persiste**: se calcula al vuelo en cada request (ver ADR 000
 ## 6. Qué queda fuera (y por qué no es deuda técnica todavía)
 
 - **Autenticación real** — el MVP identifica al "adoptante activo" por un usuario semilla fijo (ver Fase 7); no hay login. Introducir auth ahora sin que exista todavía el flujo de onboarding (feature `08`, backlog) sería construir infraestructura para una pantalla que no existe.
-- **Tiempo real / WebSockets** — no hay chat en el MVP (feature `11`, backlog); por eso el ADR 0001 no adopta un BaaS con realtime todavía.
+- **Autenticación real en el chat** — la feature `11-chat` ya está implementada con WebSockets nativos sobre FastAPI/Starlette (`routers/chat.py`, `services/chat_manager.py::ConnectionManager` en memoria), sin migrar a un BaaS (ver ADR 0004, que revisa el mandato dejado abierto por ADR 0001). La identidad de cada conexión WS se pasa por query param y se valida contra el `Match`, con el mismo nivel de rigor que el resto de la API sin auth real — no es autenticación real, sigue siendo deuda pendiente de un login real (feature `08` la resolvió solo para el registro, no para sesiones).
 - **Migraciones formales** — con un esquema que cambia junto con datos semilla desechables, se usa `SQLAlchemy.metadata.create_all` vía el skill `db-migrations` en vez de Alembic; se reconsiderará si el esquema necesita evolucionar sobre datos reales persistentes.

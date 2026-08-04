@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   agendarVisita,
   ApiError,
@@ -87,6 +87,12 @@ export function SolicitudDetalle() {
           <p className="text-sm text-muted">
             Solicitud para {solicitud.pet.nombre} · {solicitud.etiqueta}
           </p>
+          <Link
+            to={`/refugio/solicitudes/${matchId}/mensajes`}
+            className="mt-1 inline-block text-sm font-medium text-forest"
+          >
+            Ver conversación
+          </Link>
         </div>
         <span className="rounded-full bg-forest px-3 py-1 font-mono text-sm text-bg">
           {solicitud.afinidad.score}% afín

@@ -9,6 +9,7 @@ import {
   type Solicitud,
   type SolicitudDetalle,
   type Swipe,
+  type ThreadConMensajes,
   type UserProfile,
 } from './types';
 
@@ -30,6 +31,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function mediaUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
+}
+
+export function obtenerThread(matchId: number): Promise<ThreadConMensajes> {
+  return request(`/api/matches/${matchId}/thread`);
+}
+
+/** Deriva la URL del WebSocket del hilo a partir del mismo `API_BASE_URL`
+ * que ya usa `mediaUrl`, reemplazando el esquema `http`/`https` por
+ * `ws`/`wss`. Identidad por query param (`user_id` para el adoptante,
+ * `shelter_id` para el refugio) -- ver `routers/chat.py`. */
+export function chatSocketUrl(
+  matchId: number,
+  rol: 'adoptante' | 'refugio',
+  participantId: number,
+): string {
+  const wsBase = API_BASE_URL.replace(/^http/, 'ws');
+  const paramNombre = rol === 'adoptante' ? 'user_id' : 'shelter_id';
+  return `${wsBase}/ws/matches/${matchId}/thread?rol=${rol}&${paramNombre}=${participantId}`;
 }
 
 export function listarMascotas(userId: number, filtros?: Filtros): Promise<Pet[]> {

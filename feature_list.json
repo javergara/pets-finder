@@ -147,10 +147,18 @@
       "id": "11-chat",
       "title": "Mensajería en tiempo real",
       "description": "Chat adoptante↔refugio por match, con aviso de sistema inicial y respuestas rápidas sugeridas. Requiere revisar el ADR de stack (posible migración a un BaaS con realtime).",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["04-matches"],
-      "acceptance": []
+      "acceptance": [
+        "GET /api/matches/{match_id}/thread crea el Thread y su mensaje de sistema inicial la primera vez que se pide (idempotente en llamadas siguientes) y devuelve 404 en español si el match no existe",
+        "WS /ws/matches/{match_id}/thread persiste cada mensaje entrante (Message + Thread.ultimo_mensaje_en) y lo difunde a todas las conexiones activas del mismo hilo; una conexión con user_id/shelter_id que no pertenece a ese match es rechazada",
+        "Los mensajes están aislados por hilo: un mensaje enviado en el hilo de un match no llega a conexiones abiertas sobre el hilo de otro match",
+        "MisMatches.tsx tiene un enlace 'Abrir conversación' por match hacia /matches/:matchId/mensajes, y SolicitudDetalle.tsx tiene el equivalente hacia /refugio/solicitudes/:matchId/mensajes",
+        "La pantalla de hilo muestra el aviso de sistema como primer elemento, burbujas propias/ajenas con los estilos de design/screens/mensajes.md, y (solo lado adoptante) dos respuestas rápidas siempre visibles ('Sí, agendar' / 'Proponer otra hora') que envían el texto tal cual",
+        "docs/decisions/0004-chat-websockets-fastapi.md documenta la decisión de WebSockets sobre FastAPI (sin BaaS), la limitación de un solo proceso sin Redis, y cómo se pasa identidad sin auth real",
+        "bash init.sh pasa completo (backend + frontend) incluyendo tests de creación lazy del hilo, mensajería WS entre dos conexiones simuladas, aislamiento entre hilos y cierre por ownership inválido"
+      ]
     },
     {
       "id": "12-sponsorship",

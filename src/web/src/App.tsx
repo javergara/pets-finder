@@ -3,6 +3,8 @@ import { RequiereHomeProfile } from './components/RequiereHomeProfile';
 import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
 import { MascotaDetalle } from './screens/MascotaDetalle';
+import { MensajesMatch } from './screens/MensajesMatch';
+import { MensajesSolicitud } from './screens/MensajesSolicitud';
 import { MiPerfil } from './screens/MiPerfil';
 import { MisMatches } from './screens/MisMatches';
 import { PanelRefugio } from './screens/PanelRefugio';
@@ -47,6 +49,7 @@ function App() {
           <Route path="/descubrir" element={<Descubrir />} />
           <Route path="/mascota/:id" element={<MascotaDetalle />} />
           <Route path="/matches" element={<MisMatches />} />
+          <Route path="/matches/:matchId/mensajes" element={<MensajesMatch />} />
         </Route>
         <Route path="/perfil" element={<MiPerfil />} />
         {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
@@ -54,6 +57,7 @@ function App() {
         <Route path="/refugio" element={<PanelRefugio />} />
         <Route path="/refugio/publicar" element={<PublicarMascota />} />
         <Route path="/refugio/solicitudes/:matchId" element={<SolicitudDetalle />} />
+        <Route path="/refugio/solicitudes/:matchId/mensajes" element={<MensajesSolicitud />} />
       </Routes>
     </div>
   );

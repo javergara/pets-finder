@@ -74,6 +74,15 @@ describe('SolicitudDetalle', () => {
     ).toBeInTheDocument();
   });
 
+  it('tiene un enlace "Ver conversación" hacia el hilo del match', async () => {
+    vi.mocked(client.obtenerSolicitud).mockResolvedValue(SOLICITUD_BASE);
+
+    renderConRouter('1');
+
+    const enlace = await screen.findByRole('link', { name: 'Ver conversación' });
+    expect(enlace).toHaveAttribute('href', '/refugio/solicitudes/1/mensajes');
+  });
+
   it('muestra copy de fallback cuando bio es null', async () => {
     vi.mocked(client.obtenerSolicitud).mockResolvedValue({ ...SOLICITUD_BASE, bio: null });
 
