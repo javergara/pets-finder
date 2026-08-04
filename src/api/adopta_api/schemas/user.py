@@ -57,6 +57,8 @@ class UserOut(BaseModel):
     email: str
     ciudad: str
     barrio: str | None
+    lat: float | None
+    lng: float | None
     avatar_url: str | None
     bio: str | None
     creado_en: datetime

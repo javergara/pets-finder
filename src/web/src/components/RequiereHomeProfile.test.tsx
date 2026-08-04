@@ -39,6 +39,8 @@ function crearPerfil(homeProfile: HomeProfile | null): UserProfile {
     email: 'ana@example.com',
     ciudad: 'Bogotá',
     barrio: 'Chapinero',
+    lat: null,
+    lng: null,
     avatar_url: null,
     bio: null,
     creado_en: '2026-01-01T00:00:00Z',

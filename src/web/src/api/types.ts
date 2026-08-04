@@ -111,6 +111,8 @@ export interface UserProfile {
   email: string;
   ciudad: string;
   barrio: string | null;
+  lat: number | null;
+  lng: number | null;
   avatar_url: string | null;
   bio: string | null;
   creado_en: string;
@@ -233,6 +235,26 @@ export interface MascotaNecesitaApoyo {
   historia: string;
   monto_recaudado_cop: number;
   porcentaje_cubierto: number;
+}
+
+export interface ShelterMapPet {
+  id: number;
+  nombre: string;
+  fotos: string[];
+}
+
+export interface ShelterMap {
+  id: number;
+  nombre: string;
+  verificado: boolean;
+  lat: number | null;
+  lng: number | null;
+  // Conteo de Pet.estado == 'disponible' de este refugio -- distinto de
+  // ShelterMetrics.mascotas_publicadas, que cuenta el histórico total.
+  mascotas_disponibles: number;
+  mascotas: ShelterMapPet[];
+  // Solo si se pasa user_id y tanto el usuario como el refugio tienen lat/lng.
+  distancia_km: number | null;
 }
 
 export interface PetIn {

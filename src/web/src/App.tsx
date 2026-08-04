@@ -4,6 +4,7 @@ import { Apadrinar } from './screens/Apadrinar';
 import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
 import { Favoritos } from './screens/Favoritos';
+import { Mapa } from './screens/Mapa';
 import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MensajesMatch } from './screens/MensajesMatch';
 import { MensajesSolicitud } from './screens/MensajesSolicitud';
@@ -36,6 +37,9 @@ function Nav() {
       <NavLink to="/apadrinar" className={linkClass}>
         Apadrinar
       </NavLink>
+      <NavLink to="/mapa" className={linkClass}>
+        Mapa
+      </NavLink>
       <NavLink to="/refugio" className={linkClass}>
         Panel del refugio
       </NavLink>
@@ -64,6 +68,9 @@ function App() {
         {/* /apadrinar queda fuera de RequiereHomeProfile, igual que /perfil: no hay
             razón funcional para exigir el cuestionario de hogar para donar. */}
         <Route path="/apadrinar" element={<Apadrinar />} />
+        {/* /mapa queda fuera de RequiereHomeProfile, igual que /apadrinar y /perfil: no
+            hay razón funcional para exigir el cuestionario de hogar para ver el mapa. */}
+        <Route path="/mapa" element={<Mapa />} />
         {/* /refugio* quedan fuera de RequiereHomeProfile: ese guard es exclusivo del
             lado adoptante (cuestionario de hogar), no aplica a la vista del refugio. */}
         <Route path="/refugio" element={<PanelRefugio />} />

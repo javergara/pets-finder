@@ -41,6 +41,10 @@ BARRIO_COORDS = {
     "Kennedy": (4.6280, -74.1497),
 }
 
+# Coordenadas reales aproximadas de la sede de cada refugio semilla — fijas (no `random.uniform`)
+# para no alterar la secuencia de números aleatorios que consumen `Pet`/`User` más abajo en este
+# script (feature 14-shelter-map). Repartidas dentro del bounding box de Bogotá para que el "mapa"
+# propio del frontend (`lib/mapa.ts`) no las amontone en un solo punto.
 SHELTERS = [
     dict(
         nombre="Refugio Huellas de Bogotá",
@@ -48,6 +52,8 @@ SHELTERS = [
         verificado=True,
         adopciones_cerradas=42,
         tiempo_respuesta_horas=12,
+        lat=4.6350,  # Teusaquillo
+        lng=-74.0930,
     ),
     dict(
         nombre="Rescate Patitas Felices",
@@ -55,6 +61,8 @@ SHELTERS = [
         verificado=True,
         adopciones_cerradas=18,
         tiempo_respuesta_horas=24,
+        lat=4.6784,  # Fontibón
+        lng=-74.1454,
     ),
     dict(
         nombre="Fundación Colita Feliz",
@@ -62,6 +70,8 @@ SHELTERS = [
         verificado=True,
         adopciones_cerradas=67,
         tiempo_respuesta_horas=6,
+        lat=4.6188,  # Bosa
+        lng=-74.1936,
     ),
 ]
 

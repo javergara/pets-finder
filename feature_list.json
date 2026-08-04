@@ -197,10 +197,17 @@
       "id": "14-shelter-map",
       "title": "Mapa de refugios",
       "description": "Vista de mapa con refugios cercanos y sus mascotas publicadas.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["01-foundations-data"],
-      "acceptance": []
+      "acceptance": [
+        "GET /api/shelters (sin id) lista todos los refugios con id, nombre, verificado, lat, lng y mascotas_disponibles (conteo de Pet.estado == 'disponible' de ese refugio, distinto de ShelterMetricsOut.mascotas_publicadas que cuenta el histórico total)",
+        "GET /api/shelters incluye distancia_km (haversine vía services/geo.py) solo cuando se pasa user_id y tanto el usuario como el refugio tienen lat/lng; ausente/null en cualquier otro caso, y 404 en español si user_id no existe",
+        "GET /api/shelters incluye, por refugio, la lista de sus mascotas disponibles (id, nombre, fotos) para el panel de detalle del mapa, sin requerir una llamada adicional a GET /api/pets",
+        "Existe la pantalla /mapa (fuera del guard de HomeProfile, igual que /apadrinar y /perfil) con un lienzo propio en CSS/SVG donde cada refugio se posiciona interpolando linealmente su lat/lng dentro del bounding box de Bogotá; refugios verificados se distinguen visualmente de los que no lo son",
+        "Click en un pin abre un panel con nombre del refugio, insignia de verificado, distancia (si está disponible) y una mini-lista de sus mascotas disponibles, cada una enlazando a /mascota/:id",
+        "La feature no introduce ninguna dependencia externa de mapas ni conexión a internet en runtime — verificado explícitamente por el revisor con grep de 'leaflet'/'mapbox'/'google.maps'/URLs de tiles, y confirmando que package.json/requirements no ganan una dependencia nueva de mapas"
+      ]
     },
     {
       "id": "15-public-landing",

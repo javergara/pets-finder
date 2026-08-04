@@ -6,6 +6,7 @@ import {
   type MatchWithPet,
   type Pet,
   type PetIn,
+  type ShelterMap,
   type ShelterProfile,
   type Solicitud,
   type SolicitudDetalle,
@@ -117,6 +118,11 @@ export function guardarHomeProfile(userId: number, home: HomeProfile): Promise<H
 
 export function obtenerRefugio(shelterId: number): Promise<ShelterProfile> {
   return request(`/api/shelters/${shelterId}`);
+}
+
+export function listarRefugiosMapa(userId?: number): Promise<ShelterMap[]> {
+  const query = userId !== undefined ? `?user_id=${userId}` : '';
+  return request(`/api/shelters${query}`);
 }
 
 export function listarSolicitudes(shelterId: number): Promise<Solicitud[]> {

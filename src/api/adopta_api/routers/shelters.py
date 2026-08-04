@@ -32,6 +32,8 @@ from ..models.user import User
 from ..schemas.pet import AfinidadOut
 from ..schemas.shelter import (
     DescartarIn,
+    ShelterMapOut,
+    ShelterMapPetOut,
     ShelterMetricsOut,
     ShelterProfileOut,
     SolicitanteResumen,
@@ -42,6 +44,7 @@ from ..schemas.shelter import (
 from ..schemas.user import HomeProfileOut
 from ..services.affinity import calcular_afinidad
 from ..services.db import get_session
+from ..services.geo import distancia_km
 from ..services.solicitudes import (
     TransicionInvalidaError,
     calcular_etiqueta_solicitud,
@@ -94,6 +97,67 @@ def _solicitud_detalle_out(session: Session, match: Match) -> SolicitudDetalleOu
         bio=user.bio,
         home_profile=HomeProfileOut.model_validate(home),
     )
+
+
+@router.get("", response_model=list[ShelterMapOut])
+def listar_refugios_mapa(
+    user_id: int | None = None, session: Session = Depends(get_session)
+) -> list[ShelterMapOut]:
+    """Refugios para el mapa propio en CSS/SVG (feature 14-shelter-map, sin librería de
+    mapas ni conexión a internet en runtime): cada uno con su conteo/lista de mascotas
+    disponibles y, si se pasa `user_id`, la distancia en línea recta hacia él.
+
+    `mascotas_disponibles`/`mascotas` solo cuentan `Pet.estado == "disponible"` -- es
+    distinto de `ShelterMetricsOut.mascotas_publicadas`, que cuenta el histórico total
+    de mascotas del refugio sin filtrar por estado.
+
+    `distancia_km` es `None` salvo que `user_id` sea válido y tanto el usuario como el
+    refugio tengan `lat`/`lng` no nulos (degradación elegante, mismo criterio que
+    `services/filters.py`). `user_id` inexistente -> 404 en español. Lista vacía (200,
+    no 404) si no hay refugios sembrados.
+    """
+    user_lat: float | None = None
+    user_lng: float | None = None
+    if user_id is not None:
+        user = session.get(User, user_id)
+        if user is None:
+            raise HTTPException(404, f"El usuario {user_id} no existe")
+        user_lat, user_lng = user.lat, user.lng
+
+    shelters = session.execute(select(Shelter)).scalars().all()
+
+    resultado: list[ShelterMapOut] = []
+    for shelter in shelters:
+        mascotas_disponibles = (
+            session.execute(
+                select(Pet).where(Pet.shelter_id == shelter.id, Pet.estado == "disponible")
+            )
+            .scalars()
+            .all()
+        )
+
+        distancia: float | None = None
+        if (
+            user_lat is not None
+            and user_lng is not None
+            and shelter.lat is not None
+            and shelter.lng is not None
+        ):
+            distancia = distancia_km(user_lat, user_lng, shelter.lat, shelter.lng)
+
+        resultado.append(
+            ShelterMapOut(
+                id=shelter.id,
+                nombre=shelter.nombre,
+                verificado=shelter.verificado,
+                lat=shelter.lat,
+                lng=shelter.lng,
+                mascotas_disponibles=len(mascotas_disponibles),
+                mascotas=[ShelterMapPetOut.model_validate(pet) for pet in mascotas_disponibles],
+                distancia_km=distancia,
+            )
+        )
+    return resultado
 
 
 @router.get("/{shelter_id}", response_model=ShelterProfileOut)

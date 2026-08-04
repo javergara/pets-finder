@@ -28,6 +28,8 @@ const PERFIL_BASE: UserProfile = {
   email: 'ana@example.com',
   ciudad: 'Bogotá',
   barrio: 'Chapinero',
+  lat: null,
+  lng: null,
   avatar_url: null,
   bio: 'Amo los animales y tengo experiencia con perros grandes.',
   creado_en: '2025-03-15T00:00:00Z',

@@ -1,3 +1,5 @@
+import pytest
+
 from adopta_api.models.home_profile import HomeProfile
 from adopta_api.models.match import Match
 from adopta_api.models.pet import Pet
@@ -144,6 +146,36 @@ def test_registrar_usuario_con_email_duplicado_devuelve_409_en_espanol(client, d
     detalle = respuesta.json()["detail"]
     assert user.email in detalle
     assert "Ya existe una cuenta" in detalle
+
+
+def test_obtener_perfil_expone_lat_lng(client, db_session):
+    """`UserOut.lat`/`lng` (feature 14-shelter-map): null si el usuario no tiene
+    ubicación, y el valor real si la tiene -- ambas construcciones manuales de
+    `UserOut` en routers/users.py deben pasarlos explícitamente."""
+    _shelter, _pet, user = _seed_usuario_con_matches(db_session, con_home_profile=False)
+
+    respuesta_sin_ubicacion = client.get(f"/api/users/{user.id}")
+    assert respuesta_sin_ubicacion.json()["lat"] is None
+    assert respuesta_sin_ubicacion.json()["lng"] is None
+
+    user.lat, user.lng = 4.6946, -74.0307
+    db_session.commit()
+
+    respuesta_con_ubicacion = client.get(f"/api/users/{user.id}")
+    assert respuesta_con_ubicacion.json()["lat"] == pytest.approx(4.6946)
+    assert respuesta_con_ubicacion.json()["lng"] == pytest.approx(-74.0307)
+
+
+def test_registrar_usuario_expone_lat_lng_null_por_defecto(client, db_session):
+    respuesta = client.post(
+        "/api/users",
+        json={"nombre": "Camila", "email": "camila-mapa@example.co"},
+    )
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["lat"] is None
+    assert cuerpo["lng"] is None
 
 
 def test_registrar_usuario_es_recuperable_via_get(client, db_session):

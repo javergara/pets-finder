@@ -7,6 +7,7 @@ from adopta_api.models.match import Match
 from adopta_api.models.pet import Pet
 from adopta_api.models.shelter import Shelter
 from adopta_api.models.user import User
+from adopta_api.services.geo import distancia_km
 from adopta_api.services.solicitudes import calcular_etiqueta_solicitud
 
 
@@ -87,6 +88,70 @@ def _crear_adoptante_con_home(db_session, nombre="Ana", email="ana@example.co", 
     db_session.add(home)
     db_session.flush()
     return user, home
+
+
+# --- GET /api/shelters (feature 14-shelter-map) -----------------------------
+
+
+def test_listar_refugios_mapa_sin_refugios_devuelve_200_vacio(client, db_session):
+    respuesta = client.get("/api/shelters")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+
+
+def test_listar_refugios_mapa_cuenta_solo_mascotas_disponibles(client, db_session):
+    shelter = _crear_shelter(db_session)
+    disponible_1 = _crear_pet(db_session, shelter, nombre="Firulais", estado="disponible")
+    disponible_2 = _crear_pet(db_session, shelter, nombre="Toby", estado="disponible")
+    _crear_pet(db_session, shelter, nombre="Rocky", estado="adoptado")
+
+    respuesta = client.get("/api/shelters")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert len(cuerpo) == 1
+    refugio = cuerpo[0]
+    assert refugio["mascotas_disponibles"] == 2
+    nombres = {m["nombre"] for m in refugio["mascotas"]}
+    assert nombres == {disponible_1.nombre, disponible_2.nombre}
+    assert "Rocky" not in nombres
+
+
+def test_listar_refugios_mapa_sin_user_id_distancia_es_null(client, db_session):
+    _crear_shelter(db_session, lat=4.65, lng=-74.05)
+    _crear_shelter(db_session, nombre="Refugio B", lat=None, lng=None)
+
+    respuesta = client.get("/api/shelters")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert len(cuerpo) == 2
+    assert all(refugio["distancia_km"] is None for refugio in cuerpo)
+
+
+def test_listar_refugios_mapa_con_user_id_calcula_distancia_km(client, db_session):
+    user = User(
+        nombre="Ana", email="ana-mapa@example.co", ciudad="Bogotá", lat=4.6946, lng=-74.0307
+    )
+    db_session.add(user)
+    _crear_shelter(db_session, lat=4.6486, lng=-74.0629)
+    db_session.commit()
+
+    respuesta = client.get(f"/api/shelters?user_id={user.id}")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert len(cuerpo) == 1
+    esperado = distancia_km(4.6946, -74.0307, 4.6486, -74.0629)
+    assert cuerpo[0]["distancia_km"] == pytest.approx(esperado)
+
+
+def test_listar_refugios_mapa_user_id_inexistente_devuelve_404(client, db_session):
+    respuesta = client.get("/api/shelters?user_id=9999")
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
 
 
 # --- GET /api/shelters/{id} -------------------------------------------------
