@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .models.base import Base, engine
-from .routers import chat, matches, pets, shelters, sponsorships, swipes, users
+from .routers import chat, favorites, matches, pets, shelters, sponsorships, swipes, users
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 IMAGES_DIR = REPO_ROOT / "data" / "seed" / "images"
@@ -45,6 +45,7 @@ app.include_router(matches.router)
 app.include_router(users.router)
 app.include_router(shelters.router)
 app.include_router(chat.router)
+app.include_router(favorites.router)
 
 if IMAGES_DIR.exists():
     app.mount("/media", StaticFiles(directory=str(IMAGES_DIR)), name="media")

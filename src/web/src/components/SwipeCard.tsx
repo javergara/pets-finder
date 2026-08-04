@@ -8,9 +8,10 @@ interface SwipeCardProps {
   pet: Pet;
   onSwipe: (direccion: 'like' | 'pass') => void;
   onOpenDetail: () => void;
+  onToggleFavorito: () => void;
 }
 
-export function SwipeCard({ pet, onSwipe, onOpenDetail }: SwipeCardProps) {
+export function SwipeCard({ pet, onSwipe, onOpenDetail, onToggleFavorito }: SwipeCardProps) {
   const [dx, setDx] = useState(0);
   const [arrastrando, setArrastrando] = useState(false);
   const inicioX = useRef<number | null>(null);
@@ -83,6 +84,17 @@ export function SwipeCard({ pet, onSwipe, onOpenDetail }: SwipeCardProps) {
               {pet.afinidad.score}% afín
             </span>
           )}
+          <button
+            type="button"
+            aria-label={pet.es_favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onToggleFavorito}
+            className={`ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-xl ${
+              pet.es_favorito ? 'text-forest' : 'text-muted'
+            }`}
+          >
+            {pet.es_favorito ? '♥' : '♡'}
+          </button>
         </div>
       </div>
 

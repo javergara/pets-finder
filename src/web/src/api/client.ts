@@ -29,6 +29,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const cuerpo = await respuesta.json().catch(() => ({}));
     throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
   }
+  // 204 No Content (p. ej. DELETE /favorites/{pet_id}) no trae body -- `.json()`
+  // sobre una respuesta vacía lanza `SyntaxError: Unexpected end of JSON input`.
+  if (respuesta.status === 204) {
+    return undefined as T;
+  }
   return respuesta.json() as Promise<T>;
 }
 
@@ -165,4 +170,21 @@ export function crearApadrinamiento(payload: SponsorshipIn): Promise<Sponsorship
 
 export function listarApadrinamientos(userId: number): Promise<Sponsorship[]> {
   return request(`/api/users/${userId}/sponsorships`);
+}
+
+export function marcarFavorito(userId: number, petId: number): Promise<Pet> {
+  return request(`/api/users/${userId}/favorites`, {
+    method: 'POST',
+    body: JSON.stringify({ pet_id: petId }),
+  });
+}
+
+export function desmarcarFavorito(userId: number, petId: number): Promise<void> {
+  return request(`/api/users/${userId}/favorites/${petId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function listarFavoritos(userId: number): Promise<Pet[]> {
+  return request(`/api/users/${userId}/favorites`);
 }

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..models.favorite import Favorite
 from ..models.home_profile import HomeProfile
 from ..models.pet import Pet
 from ..models.shelter import Shelter
@@ -16,7 +17,7 @@ from ..services.filters import FiltrosDeck, aplicar_filtros
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
 
-def _pet_out(pet: Pet, home: HomeProfile | None) -> PetOut:
+def _pet_out(pet: Pet, home: HomeProfile | None, favoritos: set[int] | None = None) -> PetOut:
     data = PetOut.model_validate(pet)
     data.shelter = ShelterOut.model_validate(pet.shelter)
     if home is not None:
@@ -26,6 +27,8 @@ def _pet_out(pet: Pet, home: HomeProfile | None) -> PetOut:
             explicacion=resultado.explicacion,
             incompatible=resultado.incompatible,
         )
+    if favoritos is not None:
+        data.es_favorito = pet.id in favoritos
     return data
 
 
@@ -54,6 +57,7 @@ def listar_mascotas(
     home = None
     user_lat: float | None = None
     user_lng: float | None = None
+    favoritos: set[int] | None = None
     if user_id is not None:
         home = session.get(HomeProfile, user_id)
         if home is None:
@@ -62,8 +66,11 @@ def listar_mascotas(
         if user is not None:
             user_lat = user.lat
             user_lng = user.lng
+        favoritos = set(
+            session.execute(select(Favorite.pet_id).where(Favorite.user_id == user_id)).scalars()
+        )
 
-    resultados = [_pet_out(pet, home) for pet in pets]
+    resultados = [_pet_out(pet, home, favoritos) for pet in pets]
 
     filtros = FiltrosDeck(
         especie=especie,
@@ -113,9 +120,13 @@ def obtener_mascota(
         raise HTTPException(404, "Mascota no encontrada")
 
     home = None
+    favoritos: set[int] | None = None
     if user_id is not None:
         home = session.get(HomeProfile, user_id)
         if home is None:
             raise HTTPException(404, f"El usuario {user_id} no tiene HomeProfile (cuestionario)")
+        favoritos = set(
+            session.execute(select(Favorite.pet_id).where(Favorite.user_id == user_id)).scalars()
+        )
 
-    return _pet_out(pet, home)
+    return _pet_out(pet, home, favoritos)

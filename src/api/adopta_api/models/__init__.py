@@ -1,5 +1,6 @@
 from .base import Base, SessionLocal, engine
 from .chat import Message, Thread
+from .favorite import Favorite
 from .home_profile import HomeProfile
 from .match import Match
 from .pet import Pet
@@ -21,4 +22,5 @@ __all__ = [
     "Thread",
     "Message",
     "Sponsorship",
+    "Favorite",
 ]

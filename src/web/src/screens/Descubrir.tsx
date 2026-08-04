@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listarMascotas, registrarSwipe } from '../api/client';
+import { desmarcarFavorito, listarMascotas, marcarFavorito, registrarSwipe } from '../api/client';
 import { FILTROS_DEFAULT, type Filtros, type Pet } from '../api/types';
 import { FiltrosPanel } from '../components/FiltrosPanel';
 import { MatchModal } from '../components/MatchModal';
@@ -31,6 +31,25 @@ export function Descubrir() {
     } catch {
       // El swipe nunca se bloquea por un error de red (docs/conventions.md §3);
       // ya se quitó la tarjeta de la baraja localmente.
+    }
+  }
+
+  async function handleToggleFavorito(petId: number) {
+    const mascota = mascotas?.find((m) => m.id === petId);
+    if (!mascota) return;
+    const nuevoValor = !mascota.es_favorito;
+    setMascotas((prev) =>
+      prev ? prev.map((m) => (m.id === petId ? { ...m, es_favorito: nuevoValor } : m)) : prev,
+    );
+    try {
+      if (nuevoValor) {
+        await marcarFavorito(getActiveUserId(), petId);
+      } else {
+        await desmarcarFavorito(getActiveUserId(), petId);
+      }
+    } catch {
+      // Igual que el swipe (docs/conventions.md §3): la acción optimista no se
+      // revierte por un error de red; el toggle no debe bloquear la navegación.
     }
   }
 
@@ -65,6 +84,7 @@ export function Descubrir() {
                   pet={actual}
                   onSwipe={handleSwipe}
                   onOpenDetail={() => navigate(`/mascota/${actual.id}`)}
+                  onToggleFavorito={() => handleToggleFavorito(actual.id)}
                 />
               </div>
             ) : (

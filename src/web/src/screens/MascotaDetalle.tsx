@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { mediaUrl, obtenerMascota, registrarSwipe } from '../api/client';
+import {
+  desmarcarFavorito,
+  marcarFavorito,
+  mediaUrl,
+  obtenerMascota,
+  registrarSwipe,
+} from '../api/client';
 import type { Pet } from '../api/types';
 import { getActiveUserId } from '../lib/session';
 
@@ -22,6 +28,17 @@ export function MascotaDetalle() {
     if (!pet) return;
     await registrarSwipe(getActiveUserId(), pet.id, 'like');
     navigate('/matches');
+  }
+
+  async function toggleFavorito() {
+    if (!pet) return;
+    const nuevoValor = !pet.es_favorito;
+    setPet({ ...pet, es_favorito: nuevoValor });
+    if (nuevoValor) {
+      await marcarFavorito(getActiveUserId(), pet.id);
+    } else {
+      await desmarcarFavorito(getActiveUserId(), pet.id);
+    }
   }
 
   const foto = pet.fotos[0] ? mediaUrl(pet.fotos[0]) : undefined;
@@ -47,11 +64,23 @@ export function MascotaDetalle() {
             {Math.round(pet.edad_meses / 12)} años · {pet.raza}
           </p>
         </div>
-        {pet.afinidad && (
-          <span className="rounded-full bg-forest px-3 py-1 font-mono text-sm text-bg">
-            {pet.afinidad.score}% afín
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {pet.afinidad && (
+            <span className="rounded-full bg-forest px-3 py-1 font-mono text-sm text-bg">
+              {pet.afinidad.score}% afín
+            </span>
+          )}
+          <button
+            type="button"
+            aria-label={pet.es_favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+            onClick={toggleFavorito}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border border-line text-xl ${
+              pet.es_favorito ? 'text-forest' : 'text-muted'
+            }`}
+          >
+            {pet.es_favorito ? '♥' : '♡'}
+          </button>
+        </div>
       </div>
 
       {pet.afinidad && (

@@ -8,7 +8,13 @@ import { Descubrir } from './Descubrir';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarMascotas: vi.fn(), registrarSwipe: vi.fn() };
+  return {
+    ...actual,
+    listarMascotas: vi.fn(),
+    registrarSwipe: vi.fn(),
+    marcarFavorito: vi.fn(),
+    desmarcarFavorito: vi.fn(),
+  };
 });
 
 afterEach(() => {
@@ -40,6 +46,7 @@ function crearMascota(id: number, nombre: string): Pet {
     publicado_en: '2026-01-01T00:00:00Z',
     shelter: null,
     afinidad: { score: 90, explicacion: '', incompatible: false },
+    es_favorito: false,
     lat: null,
     lng: null,
     distancia_km: null,
@@ -131,5 +138,24 @@ describe('Descubrir', () => {
 
     await screen.findByText('Rocky');
     expect(client.listarMascotas).toHaveBeenCalledTimes(1);
+  });
+
+  it('favoritear la carta actual no la remueve del array (a diferencia del swipe)', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([
+      crearMascota(1, 'Canela'),
+      crearMascota(2, 'Rocky'),
+    ]);
+    vi.mocked(client.marcarFavorito).mockResolvedValue(crearMascota(1, 'Canela'));
+
+    renderConRouter();
+
+    await screen.findByText('Canela');
+
+    fireEvent.click(screen.getByLabelText('Guardar en favoritos'));
+
+    expect(client.marcarFavorito).toHaveBeenCalledWith(DEMO_USER_ID, 1);
+    // La carta sigue siendo la misma (no se quitó del array como sí hace el swipe).
+    expect(screen.getByText('Canela')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Quitar de favoritos')).toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { RequiereHomeProfile } from './components/RequiereHomeProfile';
 import { Apadrinar } from './screens/Apadrinar';
 import { Cuestionario } from './screens/Cuestionario';
 import { Descubrir } from './screens/Descubrir';
+import { Favoritos } from './screens/Favoritos';
 import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MensajesMatch } from './screens/MensajesMatch';
 import { MensajesSolicitud } from './screens/MensajesSolicitud';
@@ -22,6 +23,9 @@ function Nav() {
       <span className="mr-4 font-display text-xl text-forest">Adopta</span>
       <NavLink to="/descubrir" className={linkClass}>
         Descubrir
+      </NavLink>
+      <NavLink to="/favoritos" className={linkClass}>
+        Favoritos
       </NavLink>
       <NavLink to="/matches" className={linkClass}>
         Mis matches
@@ -52,6 +56,7 @@ function App() {
         <Route element={<RequiereHomeProfile />}>
           <Route path="/descubrir" element={<Descubrir />} />
           <Route path="/mascota/:id" element={<MascotaDetalle />} />
+          <Route path="/favoritos" element={<Favoritos />} />
           <Route path="/matches" element={<MisMatches />} />
           <Route path="/matches/:matchId/mensajes" element={<MensajesMatch />} />
         </Route>

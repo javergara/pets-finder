@@ -181,10 +181,17 @@
       "id": "13-favorites",
       "title": "Favoritos",
       "description": "Guardar mascotas sin hacer swipe definitivo, para revisar después.",
-      "status": "todo",
+      "status": "done",
       "milestone": "backlog",
       "depends_on": ["03-pet-profile"],
-      "acceptance": []
+      "acceptance": [
+        "Un usuario puede marcar una mascota como favorita desde el deck (Descubrir) o desde su ficha (MascotaDetalle), sin que eso cuente como un swipe: la mascota sigue apareciendo en el deck",
+        "POST /api/users/{user_id}/favorites es idempotente (200 si ya existía, 201 si es nuevo) y DELETE /api/users/{user_id}/favorites/{pet_id} también (204 exista o no la fila)",
+        "GET /api/users/{user_id}/favorites devuelve la lista completa de mascotas favoritas del usuario (PetOut[]), vacía si no tiene ninguna (200, no 404)",
+        "Favoritear una mascota nunca crea un Swipe ni un Match, y nunca la excluye de GET /api/pets?user_id= (verificado con test de regresión explícito)",
+        "Existe una pantalla /favoritos (dentro del guard de HomeProfile) donde el usuario revisa sus favoritos y puede quitarlos directamente desde la lista, sin entrar a la ficha",
+        "PetOut expone es_favorito (bool, default false) calculado sin N+1 cuando se pasa user_id, igual que ya ocurre con afinidad"
+      ]
     },
     {
       "id": "14-shelter-map",

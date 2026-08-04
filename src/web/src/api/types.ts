@@ -38,6 +38,7 @@ export interface Pet {
   publicado_en: string;
   shelter: Shelter | null;
   afinidad: Afinidad | null;
+  es_favorito: boolean;
   lat: number | null;
   lng: number | null;
   distancia_km: number | null;
