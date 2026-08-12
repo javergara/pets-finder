@@ -303,3 +303,12 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `main.py`: montaje /media condicional (filesystem de solo lectura en serverless; en prod todas las fotos son URLs de Supabase).
 - Borrados: render.yaml y src/web/vercel.json. `.vercelignore` nuevo. `docs/deploy.md` reescrito (un solo proyecto Vercel con root en la raíz, 4 env vars, seed contra prod desde la máquina local, límites del free tier con la pausa semanal de Supabase). README y architecture §7 actualizados.
 - Tests: `test_vercel_entry.py` (2: /health y /api/reports vía el entry con TestClient; identidad con la app del paquete). API 55, web 58, build de producción verde.
+
+## 2026-08-12 — 14-mapa-leaflet (en revisión)
+
+- ADR 0008 (reemplaza la parte de mapa del 0005 §5): Leaflet + tiles OSM (gratis, sin API key ni tarjeta — Google Maps descartado por exigir facturación). Decisión del usuario.
+- `MapaLienzo.tsx` reescrito conservando su contrato: mapa Leaflet real con atribución, fitBounds al bounding box de la zona (incluida la vista Todo Colombia), CircleMarkers con los hex de los tokens danger/forest + tooltip, click del mapa → lat/lng reales (adiós interpolación inversa). Lista sr-only con un botón accesible por pin — ruta de lectores de pantalla y contrato testeable (guard MODE==='test': Leaflet no corre en jsdom).
+- Borrados `lib/mapa.ts` y su test (la interpolación propia ya no existe). Tests adaptados: ReportarMascota verifica el payload con el centro de la zona (el click real se verifica en navegador), ReporteDetalle verifica el pin accesible con su color. MapaReportes pasó sin cambios (ya usaba los botones por etiqueta).
+- Dependencia nueva: leaflet ^1.9.4 (+@types/leaflet en dev). Bundle 125 kB gzip (+44).
+- CHANGELOG Unreleased actualizado a 2.1.0 con las features 12-14 y el fix del letrero.
+- Verificación manual en Chrome real: /mapa muestra Colombia con tiles OSM y pins de colores; /reporte/1 muestra Armenia real con el pin de Rocky; en /reportar/perdido el click movió el pin a Montenegro con tooltip. Suites: 55 API + 52 web, build verde.

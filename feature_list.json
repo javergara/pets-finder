@@ -180,7 +180,7 @@
       "id": "14-mapa-leaflet",
       "title": "Mapa real con Leaflet + OpenStreetMap",
       "description": "El lienzo esquemático (sin calles) se percibe como roto. Decisión del usuario: mapa real con Leaflet + tiles de OpenStreetMap (gratis, sin API key ni tarjeta) en vez de Google Maps (exige facturación). MapaLienzo conserva su contrato (zona, pines con color por tipo, onClickCoords para ubicar el reporte) pero renderiza un mapa real con fitBounds por zona; se añade una lista accesible de pins (sr-only) que además mantiene testeables las pantallas. lib/mapa.ts (interpolación propia) se elimina. ADR 0008 reemplaza la parte de mapa del ADR 0005 §5.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["13-api-vercel-serverless"],
       "acceptance": [
         "El mapa renderiza tiles reales de OpenStreetMap con atribución, centrado por zona (fitBounds del bounding box de lib/ciudades.ts) incluyendo la vista Todo Colombia",

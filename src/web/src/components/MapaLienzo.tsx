@@ -1,74 +1,127 @@
-import { type MouseEvent, type ReactNode } from 'react';
-import { coordsDesdeFraccion, posicionEnMapa } from '../lib/mapa';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { type ReactNode, useEffect, useRef } from 'react';
+import { cajaDeZona } from '../lib/ciudades';
 
 export type PinMapa = {
   id: number | string;
   lat: number;
   lng: number;
-  // Token de color de fondo (design-system: perdido=bg-danger, encontrado=bg-forest).
+  // Token de color del design-system (perdido=bg-danger, encontrado=bg-forest).
   colorClass: string;
   etiqueta: string;
   onClick?: () => void;
 };
 
+// Hex reales de los tokens (src/web/src/index.css) — Leaflet pinta SVG, no clases.
+const COLOR_POR_CLASE: Record<string, string> = {
+  'bg-danger': '#9b3b2e',
+  'bg-forest': '#1f4d3a',
+};
+
 type Props = {
   zona: string;
   pines: PinMapa[];
-  // Si se pasa, un click en el lienzo (fuera de un pin) devuelve las coords
-  // interpoladas — así se pone el pin de un reporte nuevo.
+  // Si se pasa, un click en el mapa devuelve las coords reales del punto —
+  // así se ubica el pin de un reporte nuevo.
   onClickCoords?: (coords: { lat: number; lng: number }) => void;
   children?: ReactNode;
 };
 
-// Lienzo del mapa propio en CSS puro (ADR 0005 §5): sin tiles ni red en runtime.
-// El bounding box activo lo decide `zona` (lib/ciudades.ts); "Colombia"/"Otro"
-// usan el lienzo nacional.
+function redondear(valor: number): number {
+  return Math.round(valor * 10000) / 10000;
+}
+
+// Mapa real con Leaflet + tiles de OpenStreetMap (ADR 0008): gratis, sin API key.
+// Además del mapa, cada pin se renderiza como botón accesible (sr-only) — es la
+// ruta para lectores de pantalla y lo que ejercitan los tests (Leaflet no se
+// inicializa en Vitest/jsdom, ver el guard de MODE==='test').
 export function MapaLienzo({ zona, pines, onClickCoords, children }: Props) {
-  function handleClick(e: MouseEvent<HTMLDivElement>) {
-    if (!onClickCoords) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const fx = (e.clientX - rect.left) / rect.width;
-    const fy = (e.clientY - rect.top) / rect.height;
-    onClickCoords(coordsDesdeFraccion(fx, fy, zona));
-  }
+  const contenedorRef = useRef<HTMLDivElement>(null);
+  const mapaRef = useRef<L.Map | null>(null);
+  const capaPinesRef = useRef<L.LayerGroup | null>(null);
+  const onClickCoordsRef = useRef(onClickCoords);
+  onClickCoordsRef.current = onClickCoords;
+
+  useEffect(() => {
+    // jsdom no puede medir el contenedor ni cargar tiles: en tests el mapa real
+    // no se monta y el contrato del componente se verifica por la lista sr-only.
+    if (import.meta.env.MODE === 'test') return;
+    if (!contenedorRef.current || mapaRef.current) return;
+
+    const mapa = L.map(contenedorRef.current);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
+    }).addTo(mapa);
+    mapa.on('click', (e: L.LeafletMouseEvent) => {
+      onClickCoordsRef.current?.({
+        lat: redondear(e.latlng.lat),
+        lng: redondear(e.latlng.lng),
+      });
+    });
+    capaPinesRef.current = L.layerGroup().addTo(mapa);
+    mapaRef.current = mapa;
+
+    return () => {
+      mapa.remove();
+      mapaRef.current = null;
+      capaPinesRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const caja = cajaDeZona(zona);
+    mapaRef.current?.fitBounds([
+      [caja.latMin, caja.lngMin],
+      [caja.latMax, caja.lngMax],
+    ]);
+  }, [zona]);
+
+  useEffect(() => {
+    const capa = capaPinesRef.current;
+    if (!capa) return;
+    capa.clearLayers();
+    for (const pin of pines) {
+      const marcador = L.circleMarker([pin.lat, pin.lng], {
+        radius: 9,
+        color: '#fffdf8',
+        weight: 2,
+        fillColor: COLOR_POR_CLASE[pin.colorClass] ?? '#b57c2e',
+        fillOpacity: 1,
+      });
+      marcador.bindTooltip(pin.etiqueta);
+      if (pin.onClick) {
+        marcador.on('click', pin.onClick);
+      }
+      marcador.addTo(capa);
+    }
+  }, [pines]);
 
   return (
-    // biome/oxlint: el click del lienzo es progresivo — cada acción tiene su
-    // alternativa accesible (inputs de zona/coords en el formulario).
-    <div
-      data-testid="mapa-lienzo"
-      onClick={handleClick}
-      className={`relative w-full overflow-hidden rounded-2xl border border-line bg-surface-alt ${
-        onClickCoords ? 'cursor-crosshair' : ''
-      } aspect-4/3`}
-    >
-      {/* Retícula sutil para dar sensación de mapa sin tiles externos. */}
+    <div className="relative">
       <div
-        aria-hidden
-        className="absolute inset-0"
-        style={{
-          backgroundImage:
-            'linear-gradient(#e4ddce66 1px, transparent 1px), linear-gradient(90deg, #e4ddce66 1px, transparent 1px)',
-          backgroundSize: '2rem 2rem',
-        }}
+        ref={contenedorRef}
+        data-testid="mapa-lienzo"
+        className={`aspect-4/3 w-full overflow-hidden rounded-2xl border border-line bg-surface-alt ${
+          onClickCoords ? 'cursor-crosshair' : ''
+        }`}
       />
-      {pines.map((pin) => {
-        const { left, top } = posicionEnMapa(pin.lat, pin.lng, zona);
-        return (
-          <button
-            key={pin.id}
-            type="button"
-            title={pin.etiqueta}
-            aria-label={pin.etiqueta}
-            onClick={(e) => {
-              e.stopPropagation();
-              pin.onClick?.();
-            }}
-            className={`absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg shadow ${pin.colorClass}`}
-            style={{ left, top }}
-          />
-        );
-      })}
+      {/* Equivalente accesible del mapa: un botón real por pin. */}
+      <ul className="sr-only">
+        {pines.map((pin) => (
+          <li key={pin.id}>
+            <button
+              type="button"
+              className={pin.colorClass}
+              aria-label={pin.etiqueta}
+              onClick={pin.onClick}
+            >
+              {pin.etiqueta}
+            </button>
+          </li>
+        ))}
+      </ul>
       {children}
     </div>
   );

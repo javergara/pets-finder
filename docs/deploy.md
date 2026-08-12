@@ -12,6 +12,8 @@ Navegante ──▶ Vercel (un solo proyecto, plan Hobby gratis)
 
 En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `http://127.0.0.1:8000`).
 
+> Repo remoto: `git@github.com:javergara/pets-finder.git`, con rama por defecto `main`. Si se re-publica en otro remoto, pushear también el archivo de la era Adopta: `git push -u origin main develop adopta-v1 --tags`.
+
 ## 1. Supabase (la persistencia)
 
 1. Crear el proyecto: desde el dashboard de Vercel → **Storage → Marketplace → Supabase** (o directo en [supabase.com](https://supabase.com), gratis, sin tarjeta).
