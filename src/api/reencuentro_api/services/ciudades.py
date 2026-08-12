@@ -58,6 +58,15 @@ ZONAS: dict[str, dict[str, float]] = {
         "centro_lat": 4.65,
         "centro_lng": -74.08,
     },
+    # Valle de Aburrá completo: Medellín + Bello (norte) e Itagüí/Envigado (sur).
+    "Medellín": {
+        "lat_min": 6.13,
+        "lat_max": 6.36,
+        "lng_min": -75.66,
+        "lng_max": -75.50,
+        "centro_lat": 6.244,
+        "centro_lng": -75.581,
+    },
 }
 
 COLOMBIA: dict[str, float] = {

@@ -60,17 +60,18 @@ describe('Registro', () => {
     expect(selectCiudad).toHaveValue('Armenia');
 
     const opciones = Array.from(selectCiudad.querySelectorAll('option')).map((o) => o.value);
-    // Las 6 zonas con mapa propio encabezan la lista, en su orden.
-    expect(opciones.slice(0, 6)).toEqual([
+    // Las 7 zonas con mapa propio encabezan la lista, en su orden.
+    expect(opciones.slice(0, 7)).toEqual([
       'Armenia',
       'Pereira',
       'Manizales',
       'Cali',
       'Quibdó',
       'Bogotá',
+      'Medellín',
     ]);
     // Muestra de capitales departamentales del resto del país.
-    for (const capital of ['Medellín', 'Barranquilla', 'Bucaramanga', 'Leticia', 'Pasto']) {
+    for (const capital of ['Cartagena', 'Barranquilla', 'Bucaramanga', 'Leticia', 'Pasto']) {
       expect(opciones).toContain(capital);
     }
   });

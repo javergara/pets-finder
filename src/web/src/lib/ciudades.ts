@@ -60,6 +60,15 @@ export const ZONAS: Record<string, BoundingBox> = {
     centroLat: 4.65,
     centroLng: -74.08,
   },
+  // Valle de Aburrá completo: Medellín + Bello (norte) e Itagüí/Envigado (sur).
+  Medellín: {
+    latMin: 6.13,
+    latMax: 6.36,
+    lngMin: -75.66,
+    lngMax: -75.5,
+    centroLat: 6.244,
+    centroLng: -75.581,
+  },
 };
 
 // Lienzo nacional (continental, sin San Andrés): vista agregada del mapa y
@@ -93,7 +102,6 @@ export const OTRAS_CIUDADES_COLOMBIA = [
   'Ibagué',
   'Inírida',
   'Leticia',
-  'Medellín',
   'Mitú',
   'Mocoa',
   'Montería',

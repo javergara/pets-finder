@@ -340,7 +340,7 @@
       "id": "26-zona-medellin",
       "title": "Medellín como zona con mapa propio",
       "description": "Inspirado en el referente reunemascotas.brannd.com.co (app hermana del mismo terremoto), que cubre Medellín y Palmira como zonas propias. Medellín es la segunda ciudad del país y hoy sus reportes caen en 'Otro' (pin sobre el mapa nacional, sin filtro de zona útil). Añadir Medellín (área urbana + Bello/Itagüí/Envigado en el bounding box) a services/ciudades.py y lib/ciudades.ts (duplicado consciente: cambiar AMBOS), selector de zona en reportar/listado/mapa, y opcionalmente 1-2 reportes de seed. Evaluar Palmira en la misma feature (hoy es texto libre bajo 'Otro').",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "Medellín aparece como zona en reportar, filtros del listado y selector del mapa, con bounding box que contiene su centro declarado (test comparativo backend↔frontend)",

@@ -119,7 +119,7 @@ def test_encontrado_con_nombre_mascota_devuelve_422(client, usuario):
 
 
 def test_zona_desconocida_devuelve_422(client, usuario):
-    respuesta = client.post("/api/reports", json=_payload_perdido(usuario, zona="Medellín"))
+    respuesta = client.post("/api/reports", json=_payload_perdido(usuario, zona="Palmira"))
 
     assert respuesta.status_code == 422
     assert "Zona desconocida" in str(respuesta.json())
