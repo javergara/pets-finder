@@ -40,3 +40,16 @@ El terremoto del Eje Cafetero (10 de agosto de 2026) separó a miles de mascotas
 4. El reporte aparece en el listado (filtros tipo/especie/zona) y en el mapa (color por tipo).
 5. En el detalle de un reporte: contacto directo + posibles coincidencias del tipo opuesto.
 6. Cuando la mascota vuelve a casa: el autor la marca "reunida" → sale de las vistas activas y alimenta el contador de reencuentros de la landing.
+
+## 6. Benchmark post-lanzamiento: Reúne Mascotas (2026-08-12)
+
+Evaluación de <https://reunemascotas.brannd.com.co/> — app hermana del **mismo terremoto** (pedida por el usuario como fuente de features). Es más simple que Pet Finder Col: reporte sin cuenta (solo nombre + WhatsApp), una foto comprimida, raza/color como texto libre, mapa "por zonas" clickeable sin pins reales, sin coincidencias, sin características filtrables, sin eliminar/editar.
+
+**Lo que ya cubrimos igual o mejor**: compresión de fotos, contacto por WhatsApp, filtros por especie/estado/zona, mapa (el nuestro con pins reales Leaflet), coincidencias, contador de reunidos, características predefinidas.
+
+**Lo que vale la pena adoptar** (entró al backlog):
+- **Cobertura de Medellín** (y Palmira) como zona propia — ellos la tienen, nosotros la mandamos a "Otro" (`26-zona-medellin`).
+- **Vista pública "Solo reunidos"** — navegar las historias de esperanza, no solo el contador (`27-vista-reencuentros`).
+- Su formulario ultra liviano confirma la decisión del registro mínimo: no adoptamos "reportar sin cuenta" porque perderíamos marcar-reunido y eliminar (ligados a autoría), pero refuerza mantener el registro en 3 campos.
+
+Además del benchmark, entraron mejoras realistas de lo ya construido: avistamientos de terceros (`28`, patrón PawBoost/Love Lost), edición completa del reporte (`29`), búsqueda + paginación (`30`) y pin por geolocalización (`31`).

@@ -396,3 +396,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `CLAUDE.md`: qué-es y estado actual reescritos — app en producción en petfinder-col.com, marca Pet Finder Col, arquitectura real (Vercel serverless + Supabase, ya no "Vercel + Render"), reglas duras de prod.
 - `README.md`: estado 2.1.0 en producción. `CHANGELOG.md`: `[2.1.0] - 2026-08-12` fechado con las features 12-19 + fixes + marca; `[Unreleased]` apunta al backlog.
 - `progress/current.md`: estado vivo reescrito (fase cerrada, fixes post-19, backlog); eliminado el "Próximo paso" obsoleto de la era feature 10. `progress/history.md`: entrada de cierre del deploy real. `memory/memory.md`: gotchas de producción (wheels cp314, migraciones antes del merge, cachés DNS/favicon, verificación de deploy por poll del bundle, clasificador en push a main, .strip() en env vars).
+
+## 2026-08-12 — Backlog ampliado: benchmark de Reúne Mascotas + mejoras realistas (26-31)
+
+- Evaluado <https://reunemascotas.brannd.com.co/> (app hermana del mismo terremoto) — análisis en docs/product-research.md §6. Adoptables: Medellín como zona propia y vista pública de reunidos; su reporte-sin-cuenta NO se adopta (romperia autoría de reunido/eliminar).
+- `feature_list.json`: +6 features en `todo` — 26-zona-medellin, 27-vista-reencuentros, 28-avistamientos, 29-editar-reporte-completo, 30-busqueda-y-paginacion, 31-pin-mi-ubicacion. `validate_feature_list.py` exit 0.

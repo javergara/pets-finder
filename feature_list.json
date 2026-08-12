@@ -335,6 +335,84 @@
         "Website Builder desconectado del dominio en GoDaddy",
         "Nota en docs/deploy.md marcando estos pasos como hechos"
       ]
+    },
+    {
+      "id": "26-zona-medellin",
+      "title": "Medellín como zona con mapa propio",
+      "description": "Inspirado en el referente reunemascotas.brannd.com.co (app hermana del mismo terremoto), que cubre Medellín y Palmira como zonas propias. Medellín es la segunda ciudad del país y hoy sus reportes caen en 'Otro' (pin sobre el mapa nacional, sin filtro de zona útil). Añadir Medellín (área urbana + Bello/Itagüí/Envigado en el bounding box) a services/ciudades.py y lib/ciudades.ts (duplicado consciente: cambiar AMBOS), selector de zona en reportar/listado/mapa, y opcionalmente 1-2 reportes de seed. Evaluar Palmira en la misma feature (hoy es texto libre bajo 'Otro').",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "Medellín aparece como zona en reportar, filtros del listado y selector del mapa, con bounding box que contiene su centro declarado (test comparativo backend↔frontend)",
+        "Un reporte creado en Medellín se filtra por esa zona y su pin cae dentro del encuadre del mapa de Medellín",
+        "Los reportes existentes con zona 'Otro' y ciudad_texto Medellín siguen visibles (sin migración destructiva; decidir si se re-zonifican a mano en prod)",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "27-vista-reencuentros",
+      "title": "Vista pública de reencuentros (historias de esperanza)",
+      "description": "Inspirado en el filtro 'Solo reunidos' de reunemascotas.brannd.com.co. Hoy el API ya soporta estado=reunido pero la UI solo muestra el contador y los 6 recientes de la landing — los reencuentros completos no son navegables. Añadir filtro de estado 'Reunidos' en el listado (y/o página /reencuentros enlazada desde la franja de la landing), con las tarjetas en tono celebratorio (badge forest 'Reunida 💚') y el detalle ya existente. Es la métrica de esperanza convertida en contenido compartible.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "Desde la landing (franja de reencuentros) se llega a la vista completa de reunidos",
+        "El listado permite ver los reunidos (filtro o página propia) con badge celebratorio, sin mezclarlos en la vista activa por defecto",
+        "El mapa puede mostrar 'solo reunidos' como capa/filtro",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "28-avistamientos",
+      "title": "Avistamientos: 'la vi por aquí' de terceros en un reporte perdido",
+      "description": "Mejora realista del detalle (patrón de PawBoost/Love Lost, y el caso real que las apps de emergencia resuelven mal con solo WhatsApp): alguien ve la mascota perdida pero no puede atraparla — hoy solo puede escribir por WhatsApp y esa pista se pierde para los demás. Nuevo modelo Sighting (report_id FK, lat/lng por pin en el mapa, fecha, comentario corto, nombre opcional de quien avisa), visible como pins secundarios en el mini-mapa del detalle y lista cronológica ('Vista el 12/08 cerca al parque'). Solo en reportes perdidos activos; sin registro obligatorio para avisar (decidir con el usuario).",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "Cualquiera puede añadir un avistamiento a un reporte perdido activo con pin en el mapa + fecha + comentario (validación y tests del endpoint)",
+        "El detalle muestra los avistamientos como pins secundarios distinguibles del pin principal y como lista cronológica",
+        "Los avistamientos no aparecen en reportes encontrados ni reunidos",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "29-editar-reporte-completo",
+      "title": "Edición completa del reporte por su autor",
+      "description": "Mejora de lo actual: PUT /api/reports/{id} y la edición en /mis-reportes solo cubren descripción y teléfono. El autor debería poder corregir también foto (re-subir), características (raza/color/tamaño), barrio, fecha y ubicación del pin — errores de dedo al reportar con afán son la norma en una emergencia. Ampliar ReportUpdate (campos opcionales, misma validación condicional del ReportIn), y una pantalla/modo de edición reutilizando el formulario de ReportarMascota precargado.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "El autor edita foto, características, barrio, fecha y pin desde la UI y los cambios persisten (tests de API para cada campo)",
+        "Un no-autor sigue recibiendo 403; los campos no enviados no se tocan",
+        "El formulario de edición llega precargado con los valores actuales y valida igual que el de creación",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "30-busqueda-y-paginacion",
+      "title": "Búsqueda por texto y paginación del listado",
+      "description": "Mejora de escalabilidad de lo actual: GET /api/reports devuelve TODO y el listado lo pinta completo — con cientos de reportes reales será lento y difícil de escanear. Añadir búsqueda por texto libre (nombre_mascota, descripción, barrio, ciudad_texto — ILIKE en Postgres/SQLite) combinable con los filtros existentes, y paginación (limit/offset con total en el response, botón 'Cargar más' en la UI conservando filtros).",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "GET /api/reports acepta q= (busca en nombre/descripcion/barrio/ciudad_texto, case-insensitive) combinable con los filtros existentes (tests)",
+        "GET /api/reports pagina con limit/offset y devuelve el total; el orden se mantiene estable entre páginas",
+        "El listado tiene campo de búsqueda y 'Cargar más' que acumula resultados sin perder filtros",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "31-pin-mi-ubicacion",
+      "title": "Usar mi ubicación: geolocalización del navegador para el pin y el mapa",
+      "description": "Mejora móvil realista de lo actual: quien encuentra una mascota está parado exactamente donde la encontró — botón 'Usar mi ubicación' (navigator.geolocation) en el formulario de reportar que pone el pin en sus coordenadas (si caen dentro de la zona elegida; si no, ofrecer cambiar de zona o dejar el pin manual), y botón equivalente en /mapa para centrar el encuadre. Con fallbacks: permiso denegado o sin señal → flujo actual intacto.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "En reportar, 'Usar mi ubicación' coloca el pin en las coords reales del dispositivo con feedback visual; denegar el permiso deja el flujo manual intacto (tests con mock de geolocation)",
+        "Si las coords caen fuera de la zona elegida se le ofrece al usuario la corrección (cambiar zona o ignorar)",
+        "En /mapa un botón centra la vista en la ubicación del usuario",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }
