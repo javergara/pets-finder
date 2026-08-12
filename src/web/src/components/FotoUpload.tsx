@@ -49,11 +49,13 @@ export function FotoUpload({ onFotoSubida }: Props) {
       <label htmlFor="foto-upload" className="text-sm font-medium text-ink-soft">
         Foto de la mascota
       </label>
+      {/* Preview sin recorte (object-contain): debe verse tal cual quedará la
+          foto en el detalle, no una versión 4:3 que engaña sobre el encuadre. */}
       {preview && (
         <img
           src={preview}
           alt="Vista previa de la foto elegida"
-          className="aspect-4/3 w-full rounded-xl border border-line object-cover"
+          className="max-h-80 w-full rounded-xl border border-line bg-surface-alt object-contain"
         />
       )}
       <input
