@@ -1,3 +1,25 @@
+// Procedencia de un reporte creado por el crawler de redes (ADR 0009). Un post
+// con varias mascotas produce varios reportes que comparten url_post y se
+// distinguen por indice_mascota. Unión discriminada por `plataforma` (espejo
+// del schema de la API): cada plataforma aporta sus campos propios sobre la
+// base común. Se llama plataforma y no "red" porque no todo origen es una red
+// social (WhatsApp es mensajería).
+type CrawlMetadataBase = {
+  url_post: string | null;
+  autor_handle: string | null;
+  fecha_post: string | null;
+  texto_original: string | null;
+  modelo_extraccion: string | null;
+  confianza: number | null;
+  indice_mascota: number;
+  total_mascotas: number;
+};
+
+export type CrawlMetadata =
+  | (CrawlMetadataBase & { plataforma: 'instagram' | 'x' | 'tiktok' | 'desconocida' })
+  | (CrawlMetadataBase & { plataforma: 'facebook'; grupo?: string | null })
+  | (CrawlMetadataBase & { plataforma: 'whatsapp'; nombre_grupo?: string | null });
+
 export type Reporte = {
   id: number;
   user_id: number;
@@ -16,7 +38,11 @@ export type Reporte = {
   lng: number;
   situacion: 'conmigo' | 'vista' | null;
   fecha_evento: string;
-  telefono_contacto: string;
+  // Null solo en reportes con fuente 'crawl': el contacto es el post original.
+  telefono_contacto: string | null;
+  fuente: 'manual' | 'crawl';
+  crawl_metadata: CrawlMetadata | null;
+  idempotency_id: string | null;
   estado: 'activo' | 'reunido';
   creado_en: string;
   resuelto_en: string | null;

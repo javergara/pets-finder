@@ -40,7 +40,7 @@ export function MisReportes() {
   function abrirEdicion(reporte: Reporte) {
     setEditando(reporte);
     setDescripcion(reporte.descripcion);
-    setTelefono(reporte.telefono_contacto);
+    setTelefono(reporte.telefono_contacto ?? '');
   }
 
   async function handleGuardarEdicion(e: FormEvent<HTMLFormElement>) {

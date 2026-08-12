@@ -17,6 +17,36 @@ export function urlTelefono(telefono: string): string {
   return `tel:+${normalizar(telefono)}`;
 }
 
+// URL del perfil de quien publicó un post crawleado (ADR 0009), derivada del
+// handle cuando el pantallazo no dejó leer la URL del post. Para WhatsApp el
+// "handle" visible suele ser el número de quien publicó → wa.me si es un
+// teléfono plausible. 'desconocida' no tiene forma canónica de perfil → null.
+export function urlPerfilPlataforma(
+  plataforma: 'instagram' | 'facebook' | 'whatsapp' | 'x' | 'tiktok' | 'desconocida',
+  handle: string,
+): string | null {
+  const limpio = handle.trim().replace(/^@/, '');
+  if (!limpio) return null;
+  switch (plataforma) {
+    case 'instagram':
+      return `https://www.instagram.com/${limpio}/`;
+    case 'facebook':
+      return `https://www.facebook.com/${limpio}`;
+    case 'x':
+      return `https://x.com/${limpio}`;
+    case 'tiktok':
+      return `https://www.tiktok.com/@${limpio}`;
+    case 'whatsapp': {
+      const digitos = limpio.replace(/\D/g, '');
+      return digitos.length >= 7
+        ? `https://wa.me/${digitos.length === 10 ? `57${digitos}` : digitos}`
+        : null;
+    }
+    default:
+      return null;
+  }
+}
+
 // Mensaje precargado: menciona el reporte (nombre o especie) y la app, para
 // que quien recibe el WhatsApp entienda de inmediato de qué se trata.
 export function mensajeContacto(tipo: 'perdido' | 'encontrado', etiqueta: string): string {

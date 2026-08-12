@@ -49,6 +49,9 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
     situacion: null,
     fecha_evento: '2026-08-10',
     telefono_contacto: '3001234561',
+    fuente: 'manual',
+    crawl_metadata: null,
+    idempotency_id: null,
     estado: 'activo',
     creado_en: '2026-08-12T08:00:00',
     resuelto_en: null,
@@ -341,5 +344,99 @@ describe('ReporteDetalle', () => {
 
     await screen.findByRole('heading', { name: 'Perro' });
     expect(screen.queryByText('Avistamientos')).not.toBeInTheDocument();
+  });
+
+  // --- Reportes del crawler (ADR 0009) ---
+
+  it('un reporte crawleado sin teléfono ofrece la publicación original en vez de WhatsApp', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({
+        user_id: 2,
+        telefono_contacto: null,
+        fuente: 'crawl',
+        crawl_metadata: {
+          plataforma: 'instagram',
+          url_post: 'https://www.instagram.com/p/ABC123/',
+          autor_handle: 'rescate.cali',
+          fecha_post: '2026-08-11',
+          texto_original: null,
+          modelo_extraccion: 'llamaextract',
+          confianza: 0.87,
+          indice_mascota: 0,
+          total_mascotas: 1,
+        },
+      }),
+    );
+
+    renderDetalle();
+
+    const original = await screen.findByRole('link', { name: 'Ver publicación original' });
+    expect(original.getAttribute('href')).toBe('https://www.instagram.com/p/ABC123/');
+    expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Llamar' })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Encontrado en Instagram, publicado por @rescate\.cali\. La información fue extraída automáticamente/,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('un reporte crawleado solo con handle ofrece el perfil de quien publicó', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({
+        user_id: 2,
+        telefono_contacto: null,
+        fuente: 'crawl',
+        crawl_metadata: {
+          plataforma: 'instagram',
+          url_post: null,
+          autor_handle: 'rescate.cali',
+          fecha_post: null,
+          texto_original: null,
+          modelo_extraccion: 'llamaextract',
+          confianza: 0.7,
+          indice_mascota: 0,
+          total_mascotas: 1,
+        },
+      }),
+    );
+
+    renderDetalle();
+
+    const perfil = await screen.findByRole('link', { name: 'Ver perfil de quien publicó' });
+    expect(perfil.getAttribute('href')).toBe('https://www.instagram.com/rescate.cali/');
+    expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).not.toBeInTheDocument();
+  });
+
+  it('un reporte crawleado CON teléfono mantiene los botones de contacto de siempre', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({
+        user_id: 2,
+        fuente: 'crawl',
+        crawl_metadata: {
+          plataforma: 'facebook',
+          grupo: 'Mascotas Perdidas Armenia',
+          url_post: null,
+          autor_handle: 'rescates.armenia',
+          fecha_post: null,
+          texto_original: null,
+          modelo_extraccion: 'llamaextract',
+          confianza: 0.9,
+          indice_mascota: 0,
+          total_mascotas: 1,
+        },
+      }),
+    );
+
+    renderDetalle();
+
+    expect(await screen.findByRole('link', { name: 'Contactar por WhatsApp' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Ver publicación original' }),
+    ).not.toBeInTheDocument();
+    // La variante de Facebook muestra también el grupo donde se publicó.
+    expect(
+      screen.getByText(/Encontrado en Facebook \(grupo Mascotas Perdidas Armenia\)/),
+    ).toBeInTheDocument();
   });
 });

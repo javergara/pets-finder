@@ -36,7 +36,7 @@ export function EditarReporte() {
       }
       setReporte(r);
       setDescripcion(r.descripcion);
-      setTelefono(r.telefono_contacto);
+      setTelefono(r.telefono_contacto ?? '');
       setBarrio(r.barrio ?? '');
       setFechaEvento(r.fecha_evento);
       setRaza(r.raza ?? '');

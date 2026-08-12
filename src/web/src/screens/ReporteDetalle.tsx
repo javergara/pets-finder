@@ -13,6 +13,7 @@ import {
 import type { Avistamiento, Coincidencia, Reporte } from '../api/types';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
+import { urlPerfilPlataforma } from '../lib/contacto';
 import { getActiveUserId } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 
@@ -26,6 +27,15 @@ const ETIQUETA_ESPECIE = { perro: 'Perro', gato: 'Gato', otro: 'Otro animal' } a
 const ETIQUETA_SITUACION = {
   conmigo: 'La tiene resguardada quien la reportó',
   vista: 'Fue vista, pero no la pudieron atrapar',
+} as const;
+
+const ETIQUETA_PLATAFORMA = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  whatsapp: 'WhatsApp',
+  x: 'X',
+  tiktok: 'TikTok',
+  desconocida: 'redes sociales',
 } as const;
 
 function formatearFecha(iso: string): string {
@@ -70,6 +80,11 @@ export function ReporteDetalle() {
   const tipo = ETIQUETA_TIPO[reporte.tipo];
   const titulo = reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie];
   const lugar = reporte.zona === 'Otro' ? reporte.ciudad_texto ?? 'Colombia' : reporte.zona;
+  const enlaceOriginal =
+    reporte.crawl_metadata?.url_post ??
+    (reporte.crawl_metadata?.autor_handle
+      ? urlPerfilPlataforma(reporte.crawl_metadata.plataforma, reporte.crawl_metadata.autor_handle)
+      : null);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6 pb-24">
@@ -363,14 +378,50 @@ export function ReporteDetalle() {
 
       {reporte.estado === 'activo' && (
         <section className="rounded-2xl border border-line bg-surface p-6">
-          <h2 className="mb-2 font-display text-lg text-ink">
-            {reporte.tipo === 'perdido' ? '¿La viste? Avísale a su familia' : '¿Es tuya? Escríbele'}
-          </h2>
-          <ContactoBotones
-            tipo={reporte.tipo}
-            etiqueta={titulo}
-            telefono={reporte.telefono_contacto}
-          />
+          {/* Reporte crawleado sin teléfono (ADR 0009): el contacto es el post
+              original — y a falta de su URL, el perfil de quien publicó. Sin
+              nada accionable no se promete contacto (solo la procedencia). */}
+          {(reporte.telefono_contacto || enlaceOriginal) && (
+            <h2 className="mb-2 font-display text-lg text-ink">
+              {reporte.tipo === 'perdido'
+                ? '¿La viste? Avísale a su familia'
+                : '¿Es tuya? Escríbele'}
+            </h2>
+          )}
+          {reporte.telefono_contacto ? (
+            <ContactoBotones
+              tipo={reporte.tipo}
+              etiqueta={titulo}
+              telefono={reporte.telefono_contacto}
+            />
+          ) : enlaceOriginal ? (
+            <a
+              href={enlaceOriginal}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block rounded-full bg-forest px-5 py-3 font-medium text-bg"
+            >
+              {reporte.crawl_metadata?.url_post
+                ? 'Ver publicación original'
+                : 'Ver perfil de quien publicó'}
+            </a>
+          ) : null}
+          {reporte.fuente === 'crawl' && reporte.crawl_metadata && (
+            <p className="mt-3 text-sm text-muted">
+              Encontrado en {ETIQUETA_PLATAFORMA[reporte.crawl_metadata.plataforma]}
+              {reporte.crawl_metadata.plataforma === 'facebook' && reporte.crawl_metadata.grupo
+                ? ` (grupo ${reporte.crawl_metadata.grupo})`
+                : ''}
+              {reporte.crawl_metadata.plataforma === 'whatsapp' &&
+              reporte.crawl_metadata.nombre_grupo
+                ? ` (grupo ${reporte.crawl_metadata.nombre_grupo})`
+                : ''}
+              {reporte.crawl_metadata.autor_handle
+                ? `, publicado por @${reporte.crawl_metadata.autor_handle}`
+                : ''}
+              . La información fue extraída automáticamente: verifícala en la publicación.
+            </p>
+          )}
         </section>
       )}
 
