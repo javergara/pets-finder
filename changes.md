@@ -323,7 +323,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Bucket `fotos` creado vía API y seed corrido contra producción (autorización explícita del usuario): 5 usuarios + 17 reportes + fotos en el bucket, verificado fila a fila y por GET público.
 - Verificación final de producción: health, 15 activos con fotos del bucket, filtros, reunidos (2), coincidencias (0.6 km), 404 español, SPA fallback.
 
-## 2026-08-12 — 15-caracteristicas-busqueda (en revisión)
+## 2026-08-12 — 15-caracteristicas-busqueda — commit e6743ad (migración de prod aplicada antes del merge)
 
 - Pedido del usuario: características predefinidas al reportar y filtros por ellas al buscar.
 - `models/report.py`: columnas nullable `raza`/`color`/`tamano` (nullable también porque los reportes pre-feature no las tienen). `schemas`: ReportIn/Out con los campos; `tamano` como Literal pequeño|mediano|grande (422 si no).

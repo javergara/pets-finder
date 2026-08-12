@@ -194,7 +194,7 @@
       "id": "15-caracteristicas-busqueda",
       "title": "Características predefinidas (raza, color, tamaño) para reportar y filtrar",
       "description": "Pedido del usuario: al reportar, selects con opciones predefinidas — raza (listas por especie, con Criollo/mestizo y Otra), color (paleta fija de pelajes) y tamaño (pequeño/mediano/grande) — antes del texto libre de descripción; y en el listado, filtros por esas mismas características para que quien busca encuentre por rasgos. Columnas nullable nuevas en Report (raza, color, tamano), filtros exactos en GET /api/reports, chips en ReporteCard y línea de características en el detalle. Migración de producción: ALTER TABLE aditivo ANTES del deploy + backfill de los 17 reportes del seed en prod (sin drop).",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["14-mapa-leaflet"],
       "acceptance": [
         "El formulario de reportar ofrece raza (opciones según la especie elegida; oculta para 'otro'), color y tamaño como selects opcionales predefinidos, antes de la descripción libre, y el payload los envía solo si se eligieron",
