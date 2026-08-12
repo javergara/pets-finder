@@ -356,7 +356,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `src/web/src/screens/Registro.tsx`: campo Ciudad ahora es `<select>` con optgroups "Zonas con mapa propio" (orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Mismo id/label/clases; backend intacto (`User.ciudad` string libre, así los valores históricos de prod siguen válidos).
 - `src/web/src/screens/Registro.test.tsx`: +2 tests (el campo es un SELECT con las 6 zonas primero y las capitales presentes; la ciudad elegida se envía tal cual). `bash init.sh` verde: 65 API + 58 web.
 
-## 2026-08-12 — Feature 18: el autor puede eliminar su reporte (commit: en revisión)
+## 2026-08-12 — Feature 18: el autor puede eliminar su reporte (commit: 88e281e)
 
 - Pedido del usuario: quien postea un reporte puede también eliminarlo.
 - `routers/reports.py`: `DELETE /api/reports/{report_id}?user_id=` — 204 autor, 403 ajeno ("Solo quien creó el reporte puede eliminarlo"), 404 inexistente. La foto en Storage/local NO se borra (huérfana aceptada: el endpoint no recibe credenciales de borrado del bucket; documentado en docstring).
