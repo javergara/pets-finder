@@ -35,7 +35,9 @@ def _config_supabase() -> tuple[str, str, str] | None:
     """Lee la config del entorno en el momento de la llamada (no al importar):
     así los tests pueden activarla/desactivarla con monkeypatch.setenv."""
     url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-    key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    # SUPABASE_SERVICE_ROLE_KEY es el nombre que inyecta la integración
+    # Vercel×Supabase del Marketplace; SUPABASE_SERVICE_KEY, el nuestro.
+    key = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     if not url or not key:
         return None
     bucket = os.environ.get("SUPABASE_BUCKET", "fotos")
