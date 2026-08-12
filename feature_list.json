@@ -203,6 +203,20 @@
         "tamano inválido responde 422; los campos son opcionales y los reportes existentes (null) siguen apareciendo sin filtros",
         "bash init.sh en verde; el seed local incluye características coherentes con las historias"
       ]
+    },
+    {
+      "id": "16-mobile-ui",
+      "title": "Optimización para navegador móvil",
+      "description": "Pedido del usuario: la app se ve mal en smartphone. Auditoría visual real en viewport móvil (~390px) pantalla por pantalla y corrección de los problemas encontrados (nav que desborda, densidades, tamaños táctiles), manteniendo el design system. La mayoría del layout ya era responsive (grids con breakpoints, flex-wrap); esta feature cierra los rotos reales.",
+      "status": "in_progress",
+      "depends_on": ["15-caracteristicas-busqueda"],
+      "acceptance": [
+        "En un viewport de 390px ninguna pantalla desborda horizontalmente (sin scroll lateral)",
+        "La navegación funciona en móvil sin encimarse ni cortarse",
+        "Los objetivos táctiles principales (CTAs, botones de acción) mantienen tamaño cómodo (≥44px de alto)",
+        "bash init.sh en verde (los ajustes son de clases CSS; los tests de comportamiento no cambian salvo aserciones de markup que se muevan)",
+        "Verificación visual con screenshots en viewport móvil de: landing, listado, formulario de reportar, detalle y mapa"
+      ]
     }
   ]
 }
