@@ -66,3 +66,27 @@ Evidencia de esta sesión:
 - Consistencia con ADRs: sin chat interno ni librerías de mapas (ADR 0005 §3/§5), sin dependencias nuevas (la única prevista, `python-multipart`, llega en la 03).
 
 Pendiente de la sesión principal: commit del cambio de status + este veredicto. Siguiente feature: `02-reportes-backend` (líder planifica aquí).
+
+## Veredicto del revisor — feature 02 (2026-08-12): RECHAZADA (1 hallazgo puntual)
+
+Revisión independiente sobre `develop` @ `32ddbf3`. Casi todo pasa con evidencia ejecutable; queda **un** hallazgo que contradice el acceptance 4 y el propio docstring del seed. El status queda en `in_progress`; corrige el implementador.
+
+### Lo que pasa (verificado en esta sesión)
+
+- `bash init.sh` corrido de verdad: **verde completo** — 32/32 tests de API (ciudades 5, geo 5, health 1, reports 17, users 4) + 12/12 de web, ruff/black/oxlint limpios.
+- **Acceptance 1** (POST ambos tipos + 422 condicionales): cubierto por tests directos — 201 perdido, 201 encontrado, y 6 casos 422 (`encontrado` sin `situacion`, `perdido` con `situacion`, `encontrado` con `nombre_mascota`, zona desconocida, `Otro` sin `ciudad_texto`, teléfono vacío) en `test_reports.py`.
+- **Acceptance 2** (filtros + exclusión de reunidos + orden): cubierto — `test_listado_excluye_reunidos_por_defecto`, `test_listado_ordena_por_fecha_evento_descendente`, `test_listado_filtra_por_tipo_especie_y_zona`, `test_listado_estado_reunido_y_todos`.
+- **Acceptance 3** (403/404 en español): cubierto — `test_editar_reporte_ajeno_devuelve_403_en_espanol` asevera el texto en español; `test_obtener_reporte_inexistente_devuelve_404` ejercita el 404 (mensaje "El reporte 9999 no existe" verificado por lectura de código).
+- **Acceptance 5** (bounding boxes contienen su centro): cubierto — `test_cada_zona_contiene_su_propio_centro`, más `test_colombia_contiene_todas_las_zonas` y el guard del propio seed que aborta si una coord cae fuera de su caja.
+- **Acceptance 4, parcial**: fallback SVG verificado (el loro, especie "otro", id 9, queda con `/media/seed/report_9.svg` en disco); la tabla `reports` es determinista fila a fila — dos corridas de `.venv/bin/python3 scripts/seed.py` y `diff` del dump completo de `reports`: **idéntico** (17 filas, incluyendo `foto_url` y `creado_en`).
+- Consistencia con ADR 0005 y CHECKPOINTS: modelo único `Report` (§2), estados solo activo|reunido (sin lenguaje de fracaso), sin dependencias nuevas, comentario de rutas literales-antes-que-dinámicas en `routers/reports.py` y `main.py`, entrada en `changes.md`.
+
+### Hallazgo que bloquea
+
+**Acceptance 4** dice "dos corridas seguidas producen los mismos datos" y el docstring de `scripts/seed.py` afirma "timestamps `creado_en`/`resuelto_en` explícitos — dos corridas seguidas producen exactamente los mismos datos". Verificado por ejecución real: la tabla **`users` NO es determinista** — `users.creado_en` difiere entre corridas (ej. `2026-08-12 14:55:46.876455` vs `14:55:47.073749` para Ana Martínez) porque el seed no fija `creado_en` en los `User` y corre el default `datetime.now` del modelo. El seed solo fija `creado_en` en los `Report`. Además de fallar el criterio literal, el docstring cae en "documentación que describe un comportamiento que el código no tiene" (CHECKPOINTS).
+
+**Corrección sugerida** (implementador, no revisor): asignar `creado_en` explícito a los `User` del seed (mismo patrón que los reportes, p. ej. `datetime(2026, 8, 12, 8, 0)`) y re-verificar con doble corrida + `diff` de los dumps de `users` **y** `reports`.
+
+Menores (no bloquean): (a) la entrada de `changes.md` dice "(en revisión)" sin hash — añadir `32ddbf3` (más el hash del fix) al aprobar, como pide el checkpoint #4; (b) el comando literal `python3 scripts/seed.py` requiere el venv (`.venv/bin/python3` o venv activado) porque `requests` no está en el Python del sistema — es el mismo modo en que lo corre `init.sh`, solo se deja constancia.
+
+Próximo paso: fix puntual del seed, y el revisor re-verifica (doble corrida + diff ambas tablas) antes de pasar `02-reportes-backend` a `done`.

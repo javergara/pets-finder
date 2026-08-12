@@ -201,7 +201,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `scripts/seed.py` provisional (5 usuarios deterministas, seed 42); `data/media/{seed,uploads}/` con `.gitkeep`; `.gitignore` actualizado.
 - Harness: `feature_list.json` v2 (11 features del pivot), `CLAUDE.md`/`AGENTS.md`/`CHECKPOINTS.md`/`README.md` reescritos, ADR 0005 nuevo + adenda al 0001, `docs/{product-research,architecture}.md` reescritos, `docs/conventions.md` y skills `seed-data`/`db-migrations` y agentes actualizados, `design/design-system.md` con semántica del pivot (perdido=danger, encontrado=forest), CHANGELOG `[Unreleased] 2.0.0`.
 
-## 2026-08-12 — 02-reportes-backend (en revisión)
+## 2026-08-12 — 02-reportes-backend — commit 32ddbf3 (+ fix de revisión)
 
 - `models/report.py`: modelo único `Report` (tipo perdido|encontrado; campos condicionales `nombre_mascota`/`situacion`; zona + `ciudad_texto` para "Otro"; estado activo|reunido, sin estados de fracaso). `models/__init__.py` lo exporta.
 - `services/ciudades.py`: fuente de verdad de las 6 zonas (Armenia, Pereira, Manizales, Cali, Quibdó, Bogotá) con bounding box + centro, `COLOMBIA` nacional y `ZONA_OTRO`; `zona_valida()`. Duplicado consciente pendiente en `lib/ciudades.ts` (feature 04).

@@ -340,7 +340,9 @@ def main() -> None:
 
     session = SessionLocal()
     try:
-        users = [User(**datos) for datos in USERS]
+        # `creado_en` explícito también en los usuarios: el default `datetime.now`
+        # del modelo rompería el determinismo entre corridas (hallazgo del revisor).
+        users = [User(creado_en=datetime(2026, 8, 12, 8, 0), **datos) for datos in USERS]
         session.add_all(users)
         session.flush()
 
