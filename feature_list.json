@@ -257,6 +257,84 @@
         "El título de la pestaña es petfinder-col y public/favicon.svg es el ícono propio (ya no el SVG por defecto de Vercel/Vite)",
         "bash init.sh en verde"
       ]
+    },
+    {
+      "id": "20-fotos-huerfanas-storage",
+      "title": "Borrar la foto del bucket al eliminar un reporte",
+      "description": "Limitación aceptada de la feature 18: al eliminar un reporte, su foto queda huérfana en Supabase Storage (o en data/media/uploads en local). Implementar el borrado del objeto del bucket en el DELETE (vía la REST API de Storage con la service key, mismo patrón de subir_a_supabase) con tolerancia a fallo (si el borrado de la foto falla, el reporte se borra igual y se loguea), y el equivalente local. Considerar también las fotos huérfanas ya existentes (limpieza puntual documentada).",
+      "status": "todo",
+      "depends_on": ["18-eliminar-reporte"],
+      "acceptance": [
+        "Eliminar un reporte con foto en Supabase borra también el objeto del bucket (test con mock del endpoint de Storage)",
+        "Si el borrado de la foto falla, el reporte se elimina igual (204) y queda un log — nunca un 500 por una foto",
+        "En local (sin Supabase configurado) se borra el archivo de data/media/uploads si existe",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "21-compartir-reporte",
+      "title": "Compartir un reporte por redes con vista previa decente",
+      "description": "La difusión es el mecanismo #1 para encontrar mascotas (product-research): hoy compartir un link de un reporte por WhatsApp muestra una vista previa genérica (SPA sin meta tags por reporte). Añadir botón 'Compartir' en el detalle (Web Share API con fallback a copiar link) y resolver la vista previa: og:title/og:image por reporte requiere HTML por URL (opciones: función serverless que inyecte meta tags para /reporte/:id, o prerender ligero — decidir con ADR corto).",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "El detalle tiene botón Compartir: usa navigator.share si existe y si no copia el link con confirmación visual",
+        "Compartir un link de reporte por WhatsApp muestra título con el nombre/especie y la foto del reporte (verificación manual documentada)",
+        "ADR corto con la opción elegida para los meta tags por reporte",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "22-alertas-por-zona",
+      "title": "Alertas de reportes nuevos por zona",
+      "description": "Idea del backlog original del pivot: quien perdió una mascota quiere enterarse de reportes 'encontrado' nuevos en su zona sin revisar la app a toda hora. Definir el canal con ADR (sin backend de push gratis y sin costo: candidatos — email vía un servicio free tier, o un feed/página 'lo nuevo desde mi última visita' guardando el último visto en localStorage como versión mínima sin infraestructura). Alcance mínimo primero; requiere ADR nuevo porque introduce o un servicio externo o un patrón de suscripción.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "ADR con el mecanismo elegido y su costo (debe seguir siendo $0)",
+        "Un usuario puede 'seguir' una zona y ver/recibir los reportes nuevos de esa zona desde su última visita",
+        "Tests del mecanismo elegido",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "23-moderacion-reportes",
+      "title": "Moderación básica de reportes",
+      "description": "Idea del backlog original: con la app pública y compartible, aparecerán reportes falsos/spam/inapropiados. Versión mínima sin panel de admin: botón 'Reportar este anuncio' en el detalle que registra la denuncia (tabla nueva), y un umbral (p. ej. 3 denuncias) que oculta el reporte del listado/mapa hasta revisión manual del dueño del proyecto (query directa documentada o página /admin ultra simple protegida por token en env var). Requiere decisión de alcance con el usuario antes de implementar.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "Cualquiera puede denunciar un reporte desde el detalle (sin registro no, con registro sí — decidir)",
+        "Un reporte con N denuncias sale de las vistas públicas y el autor no pierde sus datos",
+        "El dueño puede listar denuncias y restaurar/eliminar reportes (mecanismo documentado en docs/)",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "24-ai-matching-fotos",
+      "title": "Coincidencias asistidas por AI sobre las fotos",
+      "description": "Idea del backlog original, explícitamente fuera del MVP (ADR 0005: coincidencias sin AI). Explorar mejorar el ranking de coincidencias usando las fotos (embeddings de imagen o un modelo multimodal) manteniendo la heurística actual como base explicable. Requiere ADR nuevo (costo de API, privacidad de fotos, y si el free tier de algún proveedor alcanza); no arrancar sin validar que las coincidencias actuales se quedan cortas con datos reales.",
+      "status": "todo",
+      "depends_on": ["21-compartir-reporte"],
+      "acceptance": [
+        "ADR con proveedor/enfoque, costo real y decisión de privacidad",
+        "El ranking combinado (heurística + señal de foto) mejora demostrablemente los casos de prueba definidos antes de implementar",
+        "La app sigue funcionando completa si el servicio de AI no responde",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "25-ops-produccion-pendientes",
+      "title": "Operación de producción: pasos pendientes del dueño",
+      "description": "Checklist operativo (no es código; lo ejecuta el dueño del proyecto en los dashboards): (a) añadir SKIP_DB_CREATE_ALL=1 en Vercel → Settings → Environment Variables + Redeploy para recortar el cold start (docs/deploy.md); (b) opcional, migrar el A record de petfinder-col.com en GoDaddy de 76.76.21.21 a 216.198.79.1 para quitar el aviso ámbar 'DNS Change Recommended' de Vercel; (c) verificar en GoDaddy que el producto Website Builder quedó desconectado del dominio (re-escribe el A record si sigue activo); (d) vigilar la pausa por inactividad del proyecto Supabase free (se pausa tras ~1 semana sin tráfico; se reactiva desde el dashboard).",
+      "status": "todo",
+      "depends_on": [],
+      "acceptance": [
+        "SKIP_DB_CREATE_ALL=1 activa en Vercel y un cold start medido más corto",
+        "Vercel muestra el dominio apex sin avisos de DNS",
+        "Website Builder desconectado del dominio en GoDaddy",
+        "Nota en docs/deploy.md marcando estos pasos como hechos"
+      ]
     }
   ]
 }
