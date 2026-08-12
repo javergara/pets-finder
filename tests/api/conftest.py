@@ -12,6 +12,15 @@ sys.path.insert(0, str(REPO_ROOT / "src" / "api"))
 from reencuentro_api.models.base import Base  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def _sin_supabase(monkeypatch):
+    """Blindaje: los tests locales nunca hablan con Supabase aunque el shell
+    tenga las vars exportadas (sugerencia del revisor de la feature 12). Los
+    tests que SÍ ejercitan la rama Supabase las setean explícitamente después."""
+    monkeypatch.delenv("SUPABASE_URL", raising=False)
+    monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
+
+
 @pytest.fixture()
 def db_session():
     engine = create_engine(

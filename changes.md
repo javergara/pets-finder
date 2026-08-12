@@ -282,7 +282,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Verificado en local: `npm run build` produce dist/ sin errores (81 KB js gzip); uvicorn con CORS_ORIGINS=dominio de prueba responde /health y el preflight OPTIONS devuelve access-control-allow-origin exacto.
 - Sin cambios de código de producto: client.ts ya usaba VITE_API_BASE_URL y main.py ya leía CORS_ORIGINS desde la feature 01.
 
-## 2026-08-12 — 12-persistencia-supabase (en revisión) + fix de copy
+## 2026-08-12 — 12-persistencia-supabase — commit 371d4d3 (+ fix de copy 6334a42)
 
 - fix previo: el eyebrow de la landing ya no dice "Eje Cafetero" (alcance nacional) — pedido directo del usuario.
 - ADR 0006: Supabase (elegido por el usuario tras análisis A/B/C) como único proveedor de persistencia — Postgres 500 MB + Storage 1 GB gratis, vía Vercel Marketplace. La API queda sin estado.
