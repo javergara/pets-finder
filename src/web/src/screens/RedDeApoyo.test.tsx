@@ -37,6 +37,7 @@ function crearOrganizacion(overrides: Partial<Organizacion> = {}): Organizacion 
     foto_url: null,
     estado: 'activo',
     creado_en: '2026-08-12T10:00:00',
+    necesidades_pendientes: 0,
     ...overrides,
   };
 }
@@ -104,6 +105,23 @@ describe('RedDeApoyo', () => {
       tipo: undefined,
       zona: 'Medellín',
     });
+  });
+
+  it('las tarjetas muestran el contador de necesidades activas cuando hay', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([
+      crearOrganizacion({ necesidades_pendientes: 3 }),
+      crearOrganizacion({
+        id: 2,
+        nombre: 'Sin pedidos',
+        direccion: 'Cll 2',
+        necesidades_pendientes: 0,
+      }),
+    ]);
+
+    renderRed();
+
+    expect(await screen.findByText('3 necesidades activas')).toBeInTheDocument();
+    expect(screen.queryByText(/0 necesidades/)).not.toBeInTheDocument();
   });
 
   it('sin resultados muestra el vacío con la invitación a registrar', async () => {

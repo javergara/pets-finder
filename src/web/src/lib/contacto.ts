@@ -29,3 +29,8 @@ export function mensajeContacto(tipo: 'perdido' | 'encontrado', etiqueta: string
 export function mensajeAyudaOrganizacion(nombre: string): string {
   return `Hola, los encontré en Pet Finder Col (${nombre}). Quiero ayudar / necesito información.`;
 }
+
+// Prefill del botón "Quiero ayudar" de una necesidad concreta (feature 33).
+export function mensajeQuieroAyudar(descripcion: string): string {
+  return `Hola, vi en Pet Finder Col que necesitan ${descripcion}. Quiero ayudar.`;
+}

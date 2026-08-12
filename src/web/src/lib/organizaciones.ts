@@ -1,4 +1,4 @@
-import type { TipoOrganizacion } from '../api/types';
+import type { CategoriaNecesidad, TipoOrganizacion } from '../api/types';
 
 // Catálogo de tipos de la red de apoyo (feature 32): etiqueta visible + color
 // del badge/pin (tokens del design system; MapaLienzo conoce estos hex).
@@ -13,3 +13,18 @@ export const ETIQUETA_TIPO_ORGANIZACION: Record<
 };
 
 export const TIPOS_ORGANIZACION = Object.keys(ETIQUETA_TIPO_ORGANIZACION) as TipoOrganizacion[];
+
+// Categorías de necesidades (feature 33).
+export const ETIQUETA_CATEGORIA_NECESIDAD: Record<CategoriaNecesidad, string> = {
+  alimento: 'Alimento',
+  medicinas: 'Medicinas',
+  insumos: 'Insumos',
+  voluntarios: 'Voluntarios',
+  hogar_de_paso: 'Hogar de paso',
+  dinero: 'Dinero',
+  otro: 'Otro',
+};
+
+export const CATEGORIAS_NECESIDAD = Object.keys(
+  ETIQUETA_CATEGORIA_NECESIDAD,
+) as CategoriaNecesidad[];

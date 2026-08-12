@@ -60,6 +60,7 @@ describe('RegistrarOrganizacion', () => {
       foto_url: null,
       estado: 'activo',
       creado_en: '2026-08-12T10:00:00',
+      necesidades_pendientes: 0,
     });
 
     renderRegistrar();

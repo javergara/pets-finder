@@ -1,10 +1,20 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..models.necesidad import Necesidad
 from ..models.organizacion import Organizacion
 from ..models.user import User
-from ..schemas.organizacion import OrganizacionIn, OrganizacionOut, OrganizacionUpdate
+from ..schemas.organizacion import (
+    CubrirNecesidadIn,
+    NecesidadIn,
+    NecesidadOut,
+    OrganizacionIn,
+    OrganizacionOut,
+    OrganizacionUpdate,
+)
 from ..services.db import get_session
 
 router = APIRouter(prefix="/api/organizaciones", tags=["organizaciones"])
@@ -48,7 +58,21 @@ def listar_organizaciones(
     query = query.order_by(Organizacion.creado_en.desc(), Organizacion.id.desc())
 
     organizaciones = session.execute(query).scalars().all()
-    return [OrganizacionOut.model_validate(o) for o in organizaciones]
+    # Contador de necesidades pendientes por organización (feature 33), en una
+    # sola query agregada para no hacer N+1.
+    conteos = dict(
+        session.execute(
+            select(Necesidad.organizacion_id, func.count())
+            .where(Necesidad.estado == "pendiente")
+            .group_by(Necesidad.organizacion_id)
+        ).all()
+    )
+    resultado = []
+    for o in organizaciones:
+        out = OrganizacionOut.model_validate(o)
+        out.necesidades_pendientes = conteos.get(o.id, 0)
+        resultado.append(out)
+    return resultado
 
 
 @router.get("/{organizacion_id}", response_model=OrganizacionOut)
@@ -59,7 +83,90 @@ def obtener_organizacion(
     if organizacion is None:
         raise HTTPException(404, f"La organización {organizacion_id} no existe")
 
-    return OrganizacionOut.model_validate(organizacion)
+    out = OrganizacionOut.model_validate(organizacion)
+    out.necesidades_pendientes = session.execute(
+        select(func.count())
+        .select_from(Necesidad)
+        .where(Necesidad.organizacion_id == organizacion_id, Necesidad.estado == "pendiente")
+    ).scalar_one()
+    return out
+
+
+@router.post(
+    "/{organizacion_id}/necesidades",
+    response_model=NecesidadOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_necesidad(
+    organizacion_id: int, payload: NecesidadIn, session: Session = Depends(get_session)
+) -> NecesidadOut:
+    """Pedido concreto de ayuda — lo publica solo el autor de la organización."""
+    organizacion = session.get(Organizacion, organizacion_id)
+    if organizacion is None:
+        raise HTTPException(404, f"La organización {organizacion_id} no existe")
+    if payload.user_id != organizacion.user_id:
+        raise HTTPException(403, "Solo quien registró la organización puede publicar necesidades")
+
+    necesidad = Necesidad(
+        organizacion_id=organizacion_id,
+        categoria=payload.categoria,
+        descripcion=payload.descripcion,
+    )
+    session.add(necesidad)
+    session.commit()
+    session.refresh(necesidad)
+
+    return NecesidadOut.model_validate(necesidad)
+
+
+@router.get("/{organizacion_id}/necesidades", response_model=list[NecesidadOut])
+def listar_necesidades(
+    organizacion_id: int, session: Session = Depends(get_session)
+) -> list[NecesidadOut]:
+    """Pendientes primero (lo accionable arriba), luego las cubiertas recientes."""
+    if session.get(Organizacion, organizacion_id) is None:
+        raise HTTPException(404, f"La organización {organizacion_id} no existe")
+
+    necesidades = (
+        session.execute(
+            select(Necesidad)
+            .where(Necesidad.organizacion_id == organizacion_id)
+            # "pendiente" > "cubierta" alfabéticamente: desc pone pendientes primero.
+            .order_by(Necesidad.estado.desc(), Necesidad.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return [NecesidadOut.model_validate(n) for n in necesidades]
+
+
+@router.post("/{organizacion_id}/necesidades/{necesidad_id}/cubierta", response_model=NecesidadOut)
+def cubrir_necesidad(
+    organizacion_id: int,
+    necesidad_id: int,
+    payload: CubrirNecesidadIn,
+    session: Session = Depends(get_session),
+) -> NecesidadOut:
+    """El final feliz de la red de apoyo: solo el autor, y solo una vez."""
+    organizacion = session.get(Organizacion, organizacion_id)
+    if organizacion is None:
+        raise HTTPException(404, f"La organización {organizacion_id} no existe")
+    necesidad = session.get(Necesidad, necesidad_id)
+    if necesidad is None or necesidad.organizacion_id != organizacion_id:
+        raise HTTPException(404, f"La necesidad {necesidad_id} no existe en esta organización")
+    if payload.user_id != organizacion.user_id:
+        raise HTTPException(
+            403, "Solo quien registró la organización puede marcar una necesidad como cubierta"
+        )
+    if necesidad.estado == "cubierta":
+        raise HTTPException(409, "Esta necesidad ya está marcada como cubierta")
+
+    necesidad.estado = "cubierta"
+    necesidad.cubierta_en = datetime.now(timezone.utc)
+    session.commit()
+    session.refresh(necesidad)
+
+    return NecesidadOut.model_validate(necesidad)
 
 
 @router.put("/{organizacion_id}", response_model=OrganizacionOut)

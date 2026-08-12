@@ -229,3 +229,18 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Condición explícita (patrón 15/28)**: tabla nueva `organizaciones` — el merge/push a `main` exige ejecutar ANTES el `CREATE TABLE` aditivo en Supabase Postgres (autorizado en el plan aprobado). Recordatorio crítico: con `SKIP_DB_CREATE_ALL=1` en prod, la tabla NO se crea sola en el deploy.
 
 Menores (no bloquean): (a) recurrente — hash del commit en `changes.md`; (b) el listado ordena por `creado_en desc` (razonable para un directorio; anotado por si el volumen pide orden por zona/tipo después).
+
+## Veredicto del revisor — feature 33 (2026-08-12): APROBADA, condicionada a la migración de prod antes del merge a main
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `12c4d38`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4 (primera mitad)**: `bash init.sh` corrido de verdad — **verde completo, 97/97 tests de API + 83/83 de web**; `npm run build` corrido por el revisor — limpio (131.39 kB js gzip).
+- **Acceptance 1**: 8 tests de API + **E2E en vivo del revisor** con el ciclo completo: el autor publica 2 necesidades (201, estado pendiente, `cubierta_en` null) → otro usuario 403 en publicar y en cubrir → categoría inválida 422 (Literal) → cubrir 200 con `cubierta_en` seteado → **409 al repetir** → 404 para una necesidad de otra organización (chequeo de pertenencia `organizacion_id` verificado). Limpieza completa (204 × 2) y seed reseteado.
+- **Acceptance 2**: tests del detalle — pendientes primero (orden `estado desc` con el truco alfabético "pendiente">"cubierta" **comentado en el código**, verificado también en vivo), botón "Quiero ayudar" con **prefill exacto decodificado**: `Hola, vi en Pet Finder Col que necesitan 50 kg de comida para perro adulto. Quiero ayudar.` sobre el `wa.me` del teléfono normalizado de la organización, cubiertas con "Cubierta 💚" (misma mecánica de esperanza que "reunido"), y controles de autor (form Categoría+¿Qué necesitan?+Publicar, "Marcar cubierta") ausentes para no-autores (`queryBy*` nulos) — payloads exactos aseverados (`crearNecesidad(1, {...})`, `cubrirNecesidad(1, 5, 1)`).
+- **Acceptance 3**: `necesidades_pendientes` como campo calculado de `OrganizacionOut` (default 0 documentado), llenado en el listado con **una sola query agregada (sin N+1, verificado por lectura)** y en el detalle; test de API del contador en ambos + test de RedDeApoyo (visible solo con >0) + en vivo (2 → 1 tras cubrir).
+- Consistencia: patrón `marcar_reunido` replicado fielmente (403/409/timestamp), rutas anidadas sin conflicto de matching con `/{organizacion_id}` (segmentos distintos), tipos portables (String/DateTime), sin transacciones en la app (WhatsApp como canal, decisión del plan aprobado), tono de esperanza correcto.
+- `feature_list.json`: `33-necesidades-ayuda` a `done` con edición puntual sobre la línea 435 (diff `todo`→`done`, el `in_progress` del líder estaba sin commitear); único cambio de status; `validate_feature_list.py` → exit 0.
+
+**Condición explícita (patrón 15/28/32)**: tabla nueva `necesidades` — el merge/push a `main` exige ejecutar ANTES el `CREATE TABLE` aditivo en Supabase Postgres (ya autorizado explícitamente por el usuario en esta sesión, "Sí, ambas"). Con `SKIP_DB_CREATE_ALL=1` en prod la tabla no se crea sola en el deploy.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.

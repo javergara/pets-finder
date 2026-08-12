@@ -73,3 +73,35 @@ class OrganizacionOut(BaseModel):
     foto_url: str | None
     estado: str
     creado_en: datetime
+    # Contador calculado (feature 33): cuántas necesidades pendientes tiene —
+    # el router lo llena; el ORM no tiene este atributo, por eso el default.
+    necesidades_pendientes: int = 0
+
+
+CategoriaNecesidad = Literal[
+    "alimento", "medicinas", "insumos", "voluntarios", "hogar_de_paso", "dinero", "otro"
+]
+
+
+class NecesidadIn(BaseModel):
+    """La publica el autor de la organización (validado en el router)."""
+
+    user_id: int
+    categoria: CategoriaNecesidad
+    descripcion: str = Field(min_length=1, max_length=300)
+
+
+class NecesidadOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    organizacion_id: int
+    categoria: CategoriaNecesidad
+    descripcion: str
+    estado: str
+    creado_en: datetime
+    cubierta_en: datetime | None
+
+
+class CubrirNecesidadIn(BaseModel):
+    user_id: int

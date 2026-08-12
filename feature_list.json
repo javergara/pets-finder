@@ -432,7 +432,7 @@
       "id": "33-necesidades-ayuda",
       "title": "Necesidades: las organizaciones piden ayuda concreta y la marcan cubierta",
       "description": "Segunda parte del plan aprobado: modelo Necesidad (organizacion_id, descripcion, categoria alimento|medicinas|insumos|voluntarios|hogar_de_paso|dinero|otro, estado pendiente|cubierta), endpoints anidados en /api/organizaciones/{id}/necesidades (publicar solo el autor, marcar cubierta solo el autor con 409 doble), y en el detalle: lista con chips, botón 'Quiero ayudar' con WhatsApp prefill ('vi en Pet Finder Col que necesitan X'), celebración 'Cubierta 💚', y contador de necesidades activas en las tarjetas de /ayudar. Migración prod: CREATE TABLE necesidades ANTES del merge, con autorización explícita.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["32-red-de-apoyo"],
       "acceptance": [
         "El autor de una organización publica necesidades (categoría + descripción) y las marca cubiertas (409 si ya lo está); otros usuarios reciben 403",

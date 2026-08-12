@@ -1,7 +1,9 @@
 import {
   type Avistamiento,
   type AvistamientoIn,
+  type CategoriaNecesidad,
   type Coincidencia,
+  type Necesidad,
   type Organizacion,
   type OrganizacionIn,
   type Reporte,
@@ -188,4 +190,29 @@ export function editarOrganizacion(
 
 export function eliminarOrganizacion(organizacionId: number, userId: number): Promise<void> {
   return request(`/api/organizaciones/${organizacionId}?user_id=${userId}`, { method: 'DELETE' });
+}
+
+export function listarNecesidades(organizacionId: number): Promise<Necesidad[]> {
+  return request(`/api/organizaciones/${organizacionId}/necesidades`);
+}
+
+export function crearNecesidad(
+  organizacionId: number,
+  datos: { user_id: number; categoria: CategoriaNecesidad; descripcion: string },
+): Promise<Necesidad> {
+  return request(`/api/organizaciones/${organizacionId}/necesidades`, {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function cubrirNecesidad(
+  organizacionId: number,
+  necesidadId: number,
+  userId: number,
+): Promise<Necesidad> {
+  return request(`/api/organizaciones/${organizacionId}/necesidades/${necesidadId}/cubierta`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
 }

@@ -101,6 +101,8 @@ export type Organizacion = {
   foto_url: string | null;
   estado: 'activo' | 'cerrado';
   creado_en: string;
+  // Contador calculado por el backend (feature 33).
+  necesidades_pendientes: number;
 };
 
 export type OrganizacionIn = {
@@ -118,4 +120,23 @@ export type OrganizacionIn = {
   horario?: string;
   como_donar?: string;
   foto_url?: string;
+};
+
+export type CategoriaNecesidad =
+  | 'alimento'
+  | 'medicinas'
+  | 'insumos'
+  | 'voluntarios'
+  | 'hogar_de_paso'
+  | 'dinero'
+  | 'otro';
+
+export type Necesidad = {
+  id: number;
+  organizacion_id: number;
+  categoria: CategoriaNecesidad;
+  descripcion: string;
+  estado: 'pendiente' | 'cubierta';
+  creado_en: string;
+  cubierta_en: string | null;
 };

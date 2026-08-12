@@ -2,20 +2,37 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
+  crearNecesidad,
+  cubrirNecesidad,
   editarOrganizacion,
   eliminarOrganizacion,
+  listarNecesidades,
   mediaUrl,
   obtenerOrganizacion,
 } from '../api/client';
-import type { Organizacion } from '../api/types';
+import type { CategoriaNecesidad, Necesidad, Organizacion } from '../api/types';
 import { MapaLienzo } from '../components/MapaLienzo';
-import { mensajeAyudaOrganizacion, urlTelefono, urlWhatsApp } from '../lib/contacto';
-import { ETIQUETA_TIPO_ORGANIZACION } from '../lib/organizaciones';
+import {
+  mensajeAyudaOrganizacion,
+  mensajeQuieroAyudar,
+  urlTelefono,
+  urlWhatsApp,
+} from '../lib/contacto';
+import {
+  CATEGORIAS_NECESIDAD,
+  ETIQUETA_CATEGORIA_NECESIDAD,
+  ETIQUETA_TIPO_ORGANIZACION,
+} from '../lib/organizaciones';
 import { getActiveUserId } from '../lib/session';
 
 export function OrganizacionDetalle() {
   const { id } = useParams<{ id: string }>();
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
+  const [necesidades, setNecesidades] = useState<Necesidad[]>([]);
+  const [categoriaNueva, setCategoriaNueva] = useState<CategoriaNecesidad>('alimento');
+  const [descripcionNueva, setDescripcionNueva] = useState('');
+  const [publicando, setPublicando] = useState(false);
+  const [errorNecesidad, setErrorNecesidad] = useState<string | null>(null);
   const [editando, setEditando] = useState(false);
   const [descripcion, setDescripcion] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -30,6 +47,7 @@ export function OrganizacionDetalle() {
   useEffect(() => {
     if (!id) return;
     obtenerOrganizacion(Number(id)).then(setOrganizacion);
+    listarNecesidades(Number(id)).then(setNecesidades);
   }, [id]);
 
   if (!organizacion) {
@@ -143,6 +161,153 @@ export function OrganizacionDetalle() {
         <section className="rounded-2xl border border-forest-tint-line bg-forest-tint p-6">
           <h2 className="mb-2 font-display text-lg text-ink">Cómo donar</h2>
           <p className="text-ink-soft">{organizacion.como_donar}</p>
+        </section>
+      )}
+
+      {(necesidades.length > 0 || esAutor) && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-1 font-display text-lg text-ink">Necesidades</h2>
+          <p className="mb-4 text-sm text-ink-soft">
+            Ayuda concreta que están pidiendo. Toma una y escríbeles directo.
+          </p>
+
+          {necesidades.length > 0 && (
+            <ul className="space-y-2">
+              {necesidades.map((n) => (
+                <li
+                  key={n.id}
+                  className={`flex flex-wrap items-center justify-between gap-3 rounded-xl p-3 ${
+                    n.estado === 'cubierta'
+                      ? 'border border-forest-tint-line bg-forest-tint'
+                      : 'bg-surface-alt'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1 text-sm text-ink-soft">
+                    <span className="mr-2 rounded-full bg-surface px-2 py-0.5 text-xs text-muted">
+                      {ETIQUETA_CATEGORIA_NECESIDAD[n.categoria]}
+                    </span>
+                    {n.descripcion}
+                  </span>
+                  {n.estado === 'cubierta' ? (
+                    <span className="shrink-0 text-sm font-medium text-forest">Cubierta 💚</span>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-3">
+                      <a
+                        href={urlWhatsApp(
+                          organizacion.telefono_contacto,
+                          mensajeQuieroAyudar(n.descripcion),
+                        )}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-forest px-4 py-1.5 text-sm font-medium text-bg"
+                      >
+                        Quiero ayudar
+                      </a>
+                      {esAutor && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setErrorNecesidad(null);
+                            try {
+                              const cubierta = await cubrirNecesidad(
+                                organizacion.id,
+                                n.id,
+                                getActiveUserId(),
+                              );
+                              setNecesidades((previas) =>
+                                previas.map((p) => (p.id === cubierta.id ? cubierta : p)),
+                              );
+                            } catch (err) {
+                              setErrorNecesidad(
+                                err instanceof ApiError
+                                  ? err.message
+                                  : 'No pudimos actualizar la necesidad. Intenta de nuevo.',
+                              );
+                            }
+                          }}
+                          className="text-sm font-medium text-muted underline-offset-4 hover:underline"
+                        >
+                          Marcar cubierta
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {esAutor && organizacion.estado === 'activo' && (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-line-soft pt-4">
+              <div>
+                <label htmlFor="necesidad-categoria" className="text-sm font-medium text-ink-soft">
+                  Categoría
+                </label>
+                <select
+                  id="necesidad-categoria"
+                  value={categoriaNueva}
+                  onChange={(e) => setCategoriaNueva(e.target.value as CategoriaNecesidad)}
+                  className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+                >
+                  {CATEGORIAS_NECESIDAD.map((c) => (
+                    <option key={c} value={c}>
+                      {ETIQUETA_CATEGORIA_NECESIDAD[c]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-0 flex-1">
+                <label
+                  htmlFor="necesidad-descripcion"
+                  className="text-sm font-medium text-ink-soft"
+                >
+                  ¿Qué necesitan?
+                </label>
+                <input
+                  id="necesidad-descripcion"
+                  type="text"
+                  maxLength={300}
+                  placeholder="Ej: 50 kg de comida para perro adulto"
+                  value={descripcionNueva}
+                  onChange={(e) => setDescripcionNueva(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+                />
+              </div>
+              <button
+                type="button"
+                disabled={publicando}
+                onClick={async () => {
+                  if (!descripcionNueva.trim()) {
+                    setErrorNecesidad('Describe qué necesitan.');
+                    return;
+                  }
+                  setErrorNecesidad(null);
+                  setPublicando(true);
+                  try {
+                    const nueva = await crearNecesidad(organizacion.id, {
+                      user_id: getActiveUserId(),
+                      categoria: categoriaNueva,
+                      descripcion: descripcionNueva.trim(),
+                    });
+                    setNecesidades((previas) => [nueva, ...previas]);
+                    setDescripcionNueva('');
+                  } catch (err) {
+                    setErrorNecesidad(
+                      err instanceof ApiError
+                        ? err.message
+                        : 'No pudimos publicar la necesidad. Intenta de nuevo.',
+                    );
+                  } finally {
+                    setPublicando(false);
+                  }
+                }}
+                className="rounded-full bg-forest px-5 py-2 font-medium text-bg disabled:opacity-60"
+              >
+                {publicando ? 'Publicando…' : 'Publicar'}
+              </button>
+            </div>
+          )}
+          {errorNecesidad && <p className="mt-2 text-sm text-danger">{errorNecesidad}</p>}
         </section>
       )}
 

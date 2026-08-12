@@ -123,6 +123,12 @@ export function RedDeApoyo() {
                     </span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-sm text-muted">{o.descripcion}</p>
+                  {o.necesidades_pendientes > 0 && (
+                    <p className="mt-2 text-xs font-medium text-ochre">
+                      {o.necesidades_pendientes}{' '}
+                      {o.necesidades_pendientes === 1 ? 'necesidad activa' : 'necesidades activas'}
+                    </p>
+                  )}
                   <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-3 text-xs text-muted">
                     <span>
                       {o.direccion} · {o.zona === 'Otro' ? o.ciudad_texto ?? 'Colombia' : o.zona}
