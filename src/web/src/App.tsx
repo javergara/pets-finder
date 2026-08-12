@@ -2,6 +2,7 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { Registro } from './screens/Registro';
 import { ReportarMascota } from './screens/ReportarMascota';
+import { Reportes } from './screens/Reportes';
 
 function Nav() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -52,6 +53,7 @@ function App() {
           {/* Un componente, dos rutas: el tipo fija los campos condicionales. */}
           <Route path="/reportar/perdido" element={<ReportarMascota tipo="perdido" />} />
           <Route path="/reportar/encontrado" element={<ReportarMascota tipo="encontrado" />} />
+          <Route path="/reportes" element={<Reportes />} />
         </Route>
       </Routes>
     </div>

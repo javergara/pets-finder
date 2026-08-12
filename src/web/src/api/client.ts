@@ -41,6 +41,27 @@ export function registrarUsuario(datos: {
   });
 }
 
+export type FiltrosReportes = {
+  tipo?: 'perdido' | 'encontrado';
+  especie?: 'perro' | 'gato' | 'otro';
+  zona?: string;
+  estado?: 'activo' | 'reunido' | 'todos';
+};
+
+export function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]> {
+  const params = new URLSearchParams();
+  if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.especie) params.set('especie', filtros.especie);
+  if (filtros.zona) params.set('zona', filtros.zona);
+  if (filtros.estado) params.set('estado', filtros.estado);
+  const query = params.toString();
+  return request(`/api/reports${query ? `?${query}` : ''}`);
+}
+
+export function obtenerReporte(reporteId: number): Promise<Reporte> {
+  return request(`/api/reports/${reporteId}`);
+}
+
 export function crearReporte(datos: ReporteIn): Promise<Reporte> {
   return request('/api/reports', {
     method: 'POST',
