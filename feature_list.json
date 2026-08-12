@@ -139,7 +139,7 @@
       "id": "11-despliegue",
       "title": "Estrategia y configuración de despliegue (Vercel + Render)",
       "description": "Frontend estático en Vercel (vercel.json con rewrites SPA, VITE_API_BASE_URL por entorno) y API en Render con disco persistente para SQLite y uploads (render.yaml), CORS configurable por env var, guía paso a paso en docs/deploy.md y sección Deploy en README. El deploy real lo ejecuta el usuario con la guía; aquí se deja todo configurado y el build de producción probado en local.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["10-verificacion-final"],
       "acceptance": [
         "npm run build produce un build de producción sin errores y vercel.json tiene el rewrite SPA",

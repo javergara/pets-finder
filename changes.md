@@ -272,3 +272,12 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `docs/verification.md` regenerado con evidencia real: init.sh verde (51 API + 56 web), determinismo por doble corrida, recorrido manual completo en Chrome (gate ?volver=, pin por click, wa.me exacto, coincidencia 4.92 km, reunida con contador 2→3, mapa Todo Colombia), E2E de API por curl, greps de cierre.
 - CHANGELOG: `[2.0.0] - 2026-08-12` fechado con el detalle de las 10 features; Unreleased queda solo con `11-despliegue`.
 - `progress/current.md` reset al estado de la 10; entrada de cierre en `progress/history.md`.
+
+## 2026-08-12 — 11-despliegue (en revisión)
+
+- `src/web/vercel.json`: rewrite SPA (toda ruta → index.html) para que las rutas internas funcionen al recargar en Vercel.
+- `render.yaml` (raíz): blueprint del servicio reencuentro-api — rootDir src/api, uvicorn con $PORT, healthCheckPath /health, PYTHON_VERSION 3.10.17, DATABASE_URL apuntando al disco, **disco persistente de 1 GB montado en /opt/render/project/src/data** (el data/ real del checkout, donde base.py y media.py resuelven rutas), CORS_ORIGINS placeholder.
+- `docs/deploy.md`: guía completa — push a GitHub incluyendo adopta-v1 y el tag (respaldo remoto del archivo), Render por blueprint + seed inicial por Shell, Vercel con root src/web y VITE_API_BASE_URL, verificación post-deploy (incluida la persistencia del disco tras redeploy), tabla de env vars, y cuándo migrar a Postgres/S3 (ADR nuevo).
+- README con sección Local y Deploy.
+- Verificado en local: `npm run build` produce dist/ sin errores (81 KB js gzip); uvicorn con CORS_ORIGINS=dominio de prueba responde /health y el preflight OPTIONS devuelve access-control-allow-origin exacto.
+- Sin cambios de código de producto: client.ts ya usaba VITE_API_BASE_URL y main.py ya leía CORS_ORIGINS desde la feature 01.

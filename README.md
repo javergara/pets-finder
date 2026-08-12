@@ -8,4 +8,15 @@ Proyecto construido con un flujo de *harness engineering* — ver [`AGENTS.md`](
 
 ## Estado
 
-Pivot en curso. Ver [`progress/current.md`](progress/current.md) para el estado vivo y [`feature_list.json`](feature_list.json) para el alcance.
+Release **2.0.0**: la app funciona de punta a punta en local (ver [`docs/verification.md`](docs/verification.md)). Ver [`progress/current.md`](progress/current.md) para el estado vivo y [`feature_list.json`](feature_list.json) para el alcance.
+
+## Local
+
+```bash
+bash init.sh   # una vez: venv, deps, seed, lint, tests
+bash dev.sh    # API :8000 + web :5173
+```
+
+## Deploy
+
+Frontend estático en **Vercel** (`src/web`, con `vercel.json` para el rewrite SPA) + API en **Render** con disco persistente para SQLite y las fotos (`render.yaml`). Guía paso a paso con todas las variables de entorno: [`docs/deploy.md`](docs/deploy.md).
