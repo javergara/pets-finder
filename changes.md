@@ -389,3 +389,10 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-12 — Fix: marca visible "Reencuentro" → "Pet Finder Col"
 
 - Pedido del usuario. Cambia la marca de la nav (`App.tsx`) y el mensaje precargado de WhatsApp (`lib/contacto.ts`), con sus tests. El aria-label "Reencuentro de {mascota}" de la landing se queda: es la palabra reencuentro, no la marca. El nombre interno del proyecto/paquete (reencuentro_api, docs) no cambia. `bash init.sh` verde (70 API + 64 web).
+
+## 2026-08-12 — Harness actualizado al estado de producción + backlog 20-25
+
+- `feature_list.json`: backlog nuevo en `todo` — 20-fotos-huerfanas-storage, 21-compartir-reporte, 22-alertas-por-zona, 23-moderacion-reportes, 24-ai-matching-fotos, 25-ops-produccion-pendientes (checklist del dueño; la rotación de credenciales queda fuera por decisión del usuario). `validate_feature_list.py` exit 0.
+- `CLAUDE.md`: qué-es y estado actual reescritos — app en producción en petfinder-col.com, marca Pet Finder Col, arquitectura real (Vercel serverless + Supabase, ya no "Vercel + Render"), reglas duras de prod.
+- `README.md`: estado 2.1.0 en producción. `CHANGELOG.md`: `[2.1.0] - 2026-08-12` fechado con las features 12-19 + fixes + marca; `[Unreleased]` apunta al backlog.
+- `progress/current.md`: estado vivo reescrito (fase cerrada, fixes post-19, backlog); eliminado el "Próximo paso" obsoleto de la era feature 10. `progress/history.md`: entrada de cierre del deploy real. `memory/memory.md`: gotchas de producción (wheels cp314, migraciones antes del merge, cachés DNS/favicon, verificación de deploy por poll del bundle, clasificador en push a main, .strip() en env vars).

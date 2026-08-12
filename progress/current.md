@@ -4,7 +4,15 @@
 
 ## Qué está pasando
 
-**Feature activa: `19-optimizacion-carga-y-tab` (in_progress, implementación lista, en revisión).** Features `01`-`18` aprobadas por el revisor independiente. Suites: 70 tests de API + 64 de web, todo en verde.
+**Fase de lanzamiento cerrada: 19/19 features en `done` y la app EN PRODUCCIÓN en <https://petfinder-col.com>** (Vercel + Supabase free, dominio GoDaddy, auto-deploy en push a `main`, marca visible **Pet Finder Col**). Suites: 70 tests de API + 64 de web, todo en verde. `main` y `develop` sincronizadas en el fix de marca (`e3ebfba`/`57095a3`).
+
+Post-revisión de la 19 se desplegaron 3 fixes directos (sin ciclo de revisor, como el fix del 409): fotos sin recorte en detalle/preview (`011670b`), foto completa también en tarjetas + cache-bust del favicon `?v=2` (`85c27d4`), y marca visible Pet Finder Col (`57095a3`).
+
+**Backlog nuevo: features `20`-`25` en `todo`** (ver `feature_list.json`): fotos huérfanas del bucket al eliminar, compartir con vista previa (og tags), alertas por zona (ADR), moderación (decidir alcance con el usuario), AI de matching de fotos (ADR), y `25-ops-produccion-pendientes` (checklist del dueño en dashboards: `SKIP_DB_CREATE_ALL=1` en Vercel, A record a 216.198.79.1, Website Builder desconectado en GoDaddy, vigilar pausa de Supabase free). Fuera de la lista por decisión del usuario: la rotación de credenciales de Supabase queda como recordatorio aparte, no como feature.
+
+## Próximo paso
+
+Tomar la siguiente feature del backlog (`20`-`24`) con el patrón líder→implementador→revisor, o ejecutar el checklist `25` (dueño). Regla dura vigente: nunca `seed.py` contra prod; migraciones aditivas ANTES de mergear a `main` si hay esquema nuevo.
 
 ## Hecho en la feature 19
 
@@ -35,12 +43,6 @@
 - [x] **Recorrido manual completo en Chrome real** (evidencia en `docs/verification.md` §3): landing → gate registro con ?volver= → reporte "Bruno E2E" con pin por click → listado → detalle con href wa.me exacto y coincidencia "a 4.92 km" → marcar reunida → contador 2→3 → mapa Todo Colombia con 15 activos. Datos reseteados al final.
 - [x] Greps de cierre limpios (adopta/leaflet/mapbox/WebSocket solo en comentarios de herencia/negación; única dep nueva python-multipart).
 - [x] `docs/verification.md` regenerado con evidencia real; CHANGELOG `[2.0.0] - 2026-08-12` fechado.
-
-## Próximo paso
-
-1. Revisor: corre `init.sh`, verifica el acceptance de la 10 y aprueba → `done`.
-2. Merge `develop` → `main` (cierre del acceptance 4 de la 10).
-3. Última feature: `11-despliegue` (vercel.json, render.yaml, VITE_API_BASE_URL, docs/deploy.md, build de producción probado).
 
 ## Veredicto del revisor — feature 10 (2026-08-12): APROBADA, condicionada al merge develop → main
 

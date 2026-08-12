@@ -2,15 +2,33 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased] — 2.1.0 (preparación del deploy real)
+## [Unreleased]
+
+Backlog planeado (en `todo` en `feature_list.json`): `20-fotos-huerfanas-storage`, `21-compartir-reporte`, `22-alertas-por-zona`, `23-moderacion-reportes`, `24-ai-matching-fotos` y el checklist operativo `25-ops-produccion-pendientes`.
+
+## [2.1.0] - 2026-08-12
+
+Deploy real: la app queda **viva en producción en <https://petfinder-col.com>** (Vercel + Supabase, todo free tier, dominio de GoDaddy), con auto-deploy en cada push a `main`, y el pulido post-lanzamiento pedido por el usuario.
 
 ### Added
 - **`12-persistencia-supabase`** (ADR 0006): Postgres + Storage de Supabase como persistencia gratuita — API sin estado, fotos al bucket con URL pública absoluta, fallback local intacto para dev.
 - **`13-api-vercel-serverless`** (ADR 0007): la API corre como función serverless en el mismo proyecto de Vercel (`api/index.py`) — cero tarjetas de crédito (Render eliminado tras exigirla), same-origin sin CORS ni `VITE_API_BASE_URL`, auto-deploy total con cada push a `main`.
 - **`14-mapa-leaflet`** (ADR 0008): mapa real con Leaflet + OpenStreetMap (gratis, sin API key) en `/mapa`, el detalle y el formulario — pins por color, click con lat/lng reales, equivalente accesible por pin; se elimina la interpolación propia (`lib/mapa.ts`).
+- **`15-caracteristicas-busqueda`**: raza (catálogo por especie), color y tamaño como selects predefinidos al reportar + filtros exactos en el listado y chips en tarjetas/detalle; columnas nullable nuevas en `Report` con migración aditiva de producción (ALTER + backfill, sin drop).
+- **`16-mobile-ui`**: auditoría visual real a 390px y fix del desborde horizontal (la nav empujaba todas las rutas); nav deslizable en móvil.
+- **`17-registro-ciudades-lista`**: la ciudad del registro es un select — las 6 zonas con mapa primero y las 32 capitales departamentales + ciudades grandes de Colombia después.
+- **`18-eliminar-reporte`**: `DELETE /api/reports/{id}` solo-autor (204/403/404) + borrado con confirmación en dos pasos en el detalle.
+- **`19-optimizacion-carga-y-tab`**: compresión de fotos en el navegador (máx 1280px JPEG) antes de subir, `loading="lazy"` en las tarjetas, `SKIP_DB_CREATE_ALL=1` para recortar el cold start serverless, título de pestaña `petfinder-col` y favicon propio (huella, tokens del design system).
+
+### Changed
+- **Entrar-o-registrar**: `POST /api/users` con un email existente devuelve la cuenta (200) en vez de 409 — fix del bug real de producción "no puedo volver a entrar"; emails normalizados a minúsculas.
+- **Marca visible**: "Reencuentro" → **"Pet Finder Col"** en la nav y en el mensaje precargado de WhatsApp (el nombre interno del proyecto no cambia).
 
 ### Fixed
 - El letrero de la landing ya no dice "Eje Cafetero": el alcance es todo el país.
+- Fotos sin recorte: el detalle y el preview de subida muestran la imagen completa (`object-contain`), y las tarjetas muestran la mascota entera dentro del marco 4:3.
+- Favicon con cache-bust (`?v=2`): el rayo por defecto de Vercel quedaba clavado en la caché de favicon de los navegadores.
+- Env vars de producción leídas con `.strip()` (una `SUPABASE_URL` pegada con espacio rompía las URLs de las fotos) y compatibilidad `POSTGRES_URL`/`SUPABASE_SERVICE_ROLE_KEY`.
 
 ## [2.0.0] - 2026-08-12
 

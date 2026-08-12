@@ -8,7 +8,7 @@ Proyecto construido con un flujo de *harness engineering* — ver [`AGENTS.md`](
 
 ## Estado
 
-Release **2.0.0**: la app funciona de punta a punta en local (ver [`docs/verification.md`](docs/verification.md)). Ver [`progress/current.md`](progress/current.md) para el estado vivo y [`feature_list.json`](feature_list.json) para el alcance.
+Release **2.1.0** — **en producción: <https://petfinder-col.com>** (marca visible: **Pet Finder Col**), con auto-deploy en cada push a `main`. 19 features en `done` con revisor independiente (70 tests de API + 64 de web); backlog `20`-`25` en `todo`. Ver [`progress/current.md`](progress/current.md) para el estado vivo y [`feature_list.json`](feature_list.json) para el alcance.
 
 ## Local
 
