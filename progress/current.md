@@ -103,3 +103,20 @@ Re-revisión sobre `develop` @ `0dab9a6` (`fix: creado_en explícito en los usua
 - `feature_list.json`: `02-reportes-backend` pasada a `done` con edición de texto puntual sobre la línea 22; `git diff feature_list.json` confirma que **solo** cambió esa línea (sin `json.dump`, sin `git checkout`); `validate_feature_list.py` → exit 0.
 
 Pendiente de la sesión principal: commit del cambio de status + este veredicto. Siguiente: `03-upload-fotos` o `05-listado-reportes` (ambas dependen solo de lo ya cerrado; decide el líder).
+
+## Veredicto del revisor — feature 03 (2026-08-12): RECHAZADA (bug real encontrado en la verificación en vivo)
+
+Revisión independiente sobre `develop` @ `b1f19ed`. `bash init.sh` corrido de verdad: verde completo (37/37 tests de API + 14/14 de web, lint limpio). Los tests unitarios del acceptance existen y pasan (201 jpeg/webp con nombre uuid ≠ filename hostil, 415 y 413 en español sin dejar restos, `FotoUpload` con preview local + callback `foto_url` + error sin callback). `python-multipart==0.0.17` es la única dependencia nueva, como prevé el ADR 0005 §6. Pese a eso, **la feature no cumple su propio propósito en la app real**:
+
+### Hallazgo que bloquea
+
+**El `foto_url` que devuelve `POST /api/uploads` responde 404 en la app real.** Verificado en vivo con `TestClient` sobre `reencuentro_api.main:app` (sin monkeypatch): subir un JPEG devuelve 201 con `/media/uploads/f9f1...jpg`, pero `GET` de esa misma URL → **404**. Causa raíz, confirmada imprimiendo las constantes de ambos módulos:
+
+- `routers/uploads.py` línea 18: `REPO_ROOT = Path(__file__).resolve().parents[3]`. Ese archivo vive un nivel más profundo que `main.py` (está dentro de `routers/`), así que `parents[3]` resuelve a **`src/`**, no a la raíz del repo. Resultado real: `UPLOADS_DIR = .../peptinder/src/data/media/uploads` (el archivo quedó ahí, verificado en disco), mientras el montaje estático `/media` sirve `.../peptinder/data/media` (`main.MEDIA_DIR`). Directorios distintos → el archivo se guarda pero nunca es servible.
+- Los 5 tests de `test_uploads.py` no lo atrapan porque el fixture autouse monkeypatchea `UPLOADS_DIR` a `tmp_path` — prueban el handler, pero nunca la ruta real. El acceptance 1 ("201 con foto_url bajo /media/uploads/ y el archivo queda en disco") y la descripción de la feature ("responde `foto_url` **servible bajo `/media`**") quedan incumplidos en el comportamiento real; además el docstring del router promete algo que el código no hace (CHECKPOINTS: "documentación que describe un comportamiento que el código no tiene").
+
+**Corrección sugerida** (implementador): `parents[4]` en `uploads.py` (o mejor: derivar `UPLOADS_DIR` de una única fuente compartida con `main.MEDIA_DIR` para que no pueda divergir), **más un test de regresión que no dependa del monkeypatch**, p. ej. `assert uploads.UPLOADS_DIR == main.MEDIA_DIR / "uploads"` — ese test habría atrapado este bug y protege el invariante para siempre. Nota de limpieza: la verificación del revisor creó y ya borró `src/data/media/uploads/` (artefacto del bug); tras el fix conviene re-verificar que ninguna corrida vuelva a crear `src/data/`.
+
+Menor (no bloquea): la entrada de `changes.md` dice "(en revisión)" — añadir el hash (`b1f19ed` + fix) al aprobar.
+
+Todo lo demás está bien (código, tests, `client.ts::subirFoto` con FormData sin `Content-Type` manual, estados del componente). Próximo paso: fix + test de regresión, y el revisor repite la verificación en vivo (subida real → GET del `foto_url` → 200 con los mismos bytes) antes de pasar `03-upload-fotos` a `done`.

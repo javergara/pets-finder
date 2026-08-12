@@ -4,19 +4,18 @@ La extensión del archivo guardado se deriva SIEMPRE del content-type declarado,
 nunca del filename del cliente (que es input hostil: podría traer `../` o una
 extensión ejecutable). El nombre es un uuid — imposible de adivinar o colisionar.
 
-`UPLOADS_DIR` es una variable de módulo para que los tests puedan apuntarla a un
-`tmp_path` con monkeypatch sin tocar el disco real.
+`UPLOADS_DIR` se re-exporta como variable de módulo (desde `..media`, la fuente
+única compartida con el montaje `/media` de main.py) para que los tests puedan
+apuntarla a un `tmp_path` con monkeypatch sin tocar el disco real.
 """
 
-from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
-router = APIRouter(prefix="/api/uploads", tags=["uploads"])
+from ..media import UPLOADS_DIR
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-UPLOADS_DIR = REPO_ROOT / "data" / "media" / "uploads"
+router = APIRouter(prefix="/api/uploads", tags=["uploads"])
 
 EXTENSION_POR_CONTENT_TYPE = {
     "image/jpeg": "jpg",

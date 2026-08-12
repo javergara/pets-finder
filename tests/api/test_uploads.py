@@ -2,6 +2,7 @@ import io
 
 import pytest
 
+from reencuentro_api import media
 from reencuentro_api.routers import uploads
 
 
@@ -70,3 +71,32 @@ def test_webp_valido_tambien_se_acepta(client, uploads_en_tmp):
 
     assert respuesta.status_code == 201
     assert respuesta.json()["foto_url"].endswith(".webp")
+
+
+def test_uploads_dir_es_subdirectorio_del_media_montado():
+    """Regresión del hallazgo del revisor (feature 03): uploads.py calculaba la raíz
+    del repo con su propio `parents[3]` — al vivir un nivel más profundo que main.py
+    resolvía a `src/` y las fotos se guardaban FUERA del directorio servido en /media
+    (201 con un foto_url que daba 404). Ambas rutas deben salir de la misma fuente."""
+    assert media.UPLOADS_DIR == media.MEDIA_DIR / "uploads"
+    assert media.MEDIA_DIR == media.REPO_ROOT / "data" / "media"
+    # La raíz calculada es de verdad la raíz del repo (contiene init.sh).
+    assert (media.REPO_ROOT / "init.sh").exists()
+
+
+def test_foto_subida_es_servible_bajo_media(client, monkeypatch):
+    """Ciclo completo sin monkeypatch de directorio: la foto subida por el endpoint
+    real debe responder 200 en el GET de su propio foto_url (montaje estático)."""
+    monkeypatch.setattr(uploads, "UPLOADS_DIR", media.UPLOADS_DIR)
+
+    respuesta = _subir(client, b"bytes-servibles", "image/jpeg")
+    assert respuesta.status_code == 201
+    foto_url = respuesta.json()["foto_url"]
+
+    archivo_en_disco = media.UPLOADS_DIR / foto_url.rsplit("/", 1)[-1]
+    try:
+        descarga = client.get(foto_url)
+        assert descarga.status_code == 200
+        assert descarga.content == b"bytes-servibles"
+    finally:
+        archivo_en_disco.unlink(missing_ok=True)

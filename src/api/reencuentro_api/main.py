@@ -1,16 +1,13 @@
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .media import MEDIA_DIR
 from .models.base import Base, engine
 from .routers import reports, uploads, users
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-MEDIA_DIR = REPO_ROOT / "data" / "media"
 
 
 @asynccontextmanager
