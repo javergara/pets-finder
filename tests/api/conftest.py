@@ -19,6 +19,7 @@ def _sin_supabase(monkeypatch):
     tests que SÍ ejercitan la rama Supabase las setean explícitamente después."""
     monkeypatch.delenv("SUPABASE_URL", raising=False)
     monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
+    monkeypatch.delenv("SUPABASE_SERVICE_ROLE_KEY", raising=False)
 
 
 @pytest.fixture()
