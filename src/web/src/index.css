@@ -1,0 +1,45 @@
+@import 'tailwindcss';
+
+/* Tokens de design/design-system.md — mismo nombre en diseño y en código */
+@theme {
+  --font-display: 'Newsreader', serif;
+  --font-sans: 'Work Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+
+  --color-bg: #f7f3ea;
+  --color-surface: #fffdf8;
+  --color-surface-alt: #f3ede0;
+  --color-ink: #1b1a17;
+  --color-ink-soft: #3d3931;
+  --color-muted: #6b665c;
+  --color-muted-2: #8a8172;
+  --color-line: #e4ddce;
+  --color-line-soft: #efe9dc;
+  --color-forest: #1f4d3a;
+  --color-forest-hover: #2e6e52;
+  --color-forest-tint: #e8efe9;
+  --color-forest-tint-line: #cfdfd3;
+  --color-ochre: #b57c2e;
+  --color-danger: #9b3b2e;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

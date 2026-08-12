@@ -1,4 +1,152 @@
 {
-  "$comment": "Alcance del proyecto Adopta. Regla dura: como máximo un item en status 'in_progress' a la vez (verificado por init.sh). Cada item: id, title, description, status (todo|in_progress|done), acceptance (criterios verificables), depends_on (ids). Contenido real poblado en la Fase 2 (docs/product-research.md).",
-  "items": []
+  "project": "Reencuentro",
+  "note": "Pivot post-terremoto (Eje Cafetero, 2026-08-10). La versión anterior del proyecto (Adopta, adopción de mascotas, 15 features done) vive completa en la rama git 'adopta-v1' y el tag 'adopta-v1.0.0'. Regla dura: máximo un item in_progress.",
+  "items": [
+    {
+      "id": "01-pivot-fundaciones",
+      "title": "Fundaciones del pivot: archivo, borrado, rename y harness",
+      "description": "Rama adopta-v1 + tag como archivo permanente del trabajo de adopción. Borrado del código/tests/diseño específicos de adopción, rename del paquete adopta_api a reencuentro_api, harness actualizado (feature_list, CLAUDE.md, AGENTS.md, CHECKPOINTS, docs, ADR 0005, CHANGELOG 2.0.0 en Unreleased), API mínima (health + users) y web mínima (landing de emergencia v1 + registro) en verde.",
+      "status": "done",
+      "depends_on": [],
+      "acceptance": [
+        "git branch lista adopta-v1 y git tag lista adopta-v1.0.0, ambos apuntando al último commit de la era Adopta (cde337f)",
+        "No queda ninguna referencia a adopta_api ni a features de adopción en src/, scripts/, tests/ (los docs históricos en progress/history.md y CHANGELOG pueden mencionarla)",
+        "bash init.sh pasa en verde con la API mínima (POST/GET /api/users, /health) y la web mínima (landing de emergencia con 2 CTAs + registro con ?volver=)",
+        "python3 scripts/validate_feature_list.py sale 0 con esta lista"
+      ]
+    },
+    {
+      "id": "02-reportes-backend",
+      "title": "Backend de reportes: modelo Report, zonas y CRUD con filtros",
+      "description": "Modelo único Report (tipo perdido|encontrado, campos condicionales nombre_mascota/situacion), services/ciudades.py como fuente de verdad de las 6 zonas + bounding box nacional, schemas con validación condicional, endpoints POST/GET/PUT con filtros (tipo, especie, zona, estado default activo, orden fecha_evento desc), y seed determinista nuevo (~16 reportes en las zonas afectadas, un par perdido/encontrado diseñado como coincidencia obvia, 2 reunidos).",
+      "status": "done",
+      "depends_on": ["01-pivot-fundaciones"],
+      "acceptance": [
+        "POST /api/reports crea reportes de ambos tipos; 422 si situacion falta en 'encontrado' o sobra en 'perdido', o si la zona no es válida",
+        "GET /api/reports filtra por tipo/especie/zona, excluye reunidos por defecto y ordena por fecha_evento descendente",
+        "PUT /api/reports/{id} devuelve 403 en español si el user_id no es el autor; GET de id inexistente devuelve 404 en español",
+        "python3 scripts/seed.py es determinista (dos corridas seguidas producen los mismos datos) y funciona sin red (fallback SVG)",
+        "Los bounding boxes de services/ciudades.py contienen el centro declarado de cada zona (test)"
+      ]
+    },
+    {
+      "id": "03-upload-fotos",
+      "title": "Subida de fotos: endpoint multipart y componente FotoUpload",
+      "description": "POST /api/uploads con UploadFile: valida content-type (jpeg/png/webp) y tamaño (≤5 MB por chunks), guarda con nombre uuid derivando la extensión del content-type (nunca del filename del cliente) en data/media/uploads/, responde foto_url servible bajo /media. Componente FotoUpload.tsx con input file, preview local y estados de carga/error.",
+      "status": "done",
+      "depends_on": ["01-pivot-fundaciones"],
+      "acceptance": [
+        "Subir un jpeg válido responde 201 con foto_url bajo /media/uploads/ y el archivo queda en disco con nombre uuid distinto del original",
+        "Content-type no permitido devuelve 415 y archivo de más de 5 MB devuelve 413, ambos en español",
+        "FotoUpload muestra preview local tras elegir archivo y entrega el foto_url al formulario padre al terminar la subida"
+      ]
+    },
+    {
+      "id": "04-reportar-ui",
+      "title": "Reportar mascota: landing de emergencia, formulario y pin en el mapa",
+      "description": "App.tsx definitivo con la nav de Reencuentro, LandingEmergencia con CTAs gigantes y accesos a listado/mapa, ReportarMascota como un componente con dos rutas (/reportar/perdido y /reportar/encontrado) y campos condicionales, selección de ubicación con pin por click sobre el mapa propio (MapaLienzo + inversa coordsDesdeFraccion en lib/mapa.ts parametrizado por zona), selector de zona (6 zonas + Otro lugar sobre el mapa nacional), y gate de registro con ?volver=.",
+      "status": "done",
+      "depends_on": ["02-reportes-backend", "03-upload-fotos"],
+      "acceptance": [
+        "Un usuario registrado crea un reporte end-to-end con foto subida y pin puesto por click, y el backend lo persiste con las coords del pin",
+        "Un usuario sin registrar que intenta reportar pasa por /registro?volver= y vuelve al formulario al terminar",
+        "El formulario muestra nombre_mascota solo en 'perdido' y situacion solo en 'encontrado'",
+        "posicionEnMapa y coordsDesdeFraccion son inversas (test de roundtrip) para todas las zonas"
+      ]
+    },
+    {
+      "id": "05-listado-reportes",
+      "title": "Listado de reportes con filtros",
+      "description": "/reportes: galería de tarjetas con foto grande (ReporteCard, adaptación del estilo visual de las tarjetas de mascota de adopta-v1), badge por tipo (perdido=danger, encontrado=forest), filtros por tipo/especie/zona aplicados al backend, orden por fecha.",
+      "status": "done",
+      "depends_on": ["02-reportes-backend"],
+      "acceptance": [
+        "El listado muestra los reportes activos del seed con su foto, tipo, especie, zona y fecha, ordenados por fecha_evento descendente",
+        "Cambiar los filtros re-consulta al backend y actualiza la galería",
+        "Cada tarjeta navega a /reporte/:id"
+      ]
+    },
+    {
+      "id": "06-detalle-contacto",
+      "title": "Detalle del reporte con contacto directo",
+      "description": "/reporte/:id: foto grande, datos completos, mini-mapa con el pin, y botones de contacto directo — WhatsApp (wa.me con mensaje precargado) y llamada (tel:), con normalización del teléfono colombiano en lib/contacto.ts.",
+      "status": "done",
+      "depends_on": ["05-listado-reportes"],
+      "acceptance": [
+        "Los hrefs generados son exactamente https://wa.me/57XXXXXXXXXX?text=... y tel:+57XXXXXXXXXX (tests de lib/contacto.ts y del componente)",
+        "El mensaje precargado de WhatsApp menciona el reporte (nombre o especie) y la app",
+        "El mini-mapa muestra el pin en la posición del reporte"
+      ]
+    },
+    {
+      "id": "07-mapa-reportes",
+      "title": "Mapa de reportes por zona y Todo Colombia",
+      "description": "/mapa: selector de zona (las 6 + vista Todo Colombia con el bounding box nacional), todos los reportes activos ploteados con color por tipo (perdido=danger, encontrado=forest), leyenda, y click en un pin abre una mini-tarjeta con link al detalle. Sin dependencias externas de mapas.",
+      "status": "done",
+      "depends_on": ["05-listado-reportes"],
+      "acceptance": [
+        "Los pins usan bg-danger para perdidos y bg-forest para encontrados, y la leyenda lo explica",
+        "La vista Todo Colombia plotea reportes de todas las zonas a la vez",
+        "package.json no incorpora ninguna librería de mapas (leaflet/mapbox/google)"
+      ]
+    },
+    {
+      "id": "08-coincidencias",
+      "title": "Posibles coincidencias entre perdidos y encontrados",
+      "description": "services/coincidencias.py: función pura que filtra candidatos del tipo opuesto, misma especie, misma zona y estado activo, y los ordena por distancia haversine + penalización por diferencia de fechas. GET /api/reports/{id}/coincidencias y sección 'Posibles coincidencias' en el detalle.",
+      "status": "done",
+      "depends_on": ["06-detalle-contacto"],
+      "acceptance": [
+        "La función pura filtra por tipo opuesto/especie/zona/estado y ordena por distancia con la fecha como penalización (tests unitarios)",
+        "El endpoint devuelve el par sembrado como coincidencia obvia en el detalle del reporte perdido del seed",
+        "La sección del detalle muestra las coincidencias con su distancia y linkea a cada una"
+      ]
+    },
+    {
+      "id": "09-reunidos",
+      "title": "Marcar como reunido, mis reportes y franja de reencuentros",
+      "description": "POST /api/reports/{id}/reunido (solo el autor, 403 si no; 409 si ya está reunido; setea resuelto_en), GET /api/reports/reunidos (contador + últimos), /mis-reportes con editar y marcar reunido, y franja de reencuentros con contador en la landing de emergencia.",
+      "status": "done",
+      "depends_on": ["06-detalle-contacto"],
+      "acceptance": [
+        "Marcar reunido lo saca del listado y del mapa por defecto, y sube el contador de la landing",
+        "Un usuario que no es el autor recibe 403 en español; marcarlo dos veces devuelve 409",
+        "El botón de marcar reunido solo se muestra al autor del reporte",
+        "La ruta literal /api/reports/reunidos está registrada antes que /api/reports/{report_id} y responde 200"
+      ]
+    },
+    {
+      "id": "10-verificacion-final",
+      "title": "Verificación end-to-end y release 2.0.0",
+      "description": "Recorrido manual completo del flujo (reportar perdido con foto y pin → verlo en listado y mapa → contacto → crear encontrado cercano → coincidencia → marcar reunido → contador), greps del revisor (sin adopta en código vivo, sin librerías de mapas/chat), docs/verification.md regenerado, CHANGELOG 2.0.0 fechado, merge develop → main.",
+      "status": "done",
+      "depends_on": [
+        "04-reportar-ui",
+        "05-listado-reportes",
+        "06-detalle-contacto",
+        "07-mapa-reportes",
+        "08-coincidencias",
+        "09-reunidos"
+      ],
+      "acceptance": [
+        "bash init.sh en verde completo y python3 scripts/seed.py determinista en dos corridas seguidas",
+        "El recorrido manual en navegador real cubre el flujo completo perdido→encontrado→coincidencia→reunido sin errores",
+        "grep de adopta/leaflet/mapbox/WebSocket no encuentra nada en código vivo; la única dependencia nueva es python-multipart",
+        "CHANGELOG [2.0.0] fechado y develop mergeado a main"
+      ]
+    },
+    {
+      "id": "11-despliegue",
+      "title": "Estrategia y configuración de despliegue (Vercel + Render)",
+      "description": "Frontend estático en Vercel (vercel.json con rewrites SPA, VITE_API_BASE_URL por entorno) y API en Render con disco persistente para SQLite y uploads (render.yaml), CORS configurable por env var, guía paso a paso en docs/deploy.md y sección Deploy en README. El deploy real lo ejecuta el usuario con la guía; aquí se deja todo configurado y el build de producción probado en local.",
+      "status": "todo",
+      "depends_on": ["10-verificacion-final"],
+      "acceptance": [
+        "npm run build produce un build de producción sin errores y vercel.json tiene el rewrite SPA",
+        "render.yaml declara el servicio de la API con el disco persistente montado en data/",
+        "docs/deploy.md documenta los pasos exactos y todas las variables de entorno (VITE_API_BASE_URL, CORS_ORIGINS, DATABASE_URL)",
+        "La API arranca en local con CORS_ORIGINS apuntando a un dominio de prueba y responde /health"
+      ]
+    }
+  ]
 }

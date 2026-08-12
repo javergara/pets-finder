@@ -1,0 +1,24 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^src/api/
+      - id: ruff-format
+        files: ^src/api/
+
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        files: ^src/web/.*\.(ts|tsx|js|jsx|css|json)$
+
+  - repo: local
+    hooks:
+      - id: feature-list-single-in-progress
+        name: feature_list.json — máximo un item in_progress
+        entry: bash -c 'n=$(python3 -c "import json,sys; d=json.load(open(\"feature_list.json\")); print(sum(1 for i in d[\"items\"] if i[\"status\"]==\"in_progress\"))"); if [ "$n" -gt 1 ]; then echo "feature_list.json tiene $n items in_progress (máximo 1)"; exit 1; fi'
+        language: system
+        files: ^feature_list\.json$
+        pass_filenames: false

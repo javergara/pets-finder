@@ -21,8 +21,10 @@ dist/
 # Data
 data/app.db
 data/app.db-journal
-data/seed/images/*
-!data/seed/images/.gitkeep
+data/media/seed/*
+!data/media/seed/.gitkeep
+data/media/uploads/*
+!data/media/uploads/.gitkeep
 
 # Env
 .env

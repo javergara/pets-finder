@@ -1,0 +1,42 @@
+# Investigación de producto — Reencuentro
+
+> La investigación de la era Adopta (adopción de mascotas) vive en la rama `adopta-v1`.
+
+## 1. Problema
+
+El terremoto del Eje Cafetero (10 de agosto de 2026) separó a miles de mascotas de sus familias: animales que huyeron por el pánico, casas colapsadas, evacuaciones apresuradas. Los reportes están dispersos (grupos de WhatsApp, publicaciones sueltas, un mapa colaborativo de Google My Maps) sin estructura ni búsqueda. Quien encuentra una mascota no tiene forma sistemática de encontrar a su dueño, y viceversa.
+
+## 2. Referentes reales
+
+- **Mapa colaborativo del Eje Cafetero** (Google My Maps): marcadores georreferenciados con categorías por tipo de animal y códigos de color por estado. Validó la necesidad, pero sin estructura de datos ni contacto integrado.
+- **Patitas a Salvo / mascotasporvenezuela.com** (terremotos de Venezuela, 2026): tres entradas ("Perdí a mi mascota" / "Encontré una mascota" / "Necesita atención"), búsqueda por zona, contacto directo. El modelo más cercano al nuestro.
+- **PawBoost** (EE. UU.): "AMBER Alert para mascotas", alertas comunitarias por zona. Fuera de alcance del MVP (requiere base de usuarios), pero valida "reunido" como métrica central.
+- **Love Lost (Petco)**: matching de fotos con AI. Fuera de alcance — nuestras coincidencias son por especie + zona + distancia + fecha, sin AI.
+
+## 3. Roles
+
+- **Dueño**: perdió su mascota. Reporta con foto, señas, dónde se perdió y su teléfono. Revisa coincidencias con reportes de encontradas.
+- **Rescatista**: encontró una mascota (la tiene consigo o la vio). Reporta con foto, dónde, y su teléfono.
+- No hay rol de administrador en el MVP; no hay moderación de reportes.
+
+## 4. Decisiones de mecánica (y por qué)
+
+| Decisión | Por qué |
+|---|---|
+| Dos CTAs gigantes en la landing: "Perdí" / "Encontré" | En emergencia, el usuario decide en 2 segundos qué camino es el suyo. Patrón de Patitas a Salvo. |
+| Registro mínimo reutilizado (nombre + email, sin contraseña) | Cada paso extra cuesta reportes; pero ligar reportes a un usuario permite editarlos y marcarlos reunidos después. |
+| Contacto directo WhatsApp/tel, sin chat interno | Es el canal que todo el mundo ya tiene abierto en Colombia. Cero fricción, cero infraestructura. |
+| Foto obligatoria en el reporte | La foto es el identificador principal de una mascota para un humano. |
+| Pin en el mapa propio (click) + zona | Coordenadas exactas sin depender de servicios de mapas externos. |
+| Coincidencias por especie + zona + distancia + fecha | Simple, explicable y útil; sin AI ni servicios externos. |
+| Estado "reunido" con contador público | La métrica de esperanza: motiva a reportar y a compartir. Los reunidos salen del listado/mapa activos. |
+| Sin lenguaje de descarte ni de fracaso | Herencia de producto de la era Adopta: el tono importa. "Reunido", nunca "cerrado sin éxito". |
+
+## 5. Flujo principal
+
+1. Landing → "Perdí a mi mascota" (o "Encontré una").
+2. Si no está registrado → registro liviano → vuelve al formulario (`?volver=`).
+3. Formulario: foto, especie, señas, zona + pin en el mapa, fecha, teléfono. Campos condicionales: `nombre_mascota` (perdido), `situacion` conmigo/vista (encontrado).
+4. El reporte aparece en el listado (filtros tipo/especie/zona) y en el mapa (color por tipo).
+5. En el detalle de un reporte: contacto directo + posibles coincidencias del tipo opuesto.
+6. Cuando la mascota vuelve a casa: el autor la marca "reunida" → sale de las vistas activas y alimenta el contador de reencuentros de la landing.
