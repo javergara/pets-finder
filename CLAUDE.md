@@ -46,4 +46,6 @@ Para resetear los datos a un estado limpio: `python3 scripts/seed.py` (determini
 
 ## Estado actual (2026-08-12)
 
-**Pivot en curso.** `01-pivot-fundaciones` in_progress: rama `adopta-v1` creada, borrado y rename hechos, API mínima (users) y web mínima (landing v1 + registro) en verde. Siguen `02-reportes-backend` … `11-despliegue` según `feature_list.json`. Ver `progress/current.md` para el detalle vivo.
+**Pivot completo: las 11 features de `feature_list.json` en `done`.** Release **2.0.0** en `main`, cada feature aprobada por un revisor independiente que corrió `bash init.sh` de verdad (51 tests de API + 56 de web, todo en verde) y verificación end-to-end en navegador real (`docs/verification.md`). Funcionalidad: reportar perdida/encontrada con foto y pin en el mapa propio, listado con filtros, detalle con contacto directo por WhatsApp, mapa por zona + Todo Colombia, coincidencias automáticas sin AI, marcar reencuentros con la franja de esperanza en la landing, y configuración de despliegue lista (Vercel + Render, guía en `docs/deploy.md` — el deploy real lo ejecuta el dueño del proyecto).
+
+Para retomar con trabajo nuevo: definir una feature nueva siguiendo el mismo patrón líder→implementador→revisor. Ideas naturales no incluidas en el alcance: alertas por zona, moderación de reportes, AI de matching de fotos, migración a Postgres/S3 (todas requieren ADR nuevo).
