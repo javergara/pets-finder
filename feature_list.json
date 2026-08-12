@@ -45,7 +45,7 @@
       "id": "04-reportar-ui",
       "title": "Reportar mascota: landing de emergencia, formulario y pin en el mapa",
       "description": "App.tsx definitivo con la nav de Reencuentro, LandingEmergencia con CTAs gigantes y accesos a listado/mapa, ReportarMascota como un componente con dos rutas (/reportar/perdido y /reportar/encontrado) y campos condicionales, selección de ubicación con pin por click sobre el mapa propio (MapaLienzo + inversa coordsDesdeFraccion en lib/mapa.ts parametrizado por zona), selector de zona (6 zonas + Otro lugar sobre el mapa nacional), y gate de registro con ?volver=.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["02-reportes-backend", "03-upload-fotos"],
       "acceptance": [
         "Un usuario registrado crea un reporte end-to-end con foto subida y pin puesto por click, y el backend lo persiste con las coords del pin",

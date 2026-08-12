@@ -218,3 +218,14 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `api/client.ts::subirFoto`: FormData con fetch directo (no pasa por `request()` — el Content-Type: application/json por defecto rompería el boundary multipart, riesgo anotado en el plan).
 - `components/FotoUpload.tsx`: input file con accept de imágenes, preview local con object URL (revocado en cleanup), estados subiendo/lista/error, entrega `foto_url` al padre.
 - Tests: `test_uploads.py` (5: 201 jpg/webp, nombre uuid resistente a path traversal, 415, 413 sin restos) con `UPLOADS_DIR` en tmp_path; `FotoUpload.test.tsx` (2: preview+callback, error sin callback). API 37, web 14.
+
+## 2026-08-12 — 04-reportar-ui (en revisión)
+
+- `lib/ciudades.ts`: bounding boxes + centros de las 6 zonas y COLOMBIA nacional (sync con services/ciudades.py), `cajaDeZona()` con fallback nacional para "Otro"/"Colombia".
+- `lib/mapa.ts` parametrizado por zona + inversa `coordsDesdeFraccion(fx, fy, zona)`; `mapa.test.ts` reescrito con roundtrip fracción→coords→posición para todas las zonas y el lienzo nacional.
+- `components/MapaLienzo.tsx`: lienzo CSS puro con retícula, pins posicionados por interpolación, `onClickCoords` (click → getBoundingClientRect → coordsDesdeFraccion) para poner el pin de un reporte. `components/SelectorCiudad.tsx`: 6 zonas + "Otro lugar de Colombia" opcional.
+- `screens/ReportarMascota.tsx`: un componente, dos rutas (`/reportar/perdido|encontrado`); campos condicionales (nombre_mascota solo perdido, situacion solo encontrado), FotoUpload, selector de zona con pin que arranca en el centro y se afina con click, campo ciudad_texto cuando zona=Otro, gate `hasActiveUser()` → `/registro?volver=`, pantalla de éxito con tono de esperanza.
+- `screens/LandingEmergencia.tsx` definitiva: 2 CTAs gigantes (danger/forest), accesos a /reportes y /mapa, zonas nombradas.
+- `api/client.ts::crearReporte` + tipos `Reporte`/`ReporteIn`.
+- Tests: `ReportarMascota.test.tsx` (6: condicionales ×2, gate, submit con coords del click en lienzo simulado, encontrado con situacion, Otro exige ciudad, error de backend), `LandingEmergencia.test.tsx` (3). Web: 27, API: 39.
+- Verificación E2E real contra uvicorn vivo: subir PNG → GET 200 del foto_url → POST /api/reports con pin en Cali persistido (id 18) → seed reseteado.
