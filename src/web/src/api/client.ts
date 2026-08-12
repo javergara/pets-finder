@@ -6,7 +6,11 @@ import {
   type UserProfile,
 } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
+// En producción la API vive en el MISMO dominio (funciones serverless de Vercel,
+// ADR 0007): base vacía = rutas relativas same-origin, sin CORS ni env vars.
+// En dev (y en los tests de Vitest, donde DEV=true) apunta al uvicorn local.
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://127.0.0.1:8000' : '');
 
 export class ApiError extends Error {}
 

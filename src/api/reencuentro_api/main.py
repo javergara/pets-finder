@@ -39,5 +39,12 @@ app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(uploads.router)
 
-MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
+# En serverless (Vercel, ADR 0007) el filesystem es de solo lectura: si no se
+# puede crear/encontrar el directorio, simplemente no se monta /media — en
+# producción todas las fotos son URLs absolutas de Supabase (ADR 0006).
+try:
+    MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
+if MEDIA_DIR.is_dir():
+    app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")

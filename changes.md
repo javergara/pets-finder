@@ -293,3 +293,13 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `psycopg2-binary==2.9.10` en requirements (DATABASE_URL acepta postgresql://; modelos 100% portables).
 - `render.yaml` sin disco (free tier) con las env vars de Supabase en sync:false; `docs/deploy.md` reescrito (Supabase → Render → Vercel, advertencia de drop_all del seed en prod, auto-deploy por push a main); README y architecture §7 actualizados.
 - Tests: +2 en test_uploads.py (bucket mockeado con URL/headers/contenido verificados y disco intacto; 502 en fallo) y client.test.ts (2). API 53, web 58. init.sh en verde.
+
+## 2026-08-12 — 13-api-vercel-serverless (en revisión)
+
+- Contexto: Render exigió tarjeta de crédito para el Blueprint (bloqueó el deploy del usuario). Con la API sin estado (feature 12), FastAPI se mueve a funciones serverless de Vercel: cero tarjetas (Hobby + Supabase free), un solo dashboard, auto-deploy total. ADR 0007.
+- `api/index.py`: entry de Vercel que expone LA MISMA instancia `app` de reencuentro_api (sys.path a src/api). `requirements.txt` raíz con `-r src/api/requirements.txt`.
+- `vercel.json` raíz: build de src/web → src/web/dist, rewrites /api/* y /health a la función (Vercel preserva la URL original → FastAPI enruta normal), fallback SPA con negative lookahead de /api.
+- `client.ts`: base de API same-origin en producción (cadena vacía si no hay VITE_API_BASE_URL y no es DEV) — desaparecen la env var del frontend y el CORS entre dominios; dev y Vitest siguen en 127.0.0.1:8000.
+- `main.py`: montaje /media condicional (filesystem de solo lectura en serverless; en prod todas las fotos son URLs de Supabase).
+- Borrados: render.yaml y src/web/vercel.json. `.vercelignore` nuevo. `docs/deploy.md` reescrito (un solo proyecto Vercel con root en la raíz, 4 env vars, seed contra prod desde la máquina local, límites del free tier con la pausa semanal de Supabase). README y architecture §7 actualizados.
+- Tests: `test_vercel_entry.py` (2: /health y /api/reports vía el entry con TestClient; identidad con la app del paquete). API 55, web 58, build de producción verde.

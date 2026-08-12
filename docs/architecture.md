@@ -38,4 +38,4 @@ Igual que en la era Adopta: ninguna real. `localStorage` guarda el `reencuentro_
 
 ## 7. Despliegue (features 11-12)
 
-Frontend estático en Vercel; API **sin estado** en Render free; persistencia en **Supabase** — Postgres vía `DATABASE_URL` (en local sigue SQLite) y fotos en Storage vía `reencuentro_api/media.py::subir_a_supabase` cuando `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` están configuradas (ADR 0006). CORS configurable vía `CORS_ORIGINS`. Guía en `docs/deploy.md`.
+Frontend estático y API **serverless** en un solo proyecto de Vercel (entry `api/index.py`, ADR 0007); persistencia en **Supabase** — Postgres vía `DATABASE_URL` (en local sigue SQLite) y fotos en Storage vía `reencuentro_api/media.py::subir_a_supabase` cuando `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` están configuradas (ADR 0006). CORS configurable vía `CORS_ORIGINS`. Guía en `docs/deploy.md`.

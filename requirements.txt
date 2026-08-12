@@ -1,0 +1,4 @@
+# Requirements para el runtime Python de Vercel (funciones serverless, ADR 0007).
+# La fuente de verdad de las dependencias sigue siendo src/api/requirements.txt;
+# esto solo la incluye desde la raíz, que es donde Vercel busca el archivo.
+-r src/api/requirements.txt

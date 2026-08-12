@@ -161,6 +161,34 @@
         "render.yaml queda sin disco persistente y docs/deploy.md documenta los pasos de Supabase (connection string del pooler, bucket público, service key) y todas las env vars nuevas",
         "bash init.sh pasa en verde: el comportamiento local (SQLite + filesystem) no cambia en nada"
       ]
+    },
+    {
+      "id": "13-api-vercel-serverless",
+      "title": "API como funciones serverless en Vercel (adiós Render y su tarjeta)",
+      "description": "Render exige tarjeta de crédito para el Blueprint (bloqueó el deploy del usuario). Como la API es sin estado desde la feature 12, FastAPI puede correr como función serverless de Vercel (Hobby, sin tarjeta): un solo proyecto Vercel sirve el build estático de src/web Y la API bajo /api, con auto-deploy total en cada push a main. Entry api/index.py + requirements.txt raíz, vercel.json raíz (build de src/web, rewrite /api a la función, fallback SPA), base de API same-origin en producción (sin VITE_API_BASE_URL ni CORS entre dominios), render.yaml eliminado, docs/deploy.md reescrito. ADR 0007.",
+      "status": "in_progress",
+      "depends_on": ["12-persistencia-supabase"],
+      "acceptance": [
+        "api/index.py expone la app FastAPI completa (test que la importa por esa ruta y pega /health y /api/reports vía TestClient)",
+        "vercel.json en la raíz define el build del frontend (src/web/dist), el rewrite de /api/* a la función y el fallback SPA que excluye /api",
+        "En producción el frontend llama a la API por same-origin (sin VITE_API_BASE_URL); en dev sigue apuntando a http://127.0.0.1:8000 (test de client.ts)",
+        "render.yaml eliminado y docs/deploy.md reescrito: un solo proyecto Vercel + Supabase, cero tarjetas, seed contra producción corrido desde la máquina local con las env vars",
+        "bash init.sh pasa en verde y npm run build produce el bundle sin errores"
+      ]
+    },
+    {
+      "id": "14-mapa-leaflet",
+      "title": "Mapa real con Leaflet + OpenStreetMap",
+      "description": "El lienzo esquemático (sin calles) se percibe como roto. Decisión del usuario: mapa real con Leaflet + tiles de OpenStreetMap (gratis, sin API key ni tarjeta) en vez de Google Maps (exige facturación). MapaLienzo conserva su contrato (zona, pines con color por tipo, onClickCoords para ubicar el reporte) pero renderiza un mapa real con fitBounds por zona; se añade una lista accesible de pins (sr-only) que además mantiene testeables las pantallas. lib/mapa.ts (interpolación propia) se elimina. ADR 0008 reemplaza la parte de mapa del ADR 0005 §5.",
+      "status": "todo",
+      "depends_on": ["13-api-vercel-serverless"],
+      "acceptance": [
+        "El mapa renderiza tiles reales de OpenStreetMap con atribución, centrado por zona (fitBounds del bounding box de lib/ciudades.ts) incluyendo la vista Todo Colombia",
+        "Los pins mantienen el código de color (perdido=danger, encontrado=forest) y el click en el mapa entrega lat/lng reales al formulario de reporte",
+        "Cada pin tiene un equivalente accesible (botón con aria-label) — los tests de MapaReportes/ReporteDetalle siguen verificando pins y colores",
+        "leaflet es la única dependencia nueva de package.json y bash init.sh pasa en verde",
+        "Verificación manual en navegador: mapa con calles en /mapa, /reporte/:id y el formulario de reportar"
+      ]
     }
   ]
 }
