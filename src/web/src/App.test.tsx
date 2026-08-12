@@ -1,7 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as client from './api/client';
 import App from './App';
+
+// La landing pide el resumen de reencuentros al montar.
+vi.mock('./api/client', async () => {
+  const actual = await vi.importActual<typeof client>('./api/client');
+  return { ...actual, obtenerReunidos: vi.fn() };
+});
+
+beforeEach(() => {
+  vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 0, recientes: [] });
+});
 
 // `App` no envuelve un `BrowserRouter` internamente (eso vive en `main.tsx`), así que
 // puede montarse directamente dentro de un `MemoryRouter` de test, igual que cada

@@ -257,3 +257,11 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `GET /api/reports/{id}/coincidencias` (router delgado: query cruda + delega a la función pura), `CoincidenciaOut` (ReportOut + distancia_km).
 - Frontend: `listarCoincidencias` en client.ts; sección "Posibles coincidencias" en ReporteDetalle (solo activos, tarjetas compactas con foto/descripcion/`a X km`, link al detalle del candidato), con copy direccional por tipo.
 - Tests: `test_coincidencias.py` (6: filtros, orden por distancia, la fecha penaliza como medio km/día, bidireccional, endpoint con el par sembrado ~600 m, 404) y 2 casos nuevos en `ReporteDetalle.test.tsx` (sección con distancia y href; ausencia sin coincidencias). API: 45, web: 48.
+
+## 2026-08-12 — 09-reunidos (en revisión)
+
+- Backend: `POST /api/reports/{id}/reunido` (solo autor → 403 español; repetido → 409; setea estado+resuelto_en), `GET /api/reports/reunidos` (ReunidosResumenOut: total + 6 recientes por resuelto_en desc) — **ruta literal declarada antes que las dinámicas** con comentario de la regla; `GET /api/reports` gana filtro `user_id` para "mis reportes".
+- Frontend: `screens/MisReportes.tsx` (/mis-reportes: lista propia con estado=todos, marcar reunida, edición inline de descripción/teléfono vía PUT, chip "Reunida 💚"); botón "Marcar como reunida" en ReporteDetalle visible SOLO para el autor (getActiveUserId() === user_id, validado también en backend); franja de reencuentros en LandingEmergencia (contador + mini-galería de GET /reunidos, tolerante a fallo: la landing nunca se bloquea).
+- client.ts: marcarReunido, editarReporte, obtenerReunidos, filtro userId en listarReportes.
+- Tests: +6 en test_reports.py (transición+salida del listado, 403, 409, filtro user_id, resumen con orden, regresión de la ruta literal no eclipsada), MisReportes.test.tsx (4), +2 en ReporteDetalle.test.tsx (botón solo autor), +2 en LandingEmergencia.test.tsx (franja/ausencia). API 51, web 56.
+- Verificación E2E en vivo: 403 no-autor → marcar → 409 repetido → sale del listado activo → contador 2→3 → seed reseteado.

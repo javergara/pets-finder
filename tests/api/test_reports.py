@@ -287,3 +287,75 @@ def test_editar_reporte_ajeno_devuelve_403_en_espanol(client, db_session, usuari
 
     assert respuesta.status_code == 403
     assert "Solo quien creó el reporte" in respuesta.json()["detail"]
+
+
+def test_listado_filtra_por_user_id(client, db_session, usuario, otro_usuario):
+    _sembrar_variedad(db_session, usuario)
+
+    ajenos = client.get(f"/api/reports?user_id={otro_usuario.id}&estado=todos").json()
+    propios = client.get(f"/api/reports?user_id={usuario.id}&estado=todos").json()
+
+    assert ajenos == []
+    assert len(propios) == 4
+
+
+# --- Marcar reunido (feature 09) ---
+
+
+def test_marcar_reunido_transiciona_y_sale_del_listado(client, db_session, usuario):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.post(f"/api/reports/{reporte.id}/reunido", json={"user_id": usuario.id})
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["estado"] == "reunido"
+    assert cuerpo["resuelto_en"] is not None
+
+    # Sale del listado activo por defecto.
+    activos = client.get("/api/reports").json()
+    assert all(r["id"] != reporte.id for r in activos)
+
+
+def test_marcar_reunido_por_otro_usuario_devuelve_403_en_espanol(
+    client, db_session, usuario, otro_usuario
+):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.post(f"/api/reports/{reporte.id}/reunido", json={"user_id": otro_usuario.id})
+
+    assert respuesta.status_code == 403
+    assert "Solo quien creó el reporte" in respuesta.json()["detail"]
+
+
+def test_marcar_reunido_dos_veces_devuelve_409(client, db_session, usuario):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+    client.post(f"/api/reports/{reporte.id}/reunido", json={"user_id": usuario.id})
+
+    respuesta = client.post(f"/api/reports/{reporte.id}/reunido", json={"user_id": usuario.id})
+
+    assert respuesta.status_code == 409
+    assert "ya está marcado" in respuesta.json()["detail"]
+
+
+def test_resumen_reunidos_cuenta_y_lista_los_recientes(client, db_session, usuario):
+    reportes = _sembrar_variedad(db_session, usuario)
+    # El seed de variedad trae 1 reunido (Firulais); marcamos otro más.
+    client.post(f"/api/reports/{reportes[0].id}/reunido", json={"user_id": usuario.id})
+
+    respuesta = client.get("/api/reports/reunidos")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["total"] == 2
+    # El recién marcado (con resuelto_en real) va de primero.
+    assert cuerpo["recientes"][0]["id"] == reportes[0].id
+
+
+def test_la_ruta_literal_reunidos_no_queda_eclipsada_por_report_id(client, db_session):
+    """Regresión de la regla de orden: /api/reports/reunidos debe responder 200,
+    nunca 422 por parsearse como un report_id inválido."""
+    respuesta = client.get("/api/reports/reunidos")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"total": 0, "recientes": []}

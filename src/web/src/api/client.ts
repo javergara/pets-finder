@@ -1,4 +1,10 @@
-import { type Coincidencia, type Reporte, type ReporteIn, type UserProfile } from './types';
+import {
+  type Coincidencia,
+  type Reporte,
+  type ReporteIn,
+  type ReunidosResumen,
+  type UserProfile,
+} from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -45,6 +51,7 @@ export type FiltrosReportes = {
   tipo?: 'perdido' | 'encontrado';
   especie?: 'perro' | 'gato' | 'otro';
   zona?: string;
+  userId?: number;
   estado?: 'activo' | 'reunido' | 'todos';
 };
 
@@ -53,9 +60,31 @@ export function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]
   if (filtros.tipo) params.set('tipo', filtros.tipo);
   if (filtros.especie) params.set('especie', filtros.especie);
   if (filtros.zona) params.set('zona', filtros.zona);
+  if (filtros.userId !== undefined) params.set('user_id', String(filtros.userId));
   if (filtros.estado) params.set('estado', filtros.estado);
   const query = params.toString();
   return request(`/api/reports${query ? `?${query}` : ''}`);
+}
+
+export function marcarReunido(reporteId: number, userId: number): Promise<Reporte> {
+  return request(`/api/reports/${reporteId}/reunido`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export function editarReporte(
+  reporteId: number,
+  datos: { user_id: number; descripcion?: string; telefono_contacto?: string },
+): Promise<Reporte> {
+  return request(`/api/reports/${reporteId}`, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function obtenerReunidos(): Promise<ReunidosResumen> {
+  return request('/api/reports/reunidos');
 }
 
 export function obtenerReporte(reporteId: number): Promise<Reporte> {

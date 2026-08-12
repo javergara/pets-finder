@@ -98,3 +98,16 @@ class CoincidenciaOut(ReportOut):
     """Un candidato a ser la misma mascota, con su distancia geográfica real."""
 
     distancia_km: float
+
+
+class ReunidoIn(BaseModel):
+    """Quien pide marcar el reencuentro — debe ser el autor del reporte."""
+
+    user_id: int
+
+
+class ReunidosResumenOut(BaseModel):
+    """La métrica de esperanza: total de reencuentros + los más recientes."""
+
+    total: int
+    recientes: list[ReportOut]

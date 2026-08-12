@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { listarCoincidencias, mediaUrl, obtenerReporte } from '../api/client';
+import {
+  ApiError,
+  listarCoincidencias,
+  marcarReunido,
+  mediaUrl,
+  obtenerReporte,
+} from '../api/client';
 import type { Coincidencia, Reporte } from '../api/types';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
+import { getActiveUserId } from '../lib/session';
 
 const ETIQUETA_TIPO = {
   perdido: { texto: 'Se perdió', color: 'bg-danger' },
@@ -26,6 +33,7 @@ export function ReporteDetalle() {
   const { id } = useParams<{ id: string }>();
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,6 +83,35 @@ export function ReporteDetalle() {
         <p className="rounded-2xl border border-forest-tint-line bg-forest-tint p-4 text-sm text-forest">
           Esta mascota ya se reencontró con su familia. 💚
         </p>
+      )}
+
+      {/* El final feliz lo declara solo el autor (validado también en el backend). */}
+      {reporte.estado === 'activo' && reporte.user_id === getActiveUserId() && (
+        <div className="rounded-2xl border border-forest-tint-line bg-forest-tint p-4">
+          <p className="mb-3 text-sm text-ink-soft">
+            ¿Ya se reencontraron? Márcalo para celebrarlo y dejar de recibir contactos.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setError(null);
+              try {
+                const actualizado = await marcarReunido(reporte.id, getActiveUserId());
+                setReporte(actualizado);
+              } catch (err) {
+                setError(
+                  err instanceof ApiError
+                    ? err.message
+                    : 'No pudimos actualizar el reporte. Intenta de nuevo.',
+                );
+              }
+            }}
+            className="rounded-full bg-forest px-5 py-2 font-medium text-bg"
+          >
+            Marcar como reunida
+          </button>
+          {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        </div>
       )}
 
       <section className="rounded-2xl border border-line bg-surface p-6">

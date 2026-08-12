@@ -21,6 +21,11 @@ export type Reporte = {
 
 export type Coincidencia = Reporte & { distancia_km: number };
 
+export type ReunidosResumen = {
+  total: number;
+  recientes: Reporte[];
+};
+
 export type ReporteIn = {
   user_id: number;
   tipo: 'perdido' | 'encontrado';

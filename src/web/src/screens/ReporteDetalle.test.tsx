@@ -8,7 +8,12 @@ import { ReporteDetalle } from './ReporteDetalle';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, obtenerReporte: vi.fn(), listarCoincidencias: vi.fn() };
+  return {
+    ...actual,
+    obtenerReporte: vi.fn(),
+    listarCoincidencias: vi.fn(),
+    marcarReunido: vi.fn(),
+  };
 });
 
 beforeEach(() => {
@@ -157,5 +162,32 @@ describe('ReporteDetalle', () => {
       await screen.findByText('Esta mascota ya se reencontró con su familia. 💚'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).not.toBeInTheDocument();
+  });
+
+  it('el botón de marcar reunida solo aparece para el autor, y al usarlo celebra', async () => {
+    // Sin nada en localStorage getActiveUserId() cae a DEMO_USER_ID=1 == user_id del reporte.
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
+    vi.mocked(client.marcarReunido).mockResolvedValue(
+      crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T15:00:00' }),
+    );
+
+    renderDetalle();
+
+    const boton = await screen.findByRole('button', { name: 'Marcar como reunida' });
+    boton.click();
+
+    expect(
+      await screen.findByText('Esta mascota ya se reencontró con su familia. 💚'),
+    ).toBeInTheDocument();
+    expect(client.marcarReunido).toHaveBeenCalledWith(1, 1);
+  });
+
+  it('el botón de marcar reunida NO aparece para quien no es el autor', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 2 }));
+
+    renderDetalle();
+
+    await screen.findByRole('heading', { name: 'Rocky' });
+    expect(screen.queryByRole('button', { name: 'Marcar como reunida' })).not.toBeInTheDocument();
   });
 });
