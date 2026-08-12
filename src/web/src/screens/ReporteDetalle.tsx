@@ -64,7 +64,7 @@ export function ReporteDetalle() {
         />
       )}
 
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl text-ink">{titulo}</h1>
           <p className="mt-1 text-sm text-muted">

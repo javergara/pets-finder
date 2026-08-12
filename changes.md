@@ -340,3 +340,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Bug: la sesión vive solo en localStorage; al perderse (otro navegador/dispositivo, storage limpio) el usuario iba a /registro y su correo respondía 409 "ya existe" — bloqueado sin forma de volver a entrar.
 - Fix: POST /api/users es ahora "entrar o registrar": correo existente → devuelve ESA cuenta con 200 (sin editar el perfil); correo nuevo → 201. Email normalizado a minúsculas en ambas ramas.
 - Copy: "Entra o crea tu cuenta". Tests: +2 API (reingreso misma fila, normalización) y el caso 409 del frontend reemplazado por reingreso exitoso. API 65, web 56.
+
+## 2026-08-12 — 16-mobile-ui — commit 6d7cbcb + limpieza de datos de prueba en prod
+
+- Limpieza de producción (autorizada por el usuario para empezar a compartir la app): 17 reportes del seed + usuarios 1-5 eliminados (la cuenta real id 6 conservada, tenía 0 reportes), bucket de fotos vaciado (18 archivos). API pública verificada: 0 activos, 0 reunidos — la app arranca de cero con sus estados vacíos diseñados.
+- Auditoría móvil real con iframe de 390px (el resize de ventana no aplica en macOS maximizado): TODAS las rutas internas desbordaban a 545px por la Nav compartida (5 links sin wrap).
+- Fix: Nav con overflow-x-auto + shrink-0/whitespace-nowrap en links + scrollbar oculta — la nav se desliza dentro de sí misma; medido de nuevo: todas las rutas ≤390px sin scroll lateral. Header del detalle con flex-wrap (títulos largos + badge).
+- Verificación visual en 390px: landing (CTAs apilados), formulario (selects a ancho completo, características apiladas), listado (filtros envueltos) y mapa (tiles + leyenda) — todo correcto; el resto del layout ya era responsive por los breakpoints existentes.
+- Suites: 65 API + 56 web en verde (fix de solo clases CSS, sin cambios de comportamiento).

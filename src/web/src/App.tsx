@@ -8,12 +8,17 @@ import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
 
 function Nav() {
+  // shrink-0 + whitespace-nowrap + overflow-x-auto: en móvil la nav se desliza
+  // horizontalmente dentro de sí misma en vez de desbordar la página entera
+  // (era la causa del scroll lateral en TODAS las rutas internas, feature 16).
   const linkClass = ({ isActive }: { isActive: boolean }) =>
-    `px-3 py-2 text-sm font-medium ${isActive ? 'text-forest' : 'text-muted'}`;
+    `shrink-0 whitespace-nowrap px-3 py-2 text-sm font-medium ${
+      isActive ? 'text-forest' : 'text-muted'
+    }`;
 
   return (
-    <nav className="flex items-center gap-2 border-b border-line bg-surface px-4 py-3">
-      <NavLink to="/" className="mr-4 font-display text-xl text-forest">
+    <nav className="flex items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-3 [scrollbar-width:none]">
+      <NavLink to="/" className="mr-4 shrink-0 font-display text-xl text-forest">
         Reencuentro
       </NavLink>
       <NavLink to="/reportar/perdido" className={linkClass}>
