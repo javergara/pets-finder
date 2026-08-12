@@ -18,7 +18,7 @@ export function LandingEmergencia() {
   return (
     <div className="mx-auto flex min-h-svh max-w-4xl flex-col items-center justify-center gap-8 p-6 text-center">
       <p className="font-mono text-sm uppercase tracking-wider text-muted">
-        Eje Cafetero · Colombia · Sismo del 10 de agosto de 2026
+        Colombia · Sismo del 10 de agosto de 2026
       </p>
       <h1 className="max-w-2xl font-display text-5xl text-ink sm:text-6xl">
         Ayudemos a cada mascota a volver a casa.

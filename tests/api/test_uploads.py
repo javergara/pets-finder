@@ -84,6 +84,59 @@ def test_uploads_dir_es_subdirectorio_del_media_montado():
     assert (media.REPO_ROOT / "init.sh").exists()
 
 
+def test_con_supabase_configurado_la_foto_va_al_bucket_y_no_al_disco(
+    client, uploads_en_tmp, monkeypatch
+):
+    """ADR 0006: con SUPABASE_URL/SUPABASE_SERVICE_KEY la foto sube al bucket
+    (POST a la API de Storage mockeado) y foto_url es la URL pública absoluta."""
+    monkeypatch.setenv("SUPABASE_URL", "https://abc123.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "service-key-de-prueba")
+    llamadas = []
+
+    def fake_post(url, data=None, headers=None, timeout=None):
+        llamadas.append({"url": url, "data": data, "headers": headers})
+
+        class Respuesta:
+            status_code = 200
+
+        return Respuesta()
+
+    monkeypatch.setattr(media.requests, "post", fake_post)
+
+    respuesta = _subir(client, b"bytes-al-bucket", "image/jpeg")
+
+    assert respuesta.status_code == 201
+    foto_url = respuesta.json()["foto_url"]
+    assert foto_url.startswith("https://abc123.supabase.co/storage/v1/object/public/fotos/")
+    assert foto_url.endswith(".jpg")
+    # El POST fue al bucket con el contenido y la autorización correctos.
+    assert llamadas[0]["url"].startswith("https://abc123.supabase.co/storage/v1/object/fotos/")
+    assert llamadas[0]["data"] == b"bytes-al-bucket"
+    assert llamadas[0]["headers"]["Authorization"] == "Bearer service-key-de-prueba"
+    assert llamadas[0]["headers"]["Content-Type"] == "image/jpeg"
+    # Nada tocó el disco local.
+    assert list(uploads_en_tmp.iterdir()) == []
+
+
+def test_si_supabase_falla_responde_502_en_espanol(client, uploads_en_tmp, monkeypatch):
+    monkeypatch.setenv("SUPABASE_URL", "https://abc123.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_KEY", "service-key-de-prueba")
+
+    def fake_post(*args, **kwargs):
+        class Respuesta:
+            status_code = 403
+
+        return Respuesta()
+
+    monkeypatch.setattr(media.requests, "post", fake_post)
+
+    respuesta = _subir(client, b"x", "image/jpeg")
+
+    assert respuesta.status_code == 502
+    assert "No pudimos guardar la foto" in respuesta.json()["detail"]
+    assert list(uploads_en_tmp.iterdir()) == []
+
+
 def test_foto_subida_es_servible_bajo_media(client, monkeypatch):
     """Ciclo completo sin monkeypatch de directorio: la foto subida por el endpoint
     real debe responder 200 en el GET de su propio foto_url (montaje estático)."""

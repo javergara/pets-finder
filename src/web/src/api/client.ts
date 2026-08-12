@@ -28,6 +28,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function mediaUrl(path: string): string {
+  // Las fotos en Supabase Storage llegan como URL pública absoluta (ADR 0006);
+  // las locales del seed/dev siguen siendo rutas relativas bajo /media.
+  if (path.startsWith('http')) return path;
   return `${API_BASE_URL}${path}`;
 }
 

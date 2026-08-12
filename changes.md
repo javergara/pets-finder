@@ -281,3 +281,15 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - README con sección Local y Deploy.
 - Verificado en local: `npm run build` produce dist/ sin errores (81 KB js gzip); uvicorn con CORS_ORIGINS=dominio de prueba responde /health y el preflight OPTIONS devuelve access-control-allow-origin exacto.
 - Sin cambios de código de producto: client.ts ya usaba VITE_API_BASE_URL y main.py ya leía CORS_ORIGINS desde la feature 01.
+
+## 2026-08-12 — 12-persistencia-supabase — commit 371d4d3 (+ fix de copy 6334a42)
+
+- fix previo: el eyebrow de la landing ya no dice "Eje Cafetero" (alcance nacional) — pedido directo del usuario.
+- ADR 0006: Supabase (elegido por el usuario tras análisis A/B/C) como único proveedor de persistencia — Postgres 500 MB + Storage 1 GB gratis, vía Vercel Marketplace. La API queda sin estado.
+- `media.py`: `supabase_configurado()` + `subir_a_supabase()` (POST directo a la API REST de Storage con service_role key y x-upsert; config leída al llamar para que los tests la controlen con setenv; sin SDK nuevo — requests ya era dep).
+- `routers/uploads.py`: con Supabase configurado la foto va al bucket y foto_url es URL pública absoluta (502 español si el bucket falla, sin restos); sin configurar, filesystem idéntico al de la feature 03 (buffer por chunks con límite durante la lectura).
+- `scripts/seed.py`: `_obtener_foto()` extraída; con Supabase las fotos del seed suben al bucket, en local caché de disco como siempre.
+- `api/client.ts::mediaUrl`: deja pasar URLs absolutas (http...) tal cual; test nuevo `client.test.ts`.
+- `psycopg2-binary==2.9.10` en requirements (DATABASE_URL acepta postgresql://; modelos 100% portables).
+- `render.yaml` sin disco (free tier) con las env vars de Supabase en sync:false; `docs/deploy.md` reescrito (Supabase → Render → Vercel, advertencia de drop_all del seed en prod, auto-deploy por push a main); README y architecture §7 actualizados.
+- Tests: +2 en test_uploads.py (bucket mockeado con URL/headers/contenido verificados y disco intacto; 502 en fallo) y client.test.ts (2). API 53, web 58. init.sh en verde.
