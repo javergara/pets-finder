@@ -106,3 +106,16 @@ Revisión independiente sobre `develop` @ `e6743ad` (confirmado por el revisor q
 **Condición explícita**: este `done` cubre el código en `develop`. El **merge/push a `main`** (que dispara el auto-deploy) queda condicionado a ejecutar ANTES la migración de producción autorizada por el usuario (`ALTER TABLE` aditivo de `raza`/`color`/`tamano` + backfill, sin drop) — si se mergea sin migrar, la API de prod fallaría al seleccionar columnas inexistentes.
 
 Menores (no bloquean): (a) recurrente — hash (`e6743ad`) en la entrada de `changes.md` al commitear; (b) apareció un `StarletteDeprecationWarning` (httpx/starlette, ajeno a esta feature) en pytest — inofensivo hoy, anotarlo para cuando se actualicen dependencias.
+
+## Veredicto del revisor — feature 16 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `6d7cbcb`. Evidencia de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 65/65 tests de API + 56/56 de web**. El commit toca solo clases CSS (`App.tsx`, `ReporteDetalle.tsx`) + docs: cero cambios de comportamiento, y los tests de `App.test.tsx` pasan sin modificar (los links siguen accesibles por rol — `shrink-0 whitespace-nowrap` no cambia la semántica).
+- **Acceptance 1-2 (por lectura del diff, causa raíz coherente)**: la Nav compartida era el desborde de TODAS las rutas internas (5 links sin wrap → 545px); el fix es exactamente el descrito — `overflow-x-auto` + `[scrollbar-width:none]` en el `<nav>`, `shrink-0 whitespace-nowrap` en `linkClass` y `shrink-0` en la marca (la nav se desliza dentro de sí misma en vez de empujar la página), y `flex-wrap` en el header del detalle (título largo + badge). La medición post-fix documentada: /reportes 369, /reportar 369, /reporte/1 384, /mapa 384, /mis-reportes 384 — todo ≤390px.
+- **Acceptance 3 (táctiles, por lectura)**: sin cambios de tamaño en esta feature — CTAs de la landing `px-8 py-6 text-xl` (≈48px+ de alto), botones de contacto `px-5 py-3` (≈48px), submits de reportar/registro `py-3`. Los links de la nav (`py-2`, navegación secundaria) y el submit inline de mis-reportes (`py-2`) quedan algo por debajo de 44px pero no son los "objetivos táctiles principales" del acceptance y no fueron tocados.
+- **Limitación declarada**: el desborde horizontal no es verificable en jsdom (sin layout real) y este revisor no tiene herramientas de navegador — la evidencia del acceptance 1 y 5 (mediciones de `scrollWidth` por ruta en iframe de 390px y screenshots de landing/listado/formulario/detalle/mapa) es la documentada por la sesión principal en `changes.md`; lo que sí es verificable por lectura (las clases exactas del fix y la causa raíz) coincide punto por punto con esa evidencia.
+- Nota al margen: la entrada de `changes.md` registra también la limpieza de datos de prueba en producción (autorizada por el usuario; cuenta real id 6 intacta) — no es parte del acceptance de la 16, sin objeciones del revisor.
+- `feature_list.json`: `16-mobile-ui` a `done` con edición puntual sobre la línea 211; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+El merge a `main` (deploy directo, sin migración esta vez) queda en manos de la sesión principal tras este veredicto. Menor recurrente: hash (`6d7cbcb`) en la entrada de `changes.md` al commitear.

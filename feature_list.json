@@ -208,7 +208,7 @@
       "id": "16-mobile-ui",
       "title": "Optimización para navegador móvil",
       "description": "Pedido del usuario: la app se ve mal en smartphone. Auditoría visual real en viewport móvil (~390px) pantalla por pantalla y corrección de los problemas encontrados (nav que desborda, densidades, tamaños táctiles), manteniendo el design system. La mayoría del layout ya era responsive (grids con breakpoints, flex-wrap); esta feature cierra los rotos reales.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["15-caracteristicas-busqueda"],
       "acceptance": [
         "En un viewport de 390px ninguna pantalla desborda horizontalmente (sin scroll lateral)",

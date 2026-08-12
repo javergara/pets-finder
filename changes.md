@@ -341,7 +341,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Fix: POST /api/users es ahora "entrar o registrar": correo existente → devuelve ESA cuenta con 200 (sin editar el perfil); correo nuevo → 201. Email normalizado a minúsculas en ambas ramas.
 - Copy: "Entra o crea tu cuenta". Tests: +2 API (reingreso misma fila, normalización) y el caso 409 del frontend reemplazado por reingreso exitoso. API 65, web 56.
 
-## 2026-08-12 — 16-mobile-ui (en revisión) + limpieza de datos de prueba en prod
+## 2026-08-12 — 16-mobile-ui — commit 6d7cbcb + limpieza de datos de prueba en prod
 
 - Limpieza de producción (autorizada por el usuario para empezar a compartir la app): 17 reportes del seed + usuarios 1-5 eliminados (la cuenta real id 6 conservada, tenía 0 reportes), bucket de fotos vaciado (18 archivos). API pública verificada: 0 activos, 0 reunidos — la app arranca de cero con sus estados vacíos diseñados.
 - Auditoría móvil real con iframe de 390px (el resize de ventana no aplica en macOS maximizado): TODAS las rutas internas desbordaban a 545px por la Nav compartida (5 links sin wrap).
