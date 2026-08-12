@@ -273,7 +273,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - CHANGELOG: `[2.0.0] - 2026-08-12` fechado con el detalle de las 10 features; Unreleased queda solo con `11-despliegue`.
 - `progress/current.md` reset al estado de la 10; entrada de cierre en `progress/history.md`.
 
-## 2026-08-12 — 11-despliegue (en revisión)
+## 2026-08-12 — 11-despliegue — commit cbeb286
 
 - `src/web/vercel.json`: rewrite SPA (toda ruta → index.html) para que las rutas internas funcionen al recargar en Vercel.
 - `render.yaml` (raíz): blueprint del servicio reencuentro-api — rootDir src/api, uvicorn con $PORT, healthCheckPath /health, PYTHON_VERSION 3.10.17, DATABASE_URL apuntando al disco, **disco persistente de 1 GB montado en /opt/render/project/src/data** (el data/ real del checkout, donde base.py y media.py resuelven rutas), CORS_ORIGINS placeholder.
