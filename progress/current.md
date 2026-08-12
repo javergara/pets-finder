@@ -90,3 +90,16 @@ Revisión independiente sobre `develop` @ `32ddbf3`. Casi todo pasa con evidenci
 Menores (no bloquean): (a) la entrada de `changes.md` dice "(en revisión)" sin hash — añadir `32ddbf3` (más el hash del fix) al aprobar, como pide el checkpoint #4; (b) el comando literal `python3 scripts/seed.py` requiere el venv (`.venv/bin/python3` o venv activado) porque `requests` no está en el Python del sistema — es el mismo modo en que lo corre `init.sh`, solo se deja constancia.
 
 Próximo paso: fix puntual del seed, y el revisor re-verifica (doble corrida + diff ambas tablas) antes de pasar `02-reportes-backend` a `done`.
+
+## Veredicto del revisor — feature 02 (2026-08-12, segunda pasada): APROBADA
+
+Re-revisión sobre `develop` @ `0dab9a6` (`fix: creado_en explícito en los usuarios del seed`). El único hallazgo bloqueante de la primera pasada quedó corregido y lo re-verifiqué con ejecución propia, no solo con el reporte de la sesión principal:
+
+- **Fix verificado por diff**: los `User` del seed llevan `creado_en=datetime(2026, 8, 12, 8, 0)` explícito (mismo patrón que los reportes), con comentario que documenta el porqué. El docstring del seed ("dos corridas producen exactamente los mismos datos") ahora es verdadero.
+- **Determinismo total re-verificado en esta sesión**: dos corridas de `.venv/bin/python3 scripts/seed.py` + `diff` de los dumps completos de **ambas** tablas (`users`, 5 filas; `reports`, 17 filas) → **idénticos byte a byte** (`users.creado_en` fijo en `2026-08-12 08:00:00.000000`).
+- **`bash init.sh` re-corrido sobre el árbol con el fix: verde completo** — 32/32 tests de API + 12/12 de web, ruff/black/oxlint limpios.
+- **Menor (a) resuelto**: la entrada de `changes.md` ahora referencia el commit `32ddbf3` (+ fix de revisión).
+- El resto del acceptance ya estaba verificado en la primera pasada (misma sesión): tests directos para POST ambos tipos + 6 casos 422, filtros/exclusión de reunidos/orden desc, 403/404 en español, bounding boxes contienen su centro (`test_ciudades.py`), fallback SVG (loro → `report_9.svg`).
+- `feature_list.json`: `02-reportes-backend` pasada a `done` con edición de texto puntual sobre la línea 22; `git diff feature_list.json` confirma que **solo** cambió esa línea (sin `json.dump`, sin `git checkout`); `validate_feature_list.py` → exit 0.
+
+Pendiente de la sesión principal: commit del cambio de status + este veredicto. Siguiente: `03-upload-fotos` o `05-listado-reportes` (ambas dependen solo de lo ya cerrado; decide el líder).
