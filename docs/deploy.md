@@ -34,7 +34,7 @@ En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `h
    | `SUPABASE_SERVICE_KEY` | `service_role` key |
    | `SUPABASE_BUCKET` | `fotos` |
 
-   No hace falta `VITE_API_BASE_URL` (la web llama a `/api` en el mismo dominio) ni `CORS_ORIGINS` (same-origin).
+   No hace falta `VITE_API_BASE_URL` (la web llama a `/api` en el mismo dominio) ni `CORS_ORIGINS` (same-origin). ⚠️ Si el proyecto Supabase se creó fuera del Marketplace, estas vars NUNCA se inyectan solas — añadirlas a mano es obligatorio, y aplican solo tras un Redeploy.
 4. **Deploy**. Desde aquí, cada push a `main` redespliega frontend y API juntos.
 
 ## 3. Seed inicial (desde tu máquina)
