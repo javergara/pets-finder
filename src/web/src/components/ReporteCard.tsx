@@ -27,13 +27,18 @@ export function ReporteCard({ reporte }: { reporte: Reporte }) {
       to={`/reporte/${reporte.id}`}
       className="flex flex-col overflow-hidden rounded-[22px] border border-line bg-surface transition-shadow hover:shadow-[0_18px_40px_-28px_rgba(27,26,23,.5)]"
     >
-      <div
-        className="aspect-4/3 bg-surface-alt bg-cover bg-center"
-        style={{
-          backgroundImage: reporte.foto_url ? `url(${mediaUrl(reporte.foto_url)})` : undefined,
-        }}
-      >
-        <div className="flex items-start p-3">
+      {/* <img loading="lazy"> en vez de background-image: el navegador solo
+          descarga las fotos de las tarjetas que se acercan al viewport. */}
+      <div className="relative aspect-4/3 bg-surface-alt">
+        {reporte.foto_url && (
+          <img
+            src={mediaUrl(reporte.foto_url)}
+            alt={`Foto del reporte de ${titulo}`}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        )}
+        <div className="relative flex items-start p-3">
           <span
             className={`rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg ${tipo.color}`}
           >

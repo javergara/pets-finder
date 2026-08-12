@@ -25,7 +25,7 @@ En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `h
 
 1. [vercel.com](https://vercel.com) → **Add New → Project** → importar `pets-finder`.
 2. **Root Directory: dejar la raíz del repo** (no `src/web` — el `vercel.json` de la raíz ya define el build del frontend y la función de la API). Framework preset: **Other**.
-3. **Environment Variables** (las cuatro, para Production y Preview):
+3. **Environment Variables** (las cuatro obligatorias + una opcional, para Production y Preview):
 
    | Variable | Valor |
    |---|---|
@@ -33,6 +33,7 @@ En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `h
    | `SUPABASE_URL` | `https://xxxx.supabase.co` |
    | `SUPABASE_SERVICE_KEY` | `service_role` key |
    | `SUPABASE_BUCKET` | `fotos` |
+   | `SKIP_DB_CREATE_ALL` | `1` (opcional) — omite el `create_all` del arranque y recorta el cold start; ponerla solo cuando el esquema ya existe en la DB. ⚠️ Quitarla (o cambiar el valor) temporalmente si un deploy trae tablas/columnas nuevas, o migrarlas a mano antes |
 
    No hace falta `VITE_API_BASE_URL` (la web llama a `/api` en el mismo dominio) ni `CORS_ORIGINS` (same-origin). ⚠️ Si el proyecto Supabase se creó fuera del Marketplace, estas vars NUNCA se inyectan solas — añadirlas a mano es obligatorio, y aplican solo tras un Redeploy.
 4. **Deploy**. Desde aquí, cada push a `main` redespliega frontend y API juntos.

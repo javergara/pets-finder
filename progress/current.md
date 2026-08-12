@@ -4,7 +4,16 @@
 
 ## Qué está pasando
 
-**Feature activa: `18-eliminar-reporte` (in_progress, implementación lista, en revisión).** Features `01`-`17` aprobadas por el revisor independiente. Suites: 68 tests de API + 60 de web, todo en verde.
+**Feature activa: `19-optimizacion-carga-y-tab` (in_progress, implementación lista, en revisión).** Features `01`-`18` aprobadas por el revisor independiente. Suites: 70 tests de API + 64 de web, todo en verde.
+
+## Hecho en la feature 19
+
+- [x] Diagnóstico previo medido en prod: API caliente ~0,35 s (no es el problema); causas reales = (1) arranque en frío del serverless (boot Python + create_all contra Postgres), (2) fotos a tamaño completo (173-448 KB reales, hasta 5 MB posibles) descargadas enteras por cada tarjeta.
+- [x] `lib/imagen.ts`: `comprimirImagen()` — reescala a máx 1280px y recomprime a JPEG 0.8 en el navegador; fallback al original si no hay canvas/createImageBitmap, el formato no decodifica o el resultado no es más pequeño. Integrada en `FotoUpload` antes de `subirFoto`.
+- [x] `ReporteCard`: la foto pasa de `background-image` (carga siempre) a `<img loading="lazy">` con alt descriptivo — el navegador solo baja las fotos cercanas al viewport.
+- [x] `main.py`: `SKIP_DB_CREATE_ALL=1` omite `create_all` en el arranque (para prod; el esquema ya existe) — recorta round-trips del cold start. Sin la variable, comportamiento intacto (dev/tests). **Pendiente del dueño: añadir la env var en Vercel** (opcional, la app funciona igual sin ella).
+- [x] Branding pestaña: `<title>petfinder-col</title>`, `lang="es"`, y `public/favicon.svg` propio (huella crema sobre fondo forest, tokens del design system) en vez del SVG por defecto de Vercel/Vite.
+- [x] Tests: +2 API (`test_arranque.py`) y +4 web (3 en `imagen.test.ts`, 1 en `FotoUpload.test.tsx` con mock pass-through). `bash init.sh` verde: 70 API + 64 web; build de prod verificado (título y favicon en dist/).
 
 ## Hecho en la feature 18
 
@@ -160,3 +169,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `18-eliminar-reporte` a `done` con edición puntual sobre la línea 238 (el bloque completo del item aparece como adición en `git diff` porque la entrada misma es parte del working tree sin commitear; la edición del revisor fue únicamente el valor de `status`); `validate_feature_list.py` → exit 0. **18/18 features en `done`.**
 
 Pendiente de la sesión principal: commit de la feature + este veredicto (menor recurrente: hash en la entrada de `changes.md`), y el merge/deploy según el flujo autorizado por el usuario.
+
+## Veredicto del revisor — feature 19 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `21cc0b8`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 5**: `bash init.sh` corrido de verdad — **verde completo, 70/70 tests de API + 64/64 de web** (13 suites).
+- **Acceptance 1 (compresión antes de subir)**: `FotoUpload.test.tsx` asevera que `subirFoto` recibe **el archivo comprimido** que devuelve `comprimirImagen(original)` (mock pass-through por defecto, bien aislado); `lib/imagen.test.ts` cubre los tres caminos: sin soporte del navegador (jsdom sin `createImageBitmap` → devuelve el original **por identidad**), reescalado real verificado con aritmética exacta (4000×3000 → **1280×960**, `toBlob` con `image/jpeg` y calidad 0.8, `bitmap.close()` llamado, nombre renombrado a `.jpg`), y JPEG no-más-pequeño → original. El try/catch envuelve todo el camino (formato no decodificable → original). El backend sigue validando tipo/tamaño en ambos casos.
+- **Acceptance 2**: por diff — `ReporteCard` pasa de `background-image` a `<img loading="lazy">` con `alt="Foto del reporte de {titulo}"`, contenedor `relative` + badge sobre la foto; render condicional si no hay foto.
+- **Acceptance 3**: `tests/api/test_arranque.py` — sin la variable, `create_all` se llama exactamente una vez; con `SKIP_DB_CREATE_ALL=1`, no se llama y `/health` sigue sirviendo (patch sobre `Base.metadata.create_all`, sin tocar DB real). Por lectura: `.strip() == "1"` (tolerante a espacios pegados a mano — lección del fix `3d0ffea`), log de advertencia visible, y el camino por defecto queda intacto para dev/tests.
+- **Acceptance 4 — verificado sobre el build real**: `npm run build` limpio (126.87 kB js gzip) y en `dist/`: `<title>petfinder-col</title>` presente, `favicon.svg` con los tokens del design system (`#1f4d3a`/`#f7f3ea`, huella de 4 dedos + palma) y **cero rastros** del SVG por defecto de Vercel (`#863bff` ausente). `lang="es"` de paso (corrección correcta).
+- `feature_list.json`: `19-optimizacion-carga-y-tab` a `done` con edición puntual sobre la línea 251; `git diff` muestra ese único cambio de status; `validate_feature_list.py` → exit 0. **19/19 features en `done`.**
+
+Menores (no bloquean): (a) recurrente — hash del commit en la entrada de `changes.md` al commitear; (b) `SKIP_DB_CREATE_ALL` no aparece en la tabla de env vars de `docs/deploy.md` — añadirla (valor `1`, opcional, recorta el cold start) para que la optimización realmente se aplique al configurar el proyecto de Vercel y no dependa de memoria tribal.

@@ -363,3 +363,12 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `client.ts`: `eliminarReporte(id, userId)` — `request()` ya soportaba 204 sin body.
 - `ReporteDetalle.tsx`: sección de borrado solo-autor con confirmación en dos pasos dentro de la página (sin `window.confirm`), botón deshabilitado mientras elimina, error de API en español, y navegación a `/reportes` al confirmar.
 - Tests: +3 en `tests/api/test_reports.py` (204+desaparece del listado y del detalle, 403+sigue intacto, 404) y +2 en `ReporteDetalle.test.tsx` (dos pasos con Cancelar sin llamar al API; el botón no existe para no-autores). `bash init.sh` verde: 68 API + 60 web.
+
+## 2026-08-12 — Feature 19: optimización de carga y branding de la pestaña (commit: en revisión)
+
+- Pedido del usuario tras el diagnóstico de lentitud (API caliente ~0,35 s; culpables: cold start serverless y fotos completas en las tarjetas).
+- `src/web/src/lib/imagen.ts` (nuevo): `comprimirImagen()` — canvas a máx 1280px, JPEG calidad 0.8, con fallback al archivo original (sin soporte del navegador, formato no decodificable, o resultado no más pequeño). `FotoUpload` la aplica antes de `subirFoto`.
+- `ReporteCard.tsx`: foto como `<img loading="lazy">` + alt descriptivo (antes `background-image`, que descarga siempre); contenedor `relative` para conservar el badge encima.
+- `main.py`: `SKIP_DB_CREATE_ALL=1` salta `create_all` en el lifespan (cold start más corto en prod; esquema ya existente). Sin la env var todo sigue igual.
+- `index.html`: título `petfinder-col`, `lang="es"`. `public/favicon.svg`: ícono propio (huella #f7f3ea sobre #1f4d3a, tokens del design system) — reemplaza el SVG por defecto de Vercel/Vite que se veía en la pestaña.
+- Tests: `tests/api/test_arranque.py` (+2: create_all por defecto / omitido con la variable), `lib/imagen.test.ts` (+3: fallback jsdom, reescala 4000x3000→1280x960 con JPEG más pequeño, no-infla), `FotoUpload.test.tsx` (+1: sube la versión comprimida). `bash init.sh` verde: 70 API + 64 web.

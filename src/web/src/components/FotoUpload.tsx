@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useState } from 'react';
 import { ApiError, subirFoto } from '../api/client';
+import { comprimirImagen } from '../lib/imagen';
 
 type Props = {
   // Se invoca con el foto_url definitivo (bajo /media/uploads/) al terminar la subida.
@@ -28,7 +29,10 @@ export function FotoUpload({ onFotoSubida }: Props) {
     setError(null);
     setSubiendo(true);
     try {
-      const { foto_url } = await subirFoto(archivo);
+      // Reescala/recomprime en el navegador (o devuelve el original si no aplica):
+      // subir 3-5 MB de foto de celular castiga cada tarjeta del listado después.
+      const comprimida = await comprimirImagen(archivo);
+      const { foto_url } = await subirFoto(comprimida);
       setSubida(true);
       onFotoSubida(foto_url);
     } catch (err) {
