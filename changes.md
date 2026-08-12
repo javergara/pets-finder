@@ -294,7 +294,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `render.yaml` sin disco (free tier) con las env vars de Supabase en sync:false; `docs/deploy.md` reescrito (Supabase → Render → Vercel, advertencia de drop_all del seed en prod, auto-deploy por push a main); README y architecture §7 actualizados.
 - Tests: +2 en test_uploads.py (bucket mockeado con URL/headers/contenido verificados y disco intacto; 502 en fallo) y client.test.ts (2). API 53, web 58. init.sh en verde.
 
-## 2026-08-12 — 13-api-vercel-serverless (en revisión)
+## 2026-08-12 — 13-api-vercel-serverless — commit 6144940
 
 - Contexto: Render exigió tarjeta de crédito para el Blueprint (bloqueó el deploy del usuario). Con la API sin estado (feature 12), FastAPI se mueve a funciones serverless de Vercel: cero tarjetas (Hobby + Supabase free), un solo dashboard, auto-deploy total. ADR 0007.
 - `api/index.py`: entry de Vercel que expone LA MISMA instancia `app` de reencuentro_api (sys.path a src/api). `requirements.txt` raíz con `-r src/api/requirements.txt`.

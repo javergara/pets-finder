@@ -166,7 +166,7 @@
       "id": "13-api-vercel-serverless",
       "title": "API como funciones serverless en Vercel (adiós Render y su tarjeta)",
       "description": "Render exige tarjeta de crédito para el Blueprint (bloqueó el deploy del usuario). Como la API es sin estado desde la feature 12, FastAPI puede correr como función serverless de Vercel (Hobby, sin tarjeta): un solo proyecto Vercel sirve el build estático de src/web Y la API bajo /api, con auto-deploy total en cada push a main. Entry api/index.py + requirements.txt raíz, vercel.json raíz (build de src/web, rewrite /api a la función, fallback SPA), base de API same-origin en producción (sin VITE_API_BASE_URL ni CORS entre dominios), render.yaml eliminado, docs/deploy.md reescrito. ADR 0007.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["12-persistencia-supabase"],
       "acceptance": [
         "api/index.py expone la app FastAPI completa (test que la importa por esa ruta y pega /health y /api/reports vía TestClient)",
