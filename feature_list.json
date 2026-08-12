@@ -58,7 +58,7 @@
       "id": "05-listado-reportes",
       "title": "Listado de reportes con filtros",
       "description": "/reportes: galería de tarjetas con foto grande (ReporteCard, adaptación del estilo visual de las tarjetas de mascota de adopta-v1), badge por tipo (perdido=danger, encontrado=forest), filtros por tipo/especie/zona aplicados al backend, orden por fecha.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["02-reportes-backend"],
       "acceptance": [
         "El listado muestra los reportes activos del seed con su foto, tipo, especie, zona y fecha, ordenados por fecha_evento descendente",

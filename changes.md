@@ -230,7 +230,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Tests: `ReportarMascota.test.tsx` (6: condicionales ×2, gate, submit con coords del click en lienzo simulado, encontrado con situacion, Otro exige ciudad, error de backend), `LandingEmergencia.test.tsx` (3). Web: 27, API: 39.
 - Verificación E2E real contra uvicorn vivo: subir PNG → GET 200 del foto_url → POST /api/reports con pin en Cali persistido (id 18) → seed reseteado.
 
-## 2026-08-12 — 05-listado-reportes (en revisión)
+## 2026-08-12 — 05-listado-reportes — commit e2e3853
 
 - `components/ReporteCard.tsx`: adaptación del estilo visual de SwipeCard de adopta-v1 (foto grande con badge superpuesto, bloque de texto con chips, pie con lugar/fecha); badge "Se perdió"=danger / "Encontrada"=forest; título = nombre_mascota o especie; lugar = zona o ciudad_texto si Otro; toda la tarjeta es un Link a /reporte/:id.
 - `screens/Reportes.tsx`: galería responsive con filtros tipo/especie/zona que re-consultan al backend (orden y exclusión de reunidos los decide la API), esqueletos de carga y estado vacío con acción.

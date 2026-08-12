@@ -148,3 +148,17 @@ Revisión independiente sobre `develop` @ `f09ee0d`. Evidencia ejecutable de est
 - `feature_list.json`: `04-reportar-ui` a `done` con edición puntual sobre la línea 48; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 Menores para la sesión principal (no bloquean): (a) actualizar "(en revisión)" de la entrada de `changes.md` a "commit `f09ee0d`" al commitear, como en las features anteriores; (b) sugerencia opcional para una feature futura: convertir el chequeo de sincronía py↔ts de zonas en un test permanente (hoy el checkpoint se cumple por revisión del revisor).
+
+## Veredicto del revisor — feature 05 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `e2e3853` (+ `b3a55c6` chore de status). Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — 39/39 tests de API + 31/31 de web (8 suites), lint/formato limpios.
+- **Acceptance 1**: test de render con tipo/especie/zona/fecha por tarjeta (con `within` para no chocar con las opciones del filtro) + título por especie cuando no hay nombre. El orden lo decide la API — confirmado doble: (a) verificación en vivo del revisor contra el seed real (`TestClient`): 15 activos, `fecha_evento` estrictamente descendente (2026-08-12 → 2026-08-09), reunidos excluidos (Firulais ausente); (b) `grep sort|reverse|orderBy` vacío en `Reportes.tsx`/`ReporteCard.tsx` — el frontend no reordena, y el test asevera que el listado inicial se pide con `{}`.
+- **Acceptance 2**: test con el payload exacto de `listarReportes` en cada cambio de filtro (`{tipo:'perdido'}` → `{tipo:'perdido', zona:'Cali'}`); en vivo, los mismos query params que construye el cliente (`?tipo=perdido&zona=Armenia`, `?especie=gato`) filtran correctamente (3 perdidos de Armenia, 6 gatos).
+- **Acceptance 3**: test del `href` de la tarjeta → `/reporte/7`.
+- **Checkpoint estético (requisito explícito del usuario)**: comparado contra `git show adopta-v1:src/web/src/components/SwipeCard.tsx` — `ReporteCard` hereda `rounded-[22px]`, `border-line bg-surface`, la sombra exacta `0_18px_40px_-28px_rgba(27,26,23,.5)` (en hover), el badge `rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg` y la foto `bg-surface-alt bg-cover bg-center`, con la semántica nueva perdido=`bg-danger` / encontrado=`bg-forest` del design-system.
+- Extras correctos: estado vacío con acción (test), esqueletos de carga, `lugar` usa `ciudad_texto` cuando zona=Otro, sin dependencias nuevas, ruta `/reportes` registrada. Entrada de la feature en `changes.md`.
+- `feature_list.json`: `05-listado-reportes` a `done` con edición puntual sobre la línea 61; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0. DB dejada en el estado limpio del seed.
+
+Menor recurrente para la sesión principal: actualizar "(en revisión)" de la entrada de `changes.md` al hash (`e2e3853`) al commitear.
