@@ -120,3 +120,16 @@ Revisión independiente sobre `develop` @ `b1f19ed`. `bash init.sh` corrido de v
 Menor (no bloquea): la entrada de `changes.md` dice "(en revisión)" — añadir el hash (`b1f19ed` + fix) al aprobar.
 
 Todo lo demás está bien (código, tests, `client.ts::subirFoto` con FormData sin `Content-Type` manual, estados del componente). Próximo paso: fix + test de regresión, y el revisor repite la verificación en vivo (subida real → GET del `foto_url` → 200 con los mismos bytes) antes de pasar `03-upload-fotos` a `done`.
+
+## Veredicto del revisor — feature 03 (2026-08-12, segunda pasada): APROBADA
+
+Re-revisión sobre `develop` @ `c30355c` (`fix: las fotos subidas se guardaban fuera del directorio servido en /media`). El bug de la primera pasada quedó corregido de raíz, no con un parche del número:
+
+- **Fix verificado por diff**: nuevo `reencuentro_api/media.py` como fuente única de `REPO_ROOT`/`MEDIA_DIR`/`UPLOADS_DIR`; `main.py` (montaje `/media`) y `routers/uploads.py` importan de ahí — ya no existen dos `parents[N]` calculados por separado que puedan divergir. El docstring del router quedó actualizado a la realidad.
+- **Los 2 tests de regresión pedidos existen y pasan**: `test_uploads_dir_es_subdirectorio_del_media_montado` (invariante `UPLOADS_DIR == MEDIA_DIR / "uploads"` + `REPO_ROOT` verificado contra `init.sh` real en disco) y `test_foto_subida_es_servible_bajo_media` (ciclo completo con el directorio real: subida → GET del propio `foto_url` → 200 con los mismos bytes, con limpieza en `finally`). Habrían atrapado el bug original.
+- **`bash init.sh` re-corrido: verde completo** — 39/39 tests de API + 14/14 de web, lint limpio.
+- **Verificación en vivo del revisor repetida** (mismo script de la primera pasada, `TestClient` sobre la app real sin monkeypatch): `POST /api/uploads` con JPEG real → 201 con `/media/uploads/16bad92e...jpg` → `GET` de esa URL → **200 `image/jpeg` con los mismos bytes**; archivo en `data/media/uploads/` (el directorio servido), borrado tras la prueba. Confirmado además que ninguna corrida vuelve a crear `src/data/` y que `data/media/uploads/` queda solo con su `.gitkeep`.
+- El resto del acceptance ya estaba verificado en la primera pasada (misma sesión): 415/413 en español con tests, nombre uuid ≠ filename hostil, `FotoUpload` con preview local + entrega de `foto_url` al padre + estado de error. `python-multipart==0.0.17` única dependencia nueva (ADR 0005 §6).
+- `feature_list.json`: `03-upload-fotos` a `done` con edición puntual sobre la línea 36; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+Menor pendiente para la sesión principal al commitear: la entrada de `changes.md` de la feature 03 aún dice "(en revisión)" — actualizarla a "commit `b1f19ed` (+ fix `c30355c`)", como se hizo con la 01 y la 02.

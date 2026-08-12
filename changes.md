@@ -211,7 +211,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Tests: `test_ciudades.py` (5) y `test_reports.py` (17): creación ambos tipos, 6 casos 422, filtros/orden/estados, 404/403 en español, edición parcial. Total API: 32.
 - Determinismo verificado fila por fila: dos corridas de seed producen tablas `reports` idénticas (incluyendo foto_url y creado_en).
 
-## 2026-08-12 — 03-upload-fotos (en revisión)
+## 2026-08-12 — 03-upload-fotos — commit b1f19ed (+ fix c30355c)
 
 - `routers/uploads.py`: POST /api/uploads multipart. Content-type ∈ {jpeg,png,webp} → 415 en español si no; lectura por chunks con límite 5 MB → 413 y borrado del archivo a medias; nombre `uuid4().hex` + extensión derivada del content-type (nunca del filename hostil del cliente); `UPLOADS_DIR` como variable de módulo monkeypatcheable. Registrado en main.py.
 - `python-multipart==0.0.17` añadido a src/api/requirements.txt (única dependencia nueva del pivot, prevista en ADR 0005).
