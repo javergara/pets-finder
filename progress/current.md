@@ -176,3 +176,16 @@ Revisión independiente sobre `develop` @ `e20938c`. Evidencia ejecutable de est
 - `feature_list.json`: `06-detalle-contacto` a `done` con edición puntual sobre la línea 73; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: actualizar "(en revisión)" de la entrada de `changes.md` al hash (`e20938c`) al commitear.
+
+## Veredicto del revisor — feature 07 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `8911672`. Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — tests de API en verde y 46/46 de web (11 suites), lint/formato limpios.
+- **Acceptance 1 (colores + leyenda)**: test directo — pin de perdido con `bg-danger`, pin de encontrado con `bg-forest`, y la leyenda con "Mascota perdida"/"Mascota encontrada" presente (mismos puntos de color, `aria-hidden` en los indicadores).
+- **Acceptance 2 (Todo Colombia plotea todas las zonas)**: test con reportes de Armenia, Cali y Quibdó visibles a la vez sobre el lienzo nacional + contador "3 reportes activos en todo Colombia". **Comprobación en vivo del revisor con el seed real**: los 15 activos (repartidos en las 6 zonas: Armenia, Bogotá, Cali, Manizales, Pereira, Quibdó) proyectados con la interpolación de `posicionEnMapa` sobre la caja COLOMBIA caen todos dentro del lienzo (0-100% en ambos ejes).
+- **Acceptance 3 (sin librerías de mapas)**: `grep leaflet|mapbox|google|openlayers|maplibre` vacío en `src/web/package.json` (y el commit ni siquiera lo toca) — consistente con ADR 0005 §5; el mapa es el `MapaLienzo` CSS propio ya aprobado en la 04.
+- Extras verificados: el filtro por zona excluye las demás (test), la mini-tarjeta del pin linkea a `/reporte/:id` (test del `href`), la vista "Colombia" resuelve al lienzo nacional vía el fallback de `cajaDeZona` (cubierto por `mapa.test.ts` desde la 04), ruta `/mapa` registrada, y los reportes con zona "Otro" solo aparecen en la vista nacional con su coordenada real (decisión razonable comentada en el código). Entrada de la feature en `changes.md`.
+- `feature_list.json`: `07-mapa-reportes` a `done` con edición puntual sobre la línea 85; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+Menores (no bloquean): (a) recurrente — actualizar "(en revisión)" de `changes.md` al hash (`8911672`) al commitear; (b) nit de copy opcional: el contador dice "1 reportes activos en Cali" en singular — si se ajusta el plural, actualizar también la aserción del test.

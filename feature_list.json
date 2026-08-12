@@ -82,7 +82,7 @@
       "id": "07-mapa-reportes",
       "title": "Mapa de reportes por zona y Todo Colombia",
       "description": "/mapa: selector de zona (las 6 + vista Todo Colombia con el bounding box nacional), todos los reportes activos ploteados con color por tipo (perdido=danger, encontrado=forest), leyenda, y click en un pin abre una mini-tarjeta con link al detalle. Sin dependencias externas de mapas.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["05-listado-reportes"],
       "acceptance": [
         "Los pins usan bg-danger para perdidos y bg-forest para encontrados, y la leyenda lo explica",
