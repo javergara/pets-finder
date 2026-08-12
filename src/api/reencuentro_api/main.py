@@ -1,18 +1,32 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.exc import SQLAlchemyError
 
 from .media import MEDIA_DIR
 from .models.base import Base, engine
 from .routers import reports, uploads, users
 
+logger = logging.getLogger("reencuentro")
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    # Diagnóstico visible en los logs de la función (Vercel): qué DB resolvió el
+    # entorno. Si aparece "sqlite" en producción, faltan las env vars de Supabase.
+    logger.warning("Arranque — dialecto de DB: %s", engine.dialect.name)
+    # Arranque resiliente: si create_all falla (p. ej. SQLite sobre el filesystem
+    # de solo lectura de serverless porque faltan las env vars), la app igual
+    # sirve /health y cada endpoint de datos falla por request con error claro —
+    # nunca un FUNCTION_INVOCATION_FAILED mudo en el boot.
+    try:
+        Base.metadata.create_all(bind=engine)
+    except (SQLAlchemyError, OSError):
+        logger.exception("create_all falló en el arranque; la app sirve igual")
     yield
 
 
