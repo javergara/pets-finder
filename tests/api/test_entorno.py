@@ -4,16 +4,18 @@ from reencuentro_api import media
 from reencuentro_api.models.base import _database_url_desde_entorno
 
 
-def test_database_url_explicita_gana(monkeypatch):
+def test_database_url_explicita_gana_y_fuerza_psycopg3(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://x:y@host:6543/postgres")
     monkeypatch.setenv("POSTGRES_URL", "postgres://otro")
 
-    assert _database_url_desde_entorno() == "postgresql://x:y@host:6543/postgres"
+    assert _database_url_desde_entorno() == "postgresql+psycopg://x:y@host:6543/postgres"
 
 
 def test_postgres_url_de_la_integracion_se_normaliza(monkeypatch):
-    """La integración inyecta scheme legacy postgres:// y params que psycopg2
-    rechaza (supa=..., pgbouncer=true) — deben limpiarse conservando sslmode."""
+    """La integración inyecta scheme legacy postgres:// y params que libpq
+    rechaza (supa=..., pgbouncer=true) — deben limpiarse conservando sslmode,
+    y el dialecto queda explícito en psycopg v3 (psycopg2 no tiene wheels para
+    los runtimes nuevos: el build de Vercel fallaba compilándolo)."""
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv(
         "POSTGRES_URL",
@@ -22,7 +24,7 @@ def test_postgres_url_de_la_integracion_se_normaliza(monkeypatch):
     )
 
     assert _database_url_desde_entorno() == (
-        "postgresql://u.abc:pass@aws-0.pooler.supabase.com:6543/postgres?sslmode=require"
+        "postgresql+psycopg://u.abc:pass@aws-0.pooler.supabase.com:6543/postgres?sslmode=require"
     )
 
 

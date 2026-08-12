@@ -11,7 +11,7 @@ Opciones evaluadas: (A) Supabase — Postgres 500 MB + Storage 1 GB gratis en un
 
 ## Decisión
 
-1. **Base de datos: Supabase Postgres.** El código ya leía `DATABASE_URL` del entorno; se añade `psycopg2-binary` y nada más — el modelo usa solo tipos portables (String/Float/Date/DateTime). En local sigue SQLite por defecto: cero cambios de comportamiento en dev y tests.
+1. **Base de datos: Supabase Postgres.** El código ya leía `DATABASE_URL` del entorno; se añade `psycopg[binary]` (v3) y nada más — el modelo usa solo tipos portables (String/Float/Date/DateTime). En local sigue SQLite por defecto: cero cambios de comportamiento en dev y tests.
 2. **Fotos: Supabase Storage** (bucket público `fotos`). `reencuentro_api/media.py` gana `supabase_configurado()` y `subir_a_supabase()` — un POST directo a la API REST de Storage con la `service_role` key (no se adopta el SDK supabase-py: el flujo es un solo request y `requests` ya era dependencia). Con `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` en el entorno, el endpoint de uploads y las fotos del seed suben al bucket y `foto_url` pasa a ser una URL pública absoluta; sin esas variables, todo va al filesystem local exactamente igual que antes. `mediaUrl()` del frontend deja pasar las URLs absolutas tal cual.
 3. **API sin estado**: `render.yaml` pierde el disco — el servicio corre en el free tier de Render y cualquier redeploy es seguro. El montaje local `/media` se conserva para dev.
 4. La config se lee **en el momento de la llamada** (no al importar) para que los tests la activen/desactiven con `monkeypatch.setenv`, y la subida usa `x-upsert: true` para que el seed sea re-ejecutable sin colisiones.
