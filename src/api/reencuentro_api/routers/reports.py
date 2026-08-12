@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..media import borrar_foto
@@ -26,14 +27,37 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 @router.post("", response_model=ReportOut, status_code=status.HTTP_201_CREATED)
-def crear_reporte(payload: ReportIn, session: Session = Depends(get_session)) -> ReportOut:
+def crear_reporte(
+    payload: ReportIn, response: Response, session: Session = Depends(get_session)
+) -> ReportOut:
+    """Crea un reporte. Con `idempotency_id` (lo manda el crawler, ADR 0009) el
+    POST es idempotente: repetirlo devuelve el reporte ya creado con 200 en vez
+    de duplicarlo — el índice único de la columna garantiza esto incluso si dos
+    requests llegan a la vez."""
     user = session.get(User, payload.user_id)
     if user is None:
         raise HTTPException(404, f"El usuario {payload.user_id} no existe")
 
+    def _existente() -> Report | None:
+        if payload.idempotency_id is None:
+            return None
+        return session.scalar(select(Report).where(Report.idempotency_id == payload.idempotency_id))
+
+    if (previo := _existente()) is not None:
+        response.status_code = status.HTTP_200_OK
+        return ReportOut.model_validate(previo)
+
     report = Report(**payload.model_dump())
     session.add(report)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError:
+        # Carrera: otro request con el mismo idempotency_id ganó el commit.
+        session.rollback()
+        if (previo := _existente()) is not None:
+            response.status_code = status.HTTP_200_OK
+            return ReportOut.model_validate(previo)
+        raise
     session.refresh(report)
 
     return ReportOut.model_validate(report)

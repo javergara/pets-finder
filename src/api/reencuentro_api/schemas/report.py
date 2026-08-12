@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..services.ciudades import ZONA_OTRO, zona_valida
 
@@ -9,6 +9,95 @@ Tipo = Literal["perdido", "encontrado"]
 Especie = Literal["perro", "gato", "otro"]
 Situacion = Literal["conmigo", "vista"]
 Tamano = Literal["pequeño", "mediano", "grande"]
+Fuente = Literal["manual", "crawl"]
+
+
+class _CrawlMetadataBase(BaseModel):
+    """Procedencia de un reporte creado por el crawler de redes (ADR 0009).
+
+    Campos comunes a toda plataforma; cada una aporta los suyos en su variante
+    de la unión discriminada por `plataforma` (lo que da Instagram no es lo que
+    da Facebook — y no todo origen es una red social: WhatsApp es mensajería).
+    Todos los campos son texto/números planos (JSON-serializables tal cual): la
+    columna `Report.crawl_metadata` guarda este objeto como JSON. Un mismo post
+    puede producir varios reportes (varias mascotas en un pantallazo): comparten
+    `url_post` y se distinguen por `indice_mascota`.
+
+    `extra="forbid"`: un campo fuera de la variante correcta es un 422, no un
+    descarte silencioso — la unión pierde el sentido si acepta cualquier cosa.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    url_post: str | None = None
+    autor_handle: str | None = None  # a veces lo único legible del pantallazo
+    fecha_post: str | None = None  # ISO "YYYY-MM-DD" (str para ser JSON-safe)
+    texto_original: str | None = None
+    modelo_extraccion: str | None = None
+    confianza: float | None = Field(default=None, ge=0.0, le=1.0)
+    indice_mascota: int = 0
+    total_mascotas: int = 1
+
+    @field_validator("url_post")
+    @classmethod
+    def validar_url_post(cls, v: str | None) -> str | None:
+        # La UI renderiza url_post como href y el POST es público sin auth:
+        # solo URLs http(s) absolutas — nunca javascript:, data:, etc.
+        if v is not None and not v.startswith(("https://", "http://")):
+            raise ValueError("'url_post' debe ser una URL http(s) absoluta")
+        return v
+
+    def tiene_origen(self) -> bool:
+        """¿Hay un camino de vuelta a la publicación o a quien publicó?
+
+        Es lo que hace contactable a un reporte crawleado sin teléfono: la URL
+        del post, o al menos la cuenta que lo publicó."""
+        return bool((self.url_post or "").strip() or (self.autor_handle or "").strip())
+
+
+class CrawlInstagram(_CrawlMetadataBase):
+    plataforma: Literal["instagram"]
+
+
+class CrawlFacebook(_CrawlMetadataBase):
+    plataforma: Literal["facebook"]
+    # Los posts de mascotas en Facebook viven en grupos ("Mascotas Perdidas
+    # Cali"): el nombre es señal de zona y un camino para encontrar el post
+    # aunque el pantallazo no deje leer la URL.
+    grupo: str | None = None
+
+
+class CrawlWhatsApp(_CrawlMetadataBase):
+    plataforma: Literal["whatsapp"]
+    # Las cadenas de WhatsApp no tienen URL: el nombre del grupo/comunidad es
+    # muchas veces la única pista de origen del pantallazo.
+    nombre_grupo: str | None = None
+
+
+class CrawlX(_CrawlMetadataBase):
+    plataforma: Literal["x"]
+
+
+class CrawlTikTok(_CrawlMetadataBase):
+    plataforma: Literal["tiktok"]
+
+
+class CrawlPlataformaDesconocida(_CrawlMetadataBase):
+    # "desconocida", no "otra": el pantallazo no deja ver de dónde salió el
+    # post. Una plataforma reconocible que no esté en el catálogo merece su
+    # propia variante, no un bucket genérico.
+    plataforma: Literal["desconocida"]
+
+
+CrawlMetadata = Annotated[
+    CrawlInstagram
+    | CrawlFacebook
+    | CrawlWhatsApp
+    | CrawlX
+    | CrawlTikTok
+    | CrawlPlataformaDesconocida,
+    Field(discriminator="plataforma"),
+]
 
 
 class ReportIn(BaseModel):
@@ -30,15 +119,24 @@ class ReportIn(BaseModel):
     lng: float
     situacion: Situacion | None = None
     fecha_evento: date
-    telefono_contacto: str
+    telefono_contacto: str | None = None
+    fuente: Fuente = "manual"
+    crawl_metadata: CrawlMetadata | None = None
+    # Clave de idempotencia opcional (ADR 0009): mismo valor → mismo reporte,
+    # nunca un duplicado. La usa el crawler para que sus retries sean seguros.
+    idempotency_id: str | None = Field(default=None, max_length=300)
 
     @model_validator(mode="after")
     def validar_condicionales(self) -> "ReportIn":
-        """Reglas que dependen del `tipo` (ADR 0005 §2) — un 422 con mensaje de producto.
+        """Reglas que dependen del `tipo` (ADR 0005 §2) y de la `fuente` (ADR 0009).
 
         - `situacion` es obligatoria en "encontrado" y no aplica en "perdido".
         - `nombre_mascota` solo aplica en "perdido" (quien encuentra no lo conoce).
         - `zona` debe ser una de las conocidas u "Otro" (y "Otro" exige `ciudad_texto`).
+        - Con fuente "manual" el teléfono sigue siendo obligatorio y no hay metadata.
+        - Con fuente "crawl" la metadata es obligatoria, y sin teléfono se exige al
+          menos `url_post` o `autor_handle` — el reporte necesita algún camino de
+          contacto o no sirve para reunir a nadie.
         """
         if self.tipo == "encontrado" and self.situacion is None:
             raise ValueError(
@@ -55,8 +153,21 @@ class ReportIn(BaseModel):
             )
         if self.zona == ZONA_OTRO and not (self.ciudad_texto or "").strip():
             raise ValueError("Con zona 'Otro' se necesita 'ciudad_texto' con la ciudad real")
-        if not self.telefono_contacto.strip():
-            raise ValueError("El teléfono de contacto es obligatorio")
+        sin_telefono = not (self.telefono_contacto or "").strip()
+        if self.fuente == "manual":
+            if self.crawl_metadata is not None:
+                raise ValueError("'crawl_metadata' solo aplica a reportes con fuente 'crawl'")
+            if sin_telefono:
+                raise ValueError("El teléfono de contacto es obligatorio")
+        else:
+            if self.crawl_metadata is None:
+                raise ValueError("Un reporte con fuente 'crawl' necesita 'crawl_metadata'")
+            if sin_telefono and not self.crawl_metadata.tiene_origen():
+                raise ValueError(
+                    "Un reporte 'crawl' sin teléfono necesita un camino de contacto en "
+                    "crawl_metadata (la URL de la publicación o la cuenta que la publicó): "
+                    "sin eso el reporte no reúne a nadie"
+                )
         return self
 
 
@@ -105,7 +216,10 @@ class ReportOut(BaseModel):
     lng: float
     situacion: str | None
     fecha_evento: date
-    telefono_contacto: str
+    telefono_contacto: str | None
+    fuente: str
+    crawl_metadata: dict | None
+    idempotency_id: str | None
     estado: str
     creado_en: datetime
     resuelto_en: datetime | None
