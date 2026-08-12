@@ -217,6 +217,19 @@
         "bash init.sh en verde (los ajustes son de clases CSS; los tests de comportamiento no cambian salvo aserciones de markup que se muevan)",
         "Verificación visual con screenshots en viewport móvil de: landing, listado, formulario de reportar, detalle y mapa"
       ]
+    },
+    {
+      "id": "17-registro-ciudades-lista",
+      "title": "Registro: la ciudad se elige de una lista de ciudades de Colombia",
+      "description": "Pedido del usuario: al entrar/crear cuenta, el campo Ciudad deja de ser texto libre y pasa a ser un select con las ciudades de Colombia (las 6 zonas cubiertas destacadas primero, luego las demás capitales y ciudades principales del país). Lista única en src/web/src/lib/ciudades.ts; el backend no cambia (User.ciudad sigue siendo string libre).",
+      "status": "in_progress",
+      "depends_on": ["16-mobile-ui"],
+      "acceptance": [
+        "El formulario de registro ofrece la ciudad como select (no input de texto) con las 6 zonas cubiertas primero y el resto de ciudades de Colombia después, default Armenia",
+        "El valor elegido se envía tal cual en el payload de registrarUsuario (tests de Registro actualizados y en verde)",
+        "La lista vive una sola vez en lib/ciudades.ts y cubre al menos las capitales departamentales de Colombia",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }

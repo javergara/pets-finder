@@ -52,6 +52,44 @@ function llenarFormulario() {
 }
 
 describe('Registro', () => {
+  it('la ciudad es un select con las zonas cubiertas primero y las demás capitales de Colombia', () => {
+    renderConRouter();
+
+    const selectCiudad = screen.getByLabelText('Ciudad');
+    expect(selectCiudad.tagName).toBe('SELECT');
+    expect(selectCiudad).toHaveValue('Armenia');
+
+    const opciones = Array.from(selectCiudad.querySelectorAll('option')).map((o) => o.value);
+    // Las 6 zonas con mapa propio encabezan la lista, en su orden.
+    expect(opciones.slice(0, 6)).toEqual([
+      'Armenia',
+      'Pereira',
+      'Manizales',
+      'Cali',
+      'Quibdó',
+      'Bogotá',
+    ]);
+    // Muestra de capitales departamentales del resto del país.
+    for (const capital of ['Medellín', 'Barranquilla', 'Bucaramanga', 'Leticia', 'Pasto']) {
+      expect(opciones).toContain(capital);
+    }
+  });
+
+  it('la ciudad elegida en la lista se envía tal cual en el payload', async () => {
+    vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(9));
+
+    renderConRouter();
+    llenarFormulario();
+    fireEvent.change(screen.getByLabelText('Ciudad'), { target: { value: 'Medellín' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await screen.findByText('Landing stub');
+
+    expect(client.registrarUsuario).toHaveBeenCalledWith(
+      expect.objectContaining({ ciudad: 'Medellín' }),
+    );
+  });
+
   it('al completar el formulario y enviar, registra al usuario, guarda su id activo y navega a "/"', async () => {
     const setActiveUserIdSpy = vi.spyOn(session, 'setActiveUserId');
     vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(42));

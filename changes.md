@@ -348,3 +348,10 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Fix: Nav con overflow-x-auto + shrink-0/whitespace-nowrap en links + scrollbar oculta — la nav se desliza dentro de sí misma; medido de nuevo: todas las rutas ≤390px sin scroll lateral. Header del detalle con flex-wrap (títulos largos + badge).
 - Verificación visual en 390px: landing (CTAs apilados), formulario (selects a ancho completo, características apiladas), listado (filtros envueltos) y mapa (tiles + leyenda) — todo correcto; el resto del layout ya era responsive por los breakpoints existentes.
 - Suites: 65 API + 56 web en verde (fix de solo clases CSS, sin cambios de comportamiento).
+
+## 2026-08-12 — Feature 17: registro con lista de ciudades de Colombia (commit: en revisión)
+
+- Pedido del usuario: al entrar/crear cuenta, la ciudad se elige de una lista en vez de texto libre.
+- `src/web/src/lib/ciudades.ts`: nueva `OTRAS_CIUDADES_COLOMBIA` (34 entradas) — cubre las 32 capitales departamentales (las 6 zonas cubiertas viven aparte en `ZONAS`) más ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), orden alfabético.
+- `src/web/src/screens/Registro.tsx`: campo Ciudad ahora es `<select>` con optgroups "Zonas con mapa propio" (orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Mismo id/label/clases; backend intacto (`User.ciudad` string libre, así los valores históricos de prod siguen válidos).
+- `src/web/src/screens/Registro.test.tsx`: +2 tests (el campo es un SELECT con las 6 zonas primero y las capitales presentes; la ciudad elegida se envía tal cual). `bash init.sh` verde: 65 API + 58 web.

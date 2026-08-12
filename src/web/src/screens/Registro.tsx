@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, registrarUsuario } from '../api/client';
+import { NOMBRES_ZONAS, OTRAS_CIUDADES_COLOMBIA } from '../lib/ciudades';
 import { setActiveUserId } from '../lib/session';
 
 // Solo rutas internas: un `?volver=` con URL absoluta externa se ignora.
@@ -85,13 +86,27 @@ export function Registro() {
           <label htmlFor="registro-ciudad" className="text-sm font-medium text-ink-soft">
             Ciudad
           </label>
-          <input
+          <select
             id="registro-ciudad"
-            type="text"
             value={ciudad}
             onChange={(e) => setCiudad(e.target.value)}
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
-          />
+          >
+            <optgroup label="Zonas con mapa propio">
+              {NOMBRES_ZONAS.map((nombre) => (
+                <option key={nombre} value={nombre}>
+                  {nombre}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Resto de Colombia">
+              {OTRAS_CIUDADES_COLOMBIA.map((nombre) => (
+                <option key={nombre} value={nombre}>
+                  {nombre}
+                </option>
+              ))}
+            </optgroup>
+          </select>
         </div>
 
         <div>
