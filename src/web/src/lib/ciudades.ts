@@ -76,6 +76,46 @@ export const COLOMBIA: BoundingBox = {
 export const ZONA_OTRO = 'Otro';
 export const NOMBRES_ZONAS = Object.keys(ZONAS);
 
+// Ciudades de Colombia para el registro (feature 17): las zonas con mapa propio
+// van primero en el select; este resto cubre todas las capitales departamentales
+// más las ciudades grandes que no son capital, en orden alfabético.
+export const OTRAS_CIUDADES_COLOMBIA = [
+  'Arauca',
+  'Barrancabermeja',
+  'Barranquilla',
+  'Bello',
+  'Bucaramanga',
+  'Buenaventura',
+  'Cartagena',
+  'Cúcuta',
+  'Dosquebradas',
+  'Florencia',
+  'Ibagué',
+  'Inírida',
+  'Leticia',
+  'Medellín',
+  'Mitú',
+  'Mocoa',
+  'Montería',
+  'Neiva',
+  'Palmira',
+  'Pasto',
+  'Popayán',
+  'Puerto Carreño',
+  'Riohacha',
+  'San Andrés',
+  'San José del Guaviare',
+  'Santa Marta',
+  'Sincelejo',
+  'Soacha',
+  'Soledad',
+  'Tuluá',
+  'Tunja',
+  'Valledupar',
+  'Villavicencio',
+  'Yopal',
+];
+
 // El lienzo a usar para una zona dada: las 6 conocidas usan su propio bounding
 // box; "Otro" (y la vista "Colombia" del mapa) usan el nacional.
 export function cajaDeZona(zona: string): BoundingBox {

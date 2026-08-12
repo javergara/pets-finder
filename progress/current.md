@@ -4,9 +4,15 @@
 
 ## Qué está pasando
 
-**Feature activa: `10-verificacion-final` (in_progress, implementación lista, en revisión).** Features `01`-`09` aprobadas por el revisor independiente. Suites: 51 tests de API + 56 de web, todo en verde.
+**Feature activa: `17-registro-ciudades-lista` (in_progress, implementación lista, en revisión).** Features `01`-`16` aprobadas por el revisor independiente. Suites: 65 tests de API + 58 de web, todo en verde.
 
-## Hecho en la feature 10
+## Hecho en la feature 17
+
+- [x] `OTRAS_CIUDADES_COLOMBIA` en `src/web/src/lib/ciudades.ts`: las 32 capitales departamentales (menos las 6 que ya son zonas) + ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), alfabético.
+- [x] `Registro.tsx`: el campo Ciudad pasa de `<input type="text">` a `<select>` con dos optgroups — "Zonas con mapa propio" (las 6, en el orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Backend sin cambios (`User.ciudad` sigue string libre).
+- [x] Tests: 2 nuevos en `Registro.test.tsx` (es un SELECT con las 6 zonas primero + muestra de capitales; la ciudad elegida viaja tal cual en el payload). `bash init.sh` verde: 65 API + 58 web.
+
+## Hecho en la feature 10 (histórico)
 
 - [x] Observación del revisor de la 09 atendida: `resuelto_en` del seed movido al 2026-08-11 (siempre en el pasado, sigue determinista).
 - [x] `bash init.sh` en verde completo; seed determinista verificado (doble corrida).
