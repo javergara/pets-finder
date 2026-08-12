@@ -237,3 +237,10 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `api/client.ts`: `listarReportes(FiltrosReportes)` + `obtenerReporte(id)` (este último lo usa la 06).
 - Ruta `/reportes` en App.tsx.
 - Tests: `Reportes.test.tsx` (4: render con datos por tarjeta usando within, filtros re-consultan con el payload exacto, tarjeta navega a /reporte/:id, estado vacío con acción). Web: 31.
+
+## 2026-08-12 — 06-detalle-contacto (en revisión)
+
+- `lib/contacto.ts`: `urlWhatsApp` (normaliza a 57+10 dígitos, mensaje URL-encoded), `urlTelefono` (tel:+57...), `mensajeContacto` (menciona el reporte y la app, con variante por tipo). Funciones puras.
+- `components/ContactoBotones.tsx`: "Contactar por WhatsApp" (target _blank) + "Llamar".
+- `screens/ReporteDetalle.tsx` (`/reporte/:id`): foto grande, título (nombre o especie), badge por tipo, descripción + situación del encontrado, mini-mapa con el pin en la posición real, sección de contacto solo en reportes activos, y franja de celebración si ya está reunido (sin botones de contacto — no tiene sentido contactar por una mascota ya reencontrada).
+- Tests: `contacto.test.ts` (7: normalización 57, no duplicar indicativo, limpieza de símbolos, encoding, tel:, mensaje por tipo) y `ReporteDetalle.test.tsx` (4: hrefs exactos + mensaje decodificado, pin posicionado y con color por tipo, variante encontrado, estado reunido sin contacto). Web: 42.

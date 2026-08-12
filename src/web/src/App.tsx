@@ -2,6 +2,7 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { Registro } from './screens/Registro';
 import { ReportarMascota } from './screens/ReportarMascota';
+import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
 
 function Nav() {
@@ -54,6 +55,7 @@ function App() {
           <Route path="/reportar/perdido" element={<ReportarMascota tipo="perdido" />} />
           <Route path="/reportar/encontrado" element={<ReportarMascota tipo="encontrado" />} />
           <Route path="/reportes" element={<Reportes />} />
+          <Route path="/reporte/:id" element={<ReporteDetalle />} />
         </Route>
       </Routes>
     </div>

@@ -70,7 +70,7 @@
       "id": "06-detalle-contacto",
       "title": "Detalle del reporte con contacto directo",
       "description": "/reporte/:id: foto grande, datos completos, mini-mapa con el pin, y botones de contacto directo — WhatsApp (wa.me con mensaje precargado) y llamada (tel:), con normalización del teléfono colombiano en lib/contacto.ts.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["05-listado-reportes"],
       "acceptance": [
         "Los hrefs generados son exactamente https://wa.me/57XXXXXXXXXX?text=... y tel:+57XXXXXXXXXX (tests de lib/contacto.ts y del componente)",
