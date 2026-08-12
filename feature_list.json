@@ -19,7 +19,7 @@
       "id": "02-reportes-backend",
       "title": "Backend de reportes: modelo Report, zonas y CRUD con filtros",
       "description": "Modelo único Report (tipo perdido|encontrado, campos condicionales nombre_mascota/situacion), services/ciudades.py como fuente de verdad de las 6 zonas + bounding box nacional, schemas con validación condicional, endpoints POST/GET/PUT con filtros (tipo, especie, zona, estado default activo, orden fecha_evento desc), y seed determinista nuevo (~16 reportes en las zonas afectadas, un par perdido/encontrado diseñado como coincidencia obvia, 2 reunidos).",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["01-pivot-fundaciones"],
       "acceptance": [
         "POST /api/reports crea reportes de ambos tipos; 422 si situacion falta en 'encontrado' o sobra en 'perdido', o si la zona no es válida",
