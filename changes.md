@@ -312,3 +312,13 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Dependencia nueva: leaflet ^1.9.4 (+@types/leaflet en dev). Bundle 125 kB gzip (+44).
 - CHANGELOG Unreleased actualizado a 2.1.0 con las features 12-14 y el fix del letrero.
 - Verificación manual en Chrome real: /mapa muestra Colombia con tiles OSM y pins de colores; /reporte/1 muestra Armenia real con el pin de Rocky; en /reportar/perdido el click movió el pin a Montenegro con tooltip. Suites: 55 API + 52 web, build verde.
+
+## 2026-08-12 — Deploy real a producción (Vercel + Supabase) 🚀
+
+App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets-finder). Serie de fixes durante el primer deploy, cada uno verificado localmente contra el Supabase real antes de pushear:
+- Compat con env vars de la integración (POSTGRES_URL/SERVICE_ROLE_KEY + normalización de URL) — aunque al final el usuario creó Supabase fuera del Marketplace y añadió las 3 vars a mano.
+- psycopg2 → psycopg v3 (3.3.4, wheels cp314) y pines del stack subidos (pydantic 2.13.4/core 2.46.4, fastapi 0.141.1, sqlalchemy 2.0.52, uvicorn sin [standard]) — el runtime de Vercel (CPython 3.14, luego 3.12) no tenía wheels para los pines de la era Adopta y compilaba desde fuente.
+- Tabla [project] en pyproject.toml (el builder de Vercel corre uv lock y la exige); requirements.txt raíz eliminado.
+- Arranque resiliente del serverless: create_all fallido se loguea sin tumbar el boot (antes: FUNCTION_INVOCATION_FAILED mudo hasta en /health) + log del dialecto de DB para diagnóstico.
+- Bucket `fotos` creado vía API y seed corrido contra producción (autorización explícita del usuario): 5 usuarios + 17 reportes + fotos en el bucket, verificado fila a fila y por GET público.
+- Verificación final de producción: health, 15 activos con fotos del bucket, filtros, reunidos (2), coincidencias (0.6 km), 404 español, SPA fallback.
