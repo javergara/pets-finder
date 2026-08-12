@@ -2,9 +2,13 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased] — 2.0.0 (pivot Reencuentro, en curso)
+## [Unreleased]
 
-Pivot completo del producto tras el terremoto del Eje Cafetero (2026-08-10): de **Adopta** (adopción de mascotas) a **Reencuentro** (reporte y reunificación de mascotas perdidas/encontradas). Ver ADR 0005.
+Pendiente: `11-despliegue` (configuración Vercel + Render y guía de deploy).
+
+## [2.0.0] - 2026-08-12
+
+Pivot completo del producto tras el terremoto del Eje Cafetero (2026-08-10): de **Adopta** (adopción de mascotas) a **Reencuentro** (reporte y reunificación de mascotas perdidas/encontradas). Ver ADR 0005. Verificación end-to-end en `docs/verification.md`: 51 tests de API + 56 de web en verde, recorrido completo en navegador real.
 
 ### Removed
 - **Todo el producto de adopción** (features `01`-`15` de la era Adopta): modelos (`HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match`, `Sponsorship`, `Favorite`, `Thread`, `Message`), servicios (afinidad, deck, matching, solicitudes, chat WebSocket), routers, las 14 pantallas, el sistema de diseño por pantalla y los prototipos. **Nada se perdió**: la era Adopta vive íntegra en la rama `adopta-v1` (tag `adopta-v1.0.0`).
@@ -12,6 +16,15 @@ Pivot completo del producto tras el terremoto del Eje Cafetero (2026-08-10): de 
 
 ### Added
 - **`01-pivot-fundaciones`**: rama de archivo `adopta-v1` + tag; paquete renombrado `adopta_api` → `reencuentro_api`; harness completo actualizado (feature_list con 11 features nuevas, CLAUDE/AGENTS/CHECKPOINTS, ADR 0005, product-research y architecture reescritos); API mínima (registro liviano + perfil) y web mínima (landing de emergencia + registro con `?volver=`); media movida a `data/media/{seed,uploads}`.
+- **`02-reportes-backend`**: modelo único `Report` (perdido|encontrado con validación condicional), `services/ciudades.py` (Armenia, Pereira, Manizales, Cali, Quibdó, Bogotá + bounding box nacional), CRUD con filtros, seed determinista de 17 reportes con par de coincidencia obvia y 2 reunidos.
+- **`03-upload-fotos`**: `POST /api/uploads` multipart seguro (uuid, extensión del content-type, ≤5 MB por chunks) + `FotoUpload` con preview; rutas de media unificadas en `reencuentro_api/media.py` tras un 404 real encontrado por el revisor.
+- **`04-reportar-ui`**: formulario único con campos condicionales, pin por click sobre el mapa propio (interpolación invertible por zona), selector con "Otro lugar de Colombia", gate de registro con `?volver=`, landing de emergencia con los 2 CTAs gigantes.
+- **`05-listado-reportes`**: galería `/reportes` con filtros; `ReporteCard` hereda el diseño visual de las tarjetas de mascota de `adopta-v1`.
+- **`06-detalle-contacto`**: `/reporte/:id` con mini-mapa y contacto directo — `wa.me` con mensaje precargado y `tel:`, teléfono normalizado a +57.
+- **`07-mapa-reportes`**: `/mapa` con vista "Todo Colombia" y por zona, pins danger/forest con leyenda, sin librerías de mapas.
+- **`08-coincidencias`**: heurística explicable sin AI (tipo opuesto + especie + zona, orden por distancia con penalización de 0.5 km/día) y sección en el detalle.
+- **`09-reunidos`**: marcar reencuentro (solo autor, 403/409), `/mis-reportes` con edición, franja de esperanza con contador en la landing.
+- **`10-verificacion-final`**: evidencia completa en `docs/verification.md`; merge `develop` → `main`.
 
 ### Changed
 - `Registro.tsx` ahora soporta `?volver=` (para volver al formulario de reporte tras registrarse) y solo acepta rutas internas como destino.

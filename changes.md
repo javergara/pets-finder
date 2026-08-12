@@ -265,3 +265,10 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - client.ts: marcarReunido, editarReporte, obtenerReunidos, filtro userId en listarReportes.
 - Tests: +6 en test_reports.py (transición+salida del listado, 403, 409, filtro user_id, resumen con orden, regresión de la ruta literal no eclipsada), MisReportes.test.tsx (4), +2 en ReporteDetalle.test.tsx (botón solo autor), +2 en LandingEmergencia.test.tsx (franja/ausencia). API 51, web 56.
 - Verificación E2E en vivo: 403 no-autor → marcar → 409 repetido → sale del listado activo → contador 2→3 → seed reseteado.
+
+## 2026-08-12 — 10-verificacion-final (en revisión)
+
+- Fix de la observación del revisor (09): `resuelto_en` del seed al 2026-08-11.
+- `docs/verification.md` regenerado con evidencia real: init.sh verde (51 API + 56 web), determinismo por doble corrida, recorrido manual completo en Chrome (gate ?volver=, pin por click, wa.me exacto, coincidencia 4.92 km, reunida con contador 2→3, mapa Todo Colombia), E2E de API por curl, greps de cierre.
+- CHANGELOG: `[2.0.0] - 2026-08-12` fechado con el detalle de las 10 features; Unreleased queda solo con `11-despliegue`.
+- `progress/current.md` reset al estado de la 10; entrada de cierre en `progress/history.md`.

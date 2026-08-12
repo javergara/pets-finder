@@ -264,7 +264,7 @@ REPORTS = [
         fecha_evento=date(2026, 8, 10),
         telefono_contacto="3001234561",
         estado="reunido",
-        resuelto_en=datetime(2026, 8, 12, 15, 0),
+        resuelto_en=datetime(2026, 8, 11, 15, 0),
     ),
     dict(
         user_idx=1,
@@ -279,7 +279,7 @@ REPORTS = [
         fecha_evento=date(2026, 8, 10),
         telefono_contacto="3001234562",
         estado="reunido",
-        resuelto_en=datetime(2026, 8, 12, 18, 30),
+        resuelto_en=datetime(2026, 8, 11, 18, 30),
     ),
 ]
 

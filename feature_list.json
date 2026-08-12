@@ -119,7 +119,7 @@
       "id": "10-verificacion-final",
       "title": "Verificación end-to-end y release 2.0.0",
       "description": "Recorrido manual completo del flujo (reportar perdido con foto y pin → verlo en listado y mapa → contacto → crear encontrado cercano → coincidencia → marcar reunido → contador), greps del revisor (sin adopta en código vivo, sin librerías de mapas/chat), docs/verification.md regenerado, CHANGELOG 2.0.0 fechado, merge develop → main.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": [
         "04-reportar-ui",
         "05-listado-reportes",
