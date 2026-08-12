@@ -31,14 +31,14 @@ describe('App', () => {
     expect(screen.queryByRole('link', { name: 'Mis reportes' })).not.toBeInTheDocument();
   });
 
-  it('en "/registro" el <Nav/> interno sí se renderiza con la marca Reencuentro', () => {
+  it('en "/registro" el <Nav/> interno sí se renderiza con la marca Pet Finder Col', () => {
     render(
       <MemoryRouter initialEntries={['/registro']}>
         <App />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('link', { name: 'Reencuentro' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mis reportes' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Entra o crea tu cuenta' })).toBeInTheDocument();
   });

@@ -21,6 +21,6 @@ export function urlTelefono(telefono: string): string {
 // que quien recibe el WhatsApp entienda de inmediato de qué se trata.
 export function mensajeContacto(tipo: 'perdido' | 'encontrado', etiqueta: string): string {
   return tipo === 'perdido'
-    ? `Hola, te escribo desde Reencuentro por tu reporte de ${etiqueta}. Creo que puedo ayudarte a encontrarla.`
-    : `Hola, te escribo desde Reencuentro por la mascota que reportaste (${etiqueta}). Creo que puede ser la mía.`;
+    ? `Hola, te escribo desde Pet Finder Col por tu reporte de ${etiqueta}. Creo que puedo ayudarte a encontrarla.`
+    : `Hola, te escribo desde Pet Finder Col por la mascota que reportaste (${etiqueta}). Creo que puede ser la mía.`;
 }

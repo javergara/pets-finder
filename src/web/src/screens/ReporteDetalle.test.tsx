@@ -78,7 +78,7 @@ describe('ReporteDetalle', () => {
     // El mensaje precargado menciona el reporte y la app.
     const texto = decodeURIComponent(href.split('?text=')[1]);
     expect(texto).toContain('Rocky');
-    expect(texto).toContain('Reencuentro');
+    expect(texto).toContain('Pet Finder Col');
 
     expect(screen.getByRole('link', { name: 'Llamar' })).toHaveAttribute(
       'href',

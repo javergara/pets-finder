@@ -385,3 +385,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Pedido del usuario: la mascota completa también en el listado (reconocible rápido) y el ícono nuevo no se veía.
 - `ReporteCard.tsx`: `object-cover` → `object-contain` (contenedor 4:3 con fondo `bg-surface-alt` se mantiene — tarjetas uniformes, foto entera adentro).
 - `index.html`: `href="/favicon.svg?v=2"` — el archivo nuevo ya se servía bien; el rayo de Vercel estaba cacheado por navegador bajo la URL vieja. `bash init.sh` verde (70 API + 64 web).
+
+## 2026-08-12 — Fix: marca visible "Reencuentro" → "Pet Finder Col"
+
+- Pedido del usuario. Cambia la marca de la nav (`App.tsx`) y el mensaje precargado de WhatsApp (`lib/contacto.ts`), con sus tests. El aria-label "Reencuentro de {mascota}" de la landing se queda: es la palabra reencuentro, no la marca. El nombre interno del proyecto/paquete (reencuentro_api, docs) no cambia. `bash init.sh` verde (70 API + 64 web).
