@@ -48,6 +48,17 @@ def test_service_role_key_de_la_integracion_activa_supabase(monkeypatch):
     )
 
 
+def test_espacios_accidentales_en_las_env_vars_se_limpian(monkeypatch):
+    """Regresión de producción: SUPABASE_URL pegada en Vercel con un espacio
+    inicial colaba ese espacio en cada foto_url generada."""
+    monkeypatch.setenv("SUPABASE_URL", "  https://abc.supabase.co/ ")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", " clave-con-espacios ")
+    monkeypatch.setenv("DATABASE_URL", "  postgresql://x:y@host:6543/postgres ")
+
+    assert media._config_supabase() == ("https://abc.supabase.co", "clave-con-espacios", "fotos")
+    assert _database_url_desde_entorno() == "postgresql+psycopg://x:y@host:6543/postgres"
+
+
 def test_supabase_service_key_propia_tiene_prioridad(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://abc.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "clave-propia")

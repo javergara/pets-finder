@@ -31,11 +31,12 @@ def _database_url_desde_entorno() -> str:
     rechaza (`supa=...`, `pgbouncer=true`) — aquí se normaliza: dialecto
     psycopg v3 explícito y solo se conserva `sslmode`.
     """
-    explicita = os.environ.get("DATABASE_URL")
+    # .strip(): las env vars pegadas a mano en dashboards traen espacios a veces.
+    explicita = os.environ.get("DATABASE_URL", "").strip()
     if explicita:
         return _con_driver_psycopg(explicita)
 
-    cruda = os.environ.get("POSTGRES_URL") or os.environ.get("POSTGRES_PRISMA_URL")
+    cruda = (os.environ.get("POSTGRES_URL") or os.environ.get("POSTGRES_PRISMA_URL") or "").strip()
     if not cruda:
         return f"sqlite:///{DEFAULT_DB_PATH}"
 

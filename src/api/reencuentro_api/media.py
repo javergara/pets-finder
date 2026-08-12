@@ -33,14 +33,21 @@ class SupabaseError(Exception):
 
 def _config_supabase() -> tuple[str, str, str] | None:
     """Lee la config del entorno en el momento de la llamada (no al importar):
-    así los tests pueden activarla/desactivarla con monkeypatch.setenv."""
-    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    así los tests pueden activarla/desactivarla con monkeypatch.setenv.
+
+    Todo se pasa por .strip(): las env vars pegadas a mano en el dashboard de
+    Vercel pueden traer espacios accidentales — pasó en producción y el espacio
+    inicial de SUPABASE_URL se colaba en cada foto_url generada.
+    """
+    url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
     # SUPABASE_SERVICE_ROLE_KEY es el nombre que inyecta la integración
     # Vercel×Supabase del Marketplace; SUPABASE_SERVICE_KEY, el nuestro.
-    key = os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    key = (
+        os.environ.get("SUPABASE_SERVICE_KEY") or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    ).strip()
     if not url or not key:
         return None
-    bucket = os.environ.get("SUPABASE_BUCKET", "fotos")
+    bucket = os.environ.get("SUPABASE_BUCKET", "fotos").strip()
     return url, key, bucket
 
 
