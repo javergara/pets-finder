@@ -251,7 +251,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Ruta `/mapa` en App.tsx. Sin dependencias nuevas (package.json sin leaflet/mapbox/google — verificado por grep).
 - Tests: `MapaReportes.test.tsx` (4: vista nacional plotea las 3 zonas a la vez, colores por tipo + leyenda, filtro por zona, mini-tarjeta con href). Web: 46.
 
-## 2026-08-12 — 08-coincidencias (en revisión)
+## 2026-08-12 — 08-coincidencias — commit 4d09c3c
 
 - `services/coincidencias.py`: función pura `ordenar_coincidencias(reporte, candidatos)` — filtra tipo opuesto + misma especie + misma zona + estado activo, ordena por `distancia_km + PESO_DIAS(0.5) * |Δdías|` (heurística explicable, sin AI); devuelve la distancia geográfica real para la UI. Funciona en ambas direcciones (perdido→encontrados y viceversa).
 - `GET /api/reports/{id}/coincidencias` (router delgado: query cruda + delega a la función pura), `CoincidenciaOut` (ReportOut + distancia_km).

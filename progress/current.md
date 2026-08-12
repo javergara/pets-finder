@@ -189,3 +189,16 @@ Revisión independiente sobre `develop` @ `8911672`. Evidencia ejecutable de est
 - `feature_list.json`: `07-mapa-reportes` a `done` con edición puntual sobre la línea 85; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 Menores (no bloquean): (a) recurrente — actualizar "(en revisión)" de `changes.md` al hash (`8911672`) al commitear; (b) nit de copy opcional: el contador dice "1 reportes activos en Cali" en singular — si se ajusta el plural, actualizar también la aserción del test.
+
+## Veredicto del revisor — feature 08 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `4d09c3c`. Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — 45/45 tests de API + 48/48 de web, lint/formato limpios.
+- **Acceptance 1 (función pura, filtros + orden con penalización)**: `ordenar_coincidencias` es pura de verdad (sin I/O ni DB, candidatos entran por parámetro). Tests unitarios: filtro completo en un caso con los 4 descartes (mismo tipo, otra especie, otra zona, reunido), orden por distancia con fechas iguales, **`test_la_diferencia_de_fechas_penaliza_como_medio_km_por_dia`** (mismo punto +10 días pierde contra ~2 km el mismo día — la aritmética 0.5·Δdías verificada de forma observable, y `PESO_DIAS == 0.5` aseverado), y bidireccionalidad (encontrado→perdido).
+- **Acceptance 2 (par sembrado)**: test de integración que replica el par + **verificación en vivo del revisor contra el seed real**: `GET /api/reports/1/coincidencias` (Rocky) devuelve exactamente 1 candidato — el reporte 2 (perro encontrado, Armenia) **a 0.6 km**, todos los devueltos activos y del filtro correcto; y en dirección inversa `GET /api/reports/2/coincidencias` propone a Rocky de primero. DB dejada en el estado limpio del seed.
+- **Acceptance 3 (sección del detalle)**: tests — coincidencia con "a 0.6 km" y link `/reporte/2`, y ausencia de la sección cuando no hay candidatos. Por lectura de código: la sección solo aparece en reportes activos, con copy direccional por tipo.
+- Arquitectura consistente con conventions y el patrón del repo: router delgado que delega en la función pura; la distancia mostrada es la geográfica real (la penalización solo ordena — decisión documentada en el docstring y coherente con "posibles coincidencias" sin AI, `docs/product-research.md`); `/{report_id}/coincidencias` declarado antes de `/{report_id}` como pide el comentario de orden de rutas; `CoincidenciaOut` extiende `ReportOut`. Sin dependencias nuevas. Entrada en `changes.md`.
+- `feature_list.json`: `08-coincidencias` a `done` con edición puntual sobre la línea 97; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: actualizar "(en revisión)" de `changes.md` al hash (`4d09c3c`) al commitear.

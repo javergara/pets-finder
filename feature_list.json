@@ -94,7 +94,7 @@
       "id": "08-coincidencias",
       "title": "Posibles coincidencias entre perdidos y encontrados",
       "description": "services/coincidencias.py: función pura que filtra candidatos del tipo opuesto, misma especie, misma zona y estado activo, y los ordena por distancia haversine + penalización por diferencia de fechas. GET /api/reports/{id}/coincidencias y sección 'Posibles coincidencias' en el detalle.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["06-detalle-contacto"],
       "acceptance": [
         "La función pura filtra por tipo opuesto/especie/zona/estado y ordena por distancia con la fecha como penalización (tests unitarios)",
