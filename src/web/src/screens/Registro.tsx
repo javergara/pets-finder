@@ -12,7 +12,8 @@ function destinoSeguro(volver: string | null): string {
 export function Registro() {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
-  const [ciudad, setCiudad] = useState('Armenia');
+  // Sin ciudad preseleccionada: que cada quien elija la suya (antes Armenia).
+  const [ciudad, setCiudad] = useState('');
   const [barrio, setBarrio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -92,6 +93,7 @@ export function Registro() {
             onChange={(e) => setCiudad(e.target.value)}
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
           >
+            <option value="">Selecciona tu ciudad</option>
             <optgroup label="Zonas con mapa propio">
               {NOMBRES_ZONAS.map((nombre) => (
                 <option key={nombre} value={nombre}>

@@ -57,11 +57,13 @@ describe('Registro', () => {
 
     const selectCiudad = screen.getByLabelText('Ciudad');
     expect(selectCiudad.tagName).toBe('SELECT');
-    expect(selectCiudad).toHaveValue('Armenia');
+    // Sin ciudad preseleccionada: el placeholder vacío es el valor inicial.
+    expect(selectCiudad).toHaveValue('');
 
     const opciones = Array.from(selectCiudad.querySelectorAll('option')).map((o) => o.value);
-    // Las 7 zonas con mapa propio encabezan la lista, en su orden.
-    expect(opciones.slice(0, 7)).toEqual([
+    expect(opciones[0]).toBe('');
+    // Las 7 zonas con mapa propio encabezan la lista (tras el placeholder), en su orden.
+    expect(opciones.slice(1, 8)).toEqual([
       'Armenia',
       'Pereira',
       'Manizales',

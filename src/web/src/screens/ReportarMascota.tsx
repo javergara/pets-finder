@@ -36,11 +36,13 @@ export function ReportarMascota({ tipo }: Props) {
   const [tamano, setTamano] = useState('');
   const [situacion, setSituacion] = useState<'conmigo' | 'vista'>('conmigo');
   const [descripcion, setDescripcion] = useState('');
-  const [zona, setZona] = useState('Armenia');
+  // Sin zona preseleccionada: el mapa arranca en la vista nacional y el usuario
+  // elige la suya — antes el default "Armenia" producía reportes mal zonificados.
+  const [zona, setZona] = useState('');
   const [ciudadTexto, setCiudadTexto] = useState('');
   const [barrio, setBarrio] = useState('');
   const [pin, setPin] = useState(() => {
-    const caja = cajaDeZona('Armenia');
+    const caja = cajaDeZona('');
     return { lat: caja.centroLat, lng: caja.centroLng };
   });
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
@@ -69,6 +71,10 @@ export function ReportarMascota({ tipo }: Props) {
     e.preventDefault();
     if (!descripcion.trim() || !telefono.trim()) {
       setError('La descripción y el teléfono de contacto son obligatorios.');
+      return;
+    }
+    if (!zona) {
+      setError('Selecciona la zona.');
       return;
     }
     if (zona === ZONA_OTRO && !ciudadTexto.trim()) {
@@ -274,7 +280,12 @@ export function ReportarMascota({ tipo }: Props) {
             ¿En qué zona?
           </label>
           <div className="mt-1">
-            <SelectorCiudad value={zona} onChange={cambiarZona} incluirOtro />
+            <SelectorCiudad
+              value={zona}
+              onChange={cambiarZona}
+              incluirOtro
+              placeholder="Selecciona la zona"
+            />
           </div>
         </div>
 

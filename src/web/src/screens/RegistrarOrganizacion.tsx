@@ -13,12 +13,13 @@ export function RegistrarOrganizacion() {
   const [tipo, setTipo] = useState<TipoOrganizacion>('centro_acopio');
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [zona, setZona] = useState('Armenia');
+  // Sin zona preseleccionada (igual que reportar): vista nacional hasta elegir.
+  const [zona, setZona] = useState('');
   const [ciudadTexto, setCiudadTexto] = useState('');
   const [barrio, setBarrio] = useState('');
   const [direccion, setDireccion] = useState('');
   const [pin, setPin] = useState(() => {
-    const caja = cajaDeZona('Armenia');
+    const caja = cajaDeZona('');
     return { lat: caja.centroLat, lng: caja.centroLng };
   });
   const [telefono, setTelefono] = useState('');
@@ -47,6 +48,10 @@ export function RegistrarOrganizacion() {
     e.preventDefault();
     if (!nombre.trim() || !descripcion.trim() || !direccion.trim() || !telefono.trim()) {
       setError('Nombre, descripción, dirección y teléfono son obligatorios.');
+      return;
+    }
+    if (!zona) {
+      setError('Selecciona la zona.');
       return;
     }
     if (zona === ZONA_OTRO && !ciudadTexto.trim()) {
@@ -167,7 +172,13 @@ export function RegistrarOrganizacion() {
             Zona
           </label>
           <div className="mt-1">
-            <SelectorCiudad id="registrar-zona" value={zona} onChange={cambiarZona} incluirOtro />
+            <SelectorCiudad
+              id="registrar-zona"
+              value={zona}
+              onChange={cambiarZona}
+              incluirOtro
+              placeholder="Selecciona la zona"
+            />
           </div>
         </div>
 

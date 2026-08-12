@@ -127,11 +127,12 @@ def listar_necesidades(
     if session.get(Organizacion, organizacion_id) is None:
         raise HTTPException(404, f"La organización {organizacion_id} no existe")
 
+    # Orden: "pendiente" > "cubierta" alfabéticamente, así estado desc pone las
+    # pendientes primero; dentro de cada grupo, las más recientes arriba.
     necesidades = (
         session.execute(
             select(Necesidad)
             .where(Necesidad.organizacion_id == organizacion_id)
-            # "pendiente" > "cubierta" alfabéticamente: desc pone pendientes primero.
             .order_by(Necesidad.estado.desc(), Necesidad.id.desc())
         )
         .scalars()

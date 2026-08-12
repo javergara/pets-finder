@@ -433,3 +433,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Detalle: sección Necesidades — chips de categoría, botón "Quiero ayudar" (wa.me con prefill "vi en Pet Finder Col que necesitan X"), "Cubierta 💚"; autor: form inline (categoría+descripción) y "Marcar cubierta". Tarjetas de /ayudar: "N necesidades activas" en ochre.
 - Tests: tests/api/test_necesidades.py (8) + 3 Vitest (prefill exacto, autor publica y cubre, contador en tarjetas). bash init.sh verde: 97 API + 83 web; build limpio.
 - ⚠️ Migración prod ANTES del merge: CREATE TABLE necesidades — YA AUTORIZADA por el usuario ("Sí, ambas") junto con organizaciones.
+
+## 2026-08-12 — Fix: sin zona/ciudad preseleccionada (antes siempre Armenia)
+
+- Pedido del usuario: "por defecto en las zonas siempre aparece Armenia".
+- `SelectorCiudad`: prop `placeholder` nueva (option vacía). `ReportarMascota` y `RegistrarOrganizacion` arrancan con zona vacía → "Selecciona la zona" + mapa en vista nacional (cajaDeZona('') = COLOMBIA); validación al enviar. `Registro`: "Selecciona tu ciudad" como primera opción, sin default.
+- Tests actualizados (llenarMinimo elige zona explícita; Registro espera valor inicial vacío y las 7 zonas tras el placeholder). También estabilizado un comentario en `listar_necesidades` que hacía pelear a black consigo mismo. `bash init.sh` verde (97 API + 83 web).

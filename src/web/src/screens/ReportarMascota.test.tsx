@@ -113,6 +113,8 @@ describe('ReportarMascota — envío', () => {
     fireEvent.change(screen.getByLabelText('Descripción y señas'), {
       target: { value: 'Criollo color miel con collar rojo' },
     });
+    // La zona ya no viene preseleccionada: elegirla es parte del mínimo.
+    fireEvent.change(screen.getByLabelText('¿En qué zona?'), { target: { value: 'Armenia' } });
     fireEvent.change(screen.getByLabelText('Teléfono de contacto (WhatsApp)'), {
       target: { value: '3001234567' },
     });
