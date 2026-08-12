@@ -1,4 +1,6 @@
 import {
+  type Avistamiento,
+  type AvistamientoIn,
   type Coincidencia,
   type Reporte,
   type ReporteIn,
@@ -135,4 +137,15 @@ export async function subirFoto(archivo: File): Promise<{ foto_url: string }> {
     throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
   }
   return respuesta.json() as Promise<{ foto_url: string }>;
+}
+
+export function listarAvistamientos(reporteId: number): Promise<Avistamiento[]> {
+  return request(`/api/reports/${reporteId}/avistamientos`);
+}
+
+export function crearAvistamiento(reporteId: number, datos: AvistamientoIn): Promise<Avistamiento> {
+  return request(`/api/reports/${reporteId}/avistamientos`, {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
 }

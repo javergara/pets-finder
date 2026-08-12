@@ -366,7 +366,7 @@
       "id": "28-avistamientos",
       "title": "Avistamientos: 'la vi por aquí' de terceros en un reporte perdido",
       "description": "Mejora realista del detalle (patrón de PawBoost/Love Lost, y el caso real que las apps de emergencia resuelven mal con solo WhatsApp): alguien ve la mascota perdida pero no puede atraparla — hoy solo puede escribir por WhatsApp y esa pista se pierde para los demás. Nuevo modelo Sighting (report_id FK, lat/lng por pin en el mapa, fecha, comentario corto, nombre opcional de quien avisa), visible como pins secundarios en el mini-mapa del detalle y lista cronológica ('Vista el 12/08 cerca al parque'). Solo en reportes perdidos activos; sin registro obligatorio para avisar (decidir con el usuario).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "Cualquiera puede añadir un avistamiento a un reporte perdido activo con pin en el mapa + fecha + comentario (validación y tests del endpoint)",

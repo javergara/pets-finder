@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models.report import Report
+from ..models.sighting import Sighting
 from ..models.user import User
 from ..schemas.report import (
     CoincidenciaOut,
@@ -13,6 +14,8 @@ from ..schemas.report import (
     ReportUpdate,
     ReunidoIn,
     ReunidosResumenOut,
+    SightingIn,
+    SightingOut,
 )
 from ..services.coincidencias import ordenar_coincidencias
 from ..services.db import get_session
@@ -147,6 +150,53 @@ def listar_coincidencias(
         CoincidenciaOut(distancia_km=distancia, **ReportOut.model_validate(c).model_dump())
         for c, distancia in resultado
     ]
+
+
+@router.post(
+    "/{report_id}/avistamientos", response_model=SightingOut, status_code=status.HTTP_201_CREATED
+)
+def crear_avistamiento(
+    report_id: int, payload: SightingIn, session: Session = Depends(get_session)
+) -> SightingOut:
+    """ "La vi por aquí": cualquiera deja una pista georreferenciada, sin registro.
+
+    Solo sobre reportes "perdido" activos — en un "encontrado" la mascota ya
+    está ubicada, y en un "reunido" la búsqueda terminó.
+    """
+    report = session.get(Report, report_id)
+    if report is None:
+        raise HTTPException(404, f"El reporte {report_id} no existe")
+    if report.tipo != "perdido" or report.estado != "activo":
+        raise HTTPException(
+            409, "Solo se pueden registrar avistamientos de mascotas perdidas con búsqueda activa"
+        )
+
+    sighting = Sighting(report_id=report_id, **payload.model_dump())
+    session.add(sighting)
+    session.commit()
+    session.refresh(sighting)
+
+    return SightingOut.model_validate(sighting)
+
+
+@router.get("/{report_id}/avistamientos", response_model=list[SightingOut])
+def listar_avistamientos(
+    report_id: int, session: Session = Depends(get_session)
+) -> list[SightingOut]:
+    """Pistas más recientes primero (por fecha del avistamiento, luego llegada)."""
+    if session.get(Report, report_id) is None:
+        raise HTTPException(404, f"El reporte {report_id} no existe")
+
+    sightings = (
+        session.execute(
+            select(Sighting)
+            .where(Sighting.report_id == report_id)
+            .order_by(Sighting.fecha.desc(), Sighting.id.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return [SightingOut.model_validate(s) for s in sightings]
 
 
 @router.get("/{report_id}", response_model=ReportOut)

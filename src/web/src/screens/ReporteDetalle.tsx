@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
+  crearAvistamiento,
   eliminarReporte,
+  listarAvistamientos,
   listarCoincidencias,
   marcarReunido,
   mediaUrl,
   obtenerReporte,
 } from '../api/client';
-import type { Coincidencia, Reporte } from '../api/types';
+import type { Avistamiento, Coincidencia, Reporte } from '../api/types';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { getActiveUserId } from '../lib/session';
@@ -30,20 +32,33 @@ function formatearFecha(iso: string): string {
   return `${d}/${m}/${y}`;
 }
 
+function hoyISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function ReporteDetalle() {
   const { id } = useParams<{ id: string }>();
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
+  const [avistamientos, setAvistamientos] = useState<Avistamiento[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [mostrandoFormAvistamiento, setMostrandoFormAvistamiento] = useState(false);
+  const [pinAvistamiento, setPinAvistamiento] = useState<{ lat: number; lng: number } | null>(null);
+  const [fechaAvistamiento, setFechaAvistamiento] = useState(hoyISO());
+  const [comentarioAvistamiento, setComentarioAvistamiento] = useState('');
+  const [nombreAvistamiento, setNombreAvistamiento] = useState('');
+  const [enviandoAvistamiento, setEnviandoAvistamiento] = useState(false);
+  const [errorAvistamiento, setErrorAvistamiento] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
     obtenerReporte(Number(id)).then(setReporte);
     listarCoincidencias(Number(id)).then(setCoincidencias);
+    listarAvistamientos(Number(id)).then(setAvistamientos);
   }, [id]);
 
   if (!reporte) {
@@ -161,9 +176,159 @@ export function ReporteDetalle() {
               colorClass: tipo.color,
               etiqueta: `Ubicación del reporte de ${titulo}`,
             },
+            // Pistas de terceros como pins secundarios (ochre, ids desplazados
+            // para no chocar con el id del reporte).
+            ...avistamientos.map((a) => ({
+              id: 1_000_000 + a.id,
+              lat: a.lat,
+              lng: a.lng,
+              colorClass: 'bg-ochre',
+              etiqueta: `Avistamiento del ${formatearFecha(a.fecha)}`,
+            })),
           ]}
         />
       </section>
+
+      {reporte.tipo === 'perdido' && reporte.estado === 'activo' && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-1 font-display text-lg text-ink">Avistamientos</h2>
+          <p className="mb-4 text-sm text-ink-soft">
+            ¿La viste por ahí? Deja la pista aquí — le sirve a su familia y a todos los que están
+            buscando. No necesitas cuenta.
+          </p>
+
+          {avistamientos.length > 0 && (
+            <ul className="mb-4 space-y-2">
+              {avistamientos.map((a) => (
+                <li key={a.id} className="rounded-xl bg-surface-alt p-3 text-sm text-ink-soft">
+                  <span className="font-medium text-ink">Vista el {formatearFecha(a.fecha)}</span>
+                  {' — '}
+                  {a.comentario}
+                  {a.nombre && <span className="text-muted"> ({a.nombre})</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {!mostrandoFormAvistamiento ? (
+            <button
+              type="button"
+              onClick={() => {
+                setPinAvistamiento({ lat: reporte.lat, lng: reporte.lng });
+                setFechaAvistamiento(hoyISO());
+                setMostrandoFormAvistamiento(true);
+              }}
+              className="rounded-full bg-ochre px-5 py-2 font-medium text-bg"
+            >
+              La vi — marcar avistamiento
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-muted">Toca el mapa en el punto exacto donde la viste.</p>
+              <MapaLienzo
+                zona={reporte.zona}
+                pines={[
+                  {
+                    id: 1,
+                    lat: pinAvistamiento?.lat ?? reporte.lat,
+                    lng: pinAvistamiento?.lng ?? reporte.lng,
+                    colorClass: 'bg-ochre',
+                    etiqueta: 'Pin del avistamiento',
+                  },
+                ]}
+                onClickCoords={setPinAvistamiento}
+              />
+              <div>
+                <label htmlFor="avistamiento-fecha" className="text-sm font-medium text-ink-soft">
+                  ¿Cuándo la viste?
+                </label>
+                <input
+                  id="avistamiento-fecha"
+                  type="date"
+                  value={fechaAvistamiento}
+                  onChange={(e) => setFechaAvistamiento(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="avistamiento-comentario"
+                  className="text-sm font-medium text-ink-soft"
+                >
+                  ¿Qué viste?
+                </label>
+                <input
+                  id="avistamiento-comentario"
+                  type="text"
+                  maxLength={200}
+                  placeholder="Ej: corría hacia el parque, se veía asustada"
+                  value={comentarioAvistamiento}
+                  onChange={(e) => setComentarioAvistamiento(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+                />
+              </div>
+              <div>
+                <label htmlFor="avistamiento-nombre" className="text-sm font-medium text-ink-soft">
+                  Tu nombre (opcional)
+                </label>
+                <input
+                  id="avistamiento-nombre"
+                  type="text"
+                  value={nombreAvistamiento}
+                  onChange={(e) => setNombreAvistamiento(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+                />
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={enviandoAvistamiento}
+                  onClick={async () => {
+                    if (!comentarioAvistamiento.trim()) {
+                      setErrorAvistamiento('Cuéntanos qué viste (el comentario es obligatorio).');
+                      return;
+                    }
+                    setErrorAvistamiento(null);
+                    setEnviandoAvistamiento(true);
+                    try {
+                      const nuevo = await crearAvistamiento(reporte.id, {
+                        lat: pinAvistamiento?.lat ?? reporte.lat,
+                        lng: pinAvistamiento?.lng ?? reporte.lng,
+                        fecha: fechaAvistamiento,
+                        comentario: comentarioAvistamiento.trim(),
+                        nombre: nombreAvistamiento.trim() || undefined,
+                      });
+                      setAvistamientos((previos) => [nuevo, ...previos]);
+                      setComentarioAvistamiento('');
+                      setNombreAvistamiento('');
+                      setMostrandoFormAvistamiento(false);
+                    } catch (err) {
+                      setErrorAvistamiento(
+                        err instanceof ApiError
+                          ? err.message
+                          : 'No pudimos guardar el avistamiento. Intenta de nuevo.',
+                      );
+                    } finally {
+                      setEnviandoAvistamiento(false);
+                    }
+                  }}
+                  className="rounded-full bg-ochre px-5 py-2 font-medium text-bg disabled:opacity-60"
+                >
+                  {enviandoAvistamiento ? 'Guardando…' : 'Guardar avistamiento'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMostrandoFormAvistamiento(false)}
+                  className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+                >
+                  Cancelar
+                </button>
+              </div>
+              {errorAvistamiento && <p className="text-sm text-danger">{errorAvistamiento}</p>}
+            </div>
+          )}
+        </section>
+      )}
 
       {reporte.estado === 'activo' && (
         <section className="rounded-2xl border border-line bg-surface p-6">

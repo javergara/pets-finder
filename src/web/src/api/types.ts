@@ -61,3 +61,22 @@ export type UserProfile = {
   bio: string | null;
   creado_en: string;
 };
+
+export type Avistamiento = {
+  id: number;
+  report_id: number;
+  lat: number;
+  lng: number;
+  fecha: string;
+  comentario: string;
+  nombre: string | null;
+  creado_en: string;
+};
+
+export type AvistamientoIn = {
+  lat: number;
+  lng: number;
+  fecha: string;
+  comentario: string;
+  nombre?: string;
+};

@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..services.ciudades import ZONA_OTRO, zona_valida
 
@@ -120,3 +120,30 @@ class ReunidosResumenOut(BaseModel):
 
     total: int
     recientes: list[ReportOut]
+
+
+class SightingIn(BaseModel):
+    """Avistamiento de un tercero (feature 28): pin + fecha + comentario.
+
+    Sin user_id a propósito: avisar no requiere registro. `nombre` es opcional
+    para que quien avisa pueda identificarse ante la familia.
+    """
+
+    lat: float
+    lng: float
+    fecha: date
+    comentario: str = Field(min_length=1, max_length=200)
+    nombre: str | None = Field(default=None, max_length=80)
+
+
+class SightingOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    report_id: int
+    lat: float
+    lng: float
+    fecha: date
+    comentario: str
+    nombre: str | None
+    creado_en: datetime

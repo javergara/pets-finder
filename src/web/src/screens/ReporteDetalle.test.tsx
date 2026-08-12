@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -14,12 +14,15 @@ vi.mock('../api/client', async () => {
     listarCoincidencias: vi.fn(),
     marcarReunido: vi.fn(),
     eliminarReporte: vi.fn(),
+    listarAvistamientos: vi.fn(),
+    crearAvistamiento: vi.fn(),
   };
 });
 
 beforeEach(() => {
-  // La mayoría de los casos no ejercita coincidencias: lista vacía por defecto.
+  // La mayoría de los casos no ejercita coincidencias ni avistamientos: vacías.
   vi.mocked(client.listarCoincidencias).mockResolvedValue([]);
+  vi.mocked(client.listarAvistamientos).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -159,6 +162,8 @@ describe('ReporteDetalle', () => {
       await screen.findByText('Esta mascota ya se reencontró con su familia. 💚'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).not.toBeInTheDocument();
+    // Búsqueda terminada: tampoco se piden avistamientos.
+    expect(screen.queryByText('Avistamientos')).not.toBeInTheDocument();
   });
 
   it('el botón de marcar reunida solo aparece para el autor, y al usarlo celebra', async () => {
@@ -233,5 +238,73 @@ describe('ReporteDetalle', () => {
 
     await screen.findByRole('heading', { name: 'Rocky' });
     expect(screen.queryByRole('button', { name: 'Eliminar este reporte' })).not.toBeInTheDocument();
+  });
+
+  it('muestra los avistamientos como lista y como pins ochre en el mapa', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    vi.mocked(client.listarAvistamientos).mockResolvedValue([
+      {
+        id: 5,
+        report_id: 1,
+        lat: 4.55,
+        lng: -75.67,
+        fecha: '2026-08-13',
+        comentario: 'Corría hacia el parque',
+        nombre: 'Carlos',
+        creado_en: '2026-08-13T10:00:00',
+      },
+    ]);
+
+    renderDetalle();
+
+    expect(await screen.findByText('Vista el 13/08/2026')).toBeInTheDocument();
+    expect(screen.getByText(/Corría hacia el parque/)).toBeInTheDocument();
+    expect(screen.getByText(/\(Carlos\)/)).toBeInTheDocument();
+    const pin = screen.getByRole('button', { name: 'Avistamiento del 13/08/2026' });
+    expect(pin.className).toContain('bg-ochre');
+  });
+
+  it('guardar un avistamiento llama al API con el pin y lo añade a la lista', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    vi.mocked(client.crearAvistamiento).mockResolvedValue({
+      id: 9,
+      report_id: 1,
+      lat: ZONAS.Armenia.centroLat,
+      lng: ZONAS.Armenia.centroLng,
+      fecha: '2026-08-12',
+      comentario: 'La vi en la ciclovía',
+      nombre: null,
+      creado_en: '2026-08-12T09:00:00',
+    });
+
+    renderDetalle();
+
+    (await screen.findByRole('button', { name: 'La vi — marcar avistamiento' })).click();
+    fireEvent.change(await screen.findByLabelText('¿Qué viste?'), {
+      target: { value: 'La vi en la ciclovía' },
+    });
+    screen.getByRole('button', { name: 'Guardar avistamiento' }).click();
+
+    expect(await screen.findByText(/La vi en la ciclovía/)).toBeInTheDocument();
+    expect(client.crearAvistamiento).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        // Sin click en el mapa (jsdom), el pin queda en las coords del reporte.
+        lat: ZONAS.Armenia.centroLat,
+        lng: ZONAS.Armenia.centroLng,
+        comentario: 'La vi en la ciclovía',
+      }),
+    );
+  });
+
+  it('la sección de avistamientos NO aparece en reportes encontrados', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({ tipo: 'encontrado', nombre_mascota: null, situacion: 'conmigo' }),
+    );
+
+    renderDetalle();
+
+    await screen.findByRole('heading', { name: 'Perro' });
+    expect(screen.queryByText('Avistamientos')).not.toBeInTheDocument();
   });
 });

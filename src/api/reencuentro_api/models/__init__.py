@@ -1,5 +1,6 @@
 from .base import Base, SessionLocal, engine
 from .report import Report
+from .sighting import Sighting
 from .user import User
 
 __all__ = [
@@ -8,4 +9,5 @@ __all__ = [
     "engine",
     "User",
     "Report",
+    "Sighting",
 ]

@@ -408,3 +408,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Selectores (reportar/listado/mapa/registro) la toman solos de NOMBRES_ZONAS; 'Medellín' sale de OTRAS_CIUDADES_COLOMBIA (ahora vive en el grupo de zonas del registro).
 - Test comparativo nuevo backend↔frontend (test_zonas_en_sync_con_el_frontend: parsea lib/ciudades.ts y compara número a número — truena si se olvida un lado del duplicado consciente). Tests que usaban Medellín como zona inválida pasan a Palmira.
 - Seed: +2 reportes en Medellín (Simón perdido en Laureles ↔ avistado en El Poblado — par de coincidencia). 19 reportes, determinista (doble corrida verificada). Prod NO se toca (sin cambio de esquema; el seed jamás corre contra prod).
+
+## 2026-08-12 — Feature 28: avistamientos "la vi por aquí" (commit: en revisión)
+
+- Modelo nuevo `Sighting` (tabla `sightings`: report_id FK, lat/lng, fecha, comentario ≤200, nombre opcional, creado_en) — SIN autoría: avisar no requiere registro (decisión de la feature: en emergencia, cada fricción es una pista perdida).
+- Endpoints: POST/GET `/api/reports/{id}/avistamientos` — 201 solo en reportes perdido+activo (409 en encontrado/reunido con mensaje en español, 404 inexistente, 422 comentario vacío); listado por fecha del avistamiento desc.
+- Detalle: pins ochre secundarios en el mini-mapa (ids desplazados +1e6) + sección "Avistamientos" con lista cronológica y formulario en la página (pin por click con default en las coords del reporte, fecha default hoy, comentario obligatorio, nombre opcional).
+- Tests: tests/api/test_avistamientos.py (7) + 3 en ReporteDetalle.test.tsx (lista+pin ochre, crear con payload, sección ausente en encontrados). bash init.sh verde: 78 API + 67 web.
+- ⚠️ Migración de prod pendiente ANTES del merge a main: CREATE TABLE sightings (aditivo). Requiere autorización del usuario.
