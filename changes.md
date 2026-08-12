@@ -219,7 +219,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `components/FotoUpload.tsx`: input file con accept de imágenes, preview local con object URL (revocado en cleanup), estados subiendo/lista/error, entrega `foto_url` al padre.
 - Tests: `test_uploads.py` (5: 201 jpg/webp, nombre uuid resistente a path traversal, 415, 413 sin restos) con `UPLOADS_DIR` en tmp_path; `FotoUpload.test.tsx` (2: preview+callback, error sin callback). API 37, web 14.
 
-## 2026-08-12 — 04-reportar-ui (en revisión)
+## 2026-08-12 — 04-reportar-ui — commit f09ee0d
 
 - `lib/ciudades.ts`: bounding boxes + centros de las 6 zonas y COLOMBIA nacional (sync con services/ciudades.py), `cajaDeZona()` con fallback nacional para "Otro"/"Colombia".
 - `lib/mapa.ts` parametrizado por zona + inversa `coordsDesdeFraccion(fx, fy, zona)`; `mapa.test.ts` reescrito con roundtrip fracción→coords→posición para todas las zonas y el lienzo nacional.

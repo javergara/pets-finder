@@ -133,3 +133,18 @@ Re-revisión sobre `develop` @ `c30355c` (`fix: las fotos subidas se guardaban f
 - `feature_list.json`: `03-upload-fotos` a `done` con edición puntual sobre la línea 36; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 Menor pendiente para la sesión principal al commitear: la entrada de `changes.md` de la feature 03 aún dice "(en revisión)" — actualizarla a "commit `b1f19ed` (+ fix `c30355c`)", como se hizo con la 01 y la 02.
+
+## Veredicto del revisor — feature 04 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `f09ee0d`. Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — 39/39 tests de API + 27/27 de web (7 suites), lint/formato limpios.
+- **Acceptance 1 (reporte end-to-end con foto y pin) — verificación en vivo propia del revisor**, independiente de la de la sesión principal y sobre otra zona: `TestClient` sobre la app real → subir JPEG (201, servible bajo `/media/uploads/`, GET 200) → POST `/api/reports` con las coords de un click simulado en el lienzo de **Quibdó** (fracción 0.25/0.75 → `lat=5.6675, lng=-76.665`, réplica exacta de `coordsDesdeFraccion` con redondeo a 4 decimales) → GET del reporte creado (id 18): **coords del pin persistidas exactas** y `foto_url` ligada. Limpieza completa: archivo subido borrado, seed reseteado (17 reportes, 0 restos de la prueba), `data/media/uploads/` solo con `.gitkeep`. Además cubierto por test de frontend (`publica un reporte perdido con las coords del pin puesto por click`, con `getBoundingClientRect` simulado y `closeTo` contra el centro de Armenia).
+- **Acceptance 2 (gate `?volver=`)**: test del redirect en `ReportarMascota.test.tsx` (sin usuario → "Registro stub") + el roundtrip ya existente en `Registro.test.tsx` (`?volver=/reportar/perdido` vuelve al formulario; URL externa se ignora).
+- **Acceptance 3 (campos condicionales)**: 2 tests directos (perdido muestra nombre y no situación; encontrado al revés) + 2 tests de payload (perdido sin `situacion`, encontrado con `situacion` y sin `nombre_mascota`).
+- **Acceptance 4 (inversas)**: `mapa.test.ts` con roundtrip fracción→coords→posición para **todas** las zonas más el lienzo nacional (`Otro`), 4 fracciones incluyendo esquinas.
+- **Checkpoint de sincronía de zonas**: verificado programáticamente con script del revisor que parsea `lib/ciudades.ts` y compara contra `services/ciudades.py` — **6 zonas + COLOMBIA, 6 campos cada una, valores idénticos**.
+- Consistencia con ADR 0005 §5 y CHECKPOINTS: sin librerías de mapas (el commit no toca `package.json`; lienzo CSS puro con retícula), pines `bg-danger`/`bg-forest` según el design-system, tono sin lenguaje de fracaso ("Mucho ánimo — cada reporte acerca un reencuentro"). Entrada de la feature en `changes.md`.
+- `feature_list.json`: `04-reportar-ui` a `done` con edición puntual sobre la línea 48; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+Menores para la sesión principal (no bloquean): (a) actualizar "(en revisión)" de la entrada de `changes.md` a "commit `f09ee0d`" al commitear, como en las features anteriores; (b) sugerencia opcional para una feature futura: convertir el chequeo de sincronía py↔ts de zonas en un test permanente (hoy el checkpoint se cumple por revisión del revisor).
