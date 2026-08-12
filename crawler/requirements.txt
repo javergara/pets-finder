@@ -1,0 +1,8 @@
+# Dependencias SOLO del crawler (proceso independiente, ADR 0009): la función
+# serverless de Vercel no debe cargar llama-cloud — mantener esta lista fuera
+# de src/api/requirements.txt y del pyproject.toml raíz.
+# Instalar aparte: .venv/bin/pip install -r crawler/requirements.txt
+# (llama-cloud es el SDK v2; llama-cloud-services quedó deprecado en 2026-05.)
+llama-cloud>=2.8
+requests==2.32.3
+pydantic==2.13.4

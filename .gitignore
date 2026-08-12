@@ -26,6 +26,9 @@ data/media/seed/*
 data/media/uploads/*
 !data/media/uploads/.gitkeep
 
+# Estado local del crawler de redes (dedup de posts procesados, ADR 0009)
+crawler/estado/
+
 # Env
 .env
 .env.local

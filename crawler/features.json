@@ -1,0 +1,52 @@
+{
+  "_nota": "Tracking del trabajo del crawler (contribución de Javier, ADR 0009). Separado a propósito del feature_list.json del proyecto: ese backlog es del dueño y su tooling (validate_feature_list.py, pre-commit) no aplica aquí. Mismo formato por familiaridad.",
+  "features": [
+    {
+      "id": "C1-fuente-y-metadata",
+      "title": "Procedencia en reportes: fuente manual|crawl + crawl_metadata",
+      "description": "Columnas nuevas en Report (fuente default 'manual', crawl_metadata JSON), teléfono opcional solo para crawl con exigencia de camino de contacto alternativo (url_post o autor_handle), y detalle web que muestra 'Ver publicación original' + línea de procedencia para reportes crawleados.",
+      "acceptance": [
+        "POST /api/reports sin fuente crea 'manual' y exige teléfono como siempre (422 sin él)",
+        "POST con fuente 'crawl' exige crawl_metadata; sin teléfono exige url_post o autor_handle; roundtrip completo del JSON en GET",
+        "fuente 'manual' con crawl_metadata es 422",
+        "El detalle web de un reporte crawl sin teléfono muestra 'Ver publicación original' (href exacto) y NO muestra WhatsApp/llamada; con teléfono muestra los botones de siempre; en ambos casos la línea de procedencia con la plataforma y @handle",
+        "Migración de producción documentada en el ADR 0009 (ALTER aditivo, antes del merge a main)"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "C2-crawler-pantallazo",
+      "title": "Paquete crawler/ independiente: pantallazo → LlamaExtract → API",
+      "description": "Primera pipeline de crawling (pantallazos, acepta archivo o carpeta) → extractor → publicador, como proceso aparte con dependencias propias (crawler/requirements.txt). Esquema de extracción multi-mascota (individualizable vs grupo genérico), resolución de zona por ciudad con centro como pin, dedup por url_post/sha256 a nivel de extracción, CLI con dry-run por defecto.",
+      "acceptance": [
+        "convertir() produce un reporte por mascota compartiendo url_post/zona/fecha con indice_mascota distinto",
+        "Todo payload del publicador valida contra el ReportIn real de la API (test de contrato)",
+        "Ruido del LLM saneado: nombre solo en perdidos, situacion solo en encontrados (fallback 'vista')",
+        "Ciudad fuera de zonas → 'Otro' + ciudad_texto; sin ciudad → 'Colombia'; matching de zona insensible a tildes/mayúsculas",
+        "Dedup: post ya procesado no se re-extrae; estado gitignored",
+        "Los tests del crawler corren en la suite normal sin red y sin llama-cloud-services instalado"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "C3-corrida-real-y-usuario-sistema",
+      "title": "Primera corrida real: usuario sistema, pantallazos reales, fotos",
+      "status_nota": "extracción real validada en dry-run; falta usuario sistema en prod y fotos en reportes publicados",
+      "description": "Crear el usuario sistema del crawler, validar el esquema de extracción con pantallazos reales de posts del sismo (ajustar descripciones del esquema si la extracción falla), y resolver la subida de la foto del pantallazo/post al bucket para que los reportes crawleados tengan imagen.",
+      "acceptance": [
+        "Usuario sistema registrado y CRAWLER_USER_ID documentado",
+        "Al menos 3 pantallazos reales extraídos con campos correctos (incluido un caso multi-mascota) — HECHO 2026-08-12: 3 fotos reales de prod (stories de Instagram), teléfono/nombre/características correctos, colectivo elegido para el collage del CBA, plataforma reconocida tras calibrar la pista de UI en el esquema",
+        "Reportes crawleados con foto visible en listado y detalle",
+        "Corrida end-to-end contra el entorno local documentada en el README"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "C4-automatizacion",
+      "title": "Automatización del crawl (cron) y siguientes redes",
+      "description": "Corrida programada (GitHub Actions u otro cron gratuito), cola de entrada de pantallazos (carpeta/canal donde la comunidad aporta capturas), y evaluación de pipelines de crawling adicionales (bot de forwards/DMs, APIs oficiales). Depende de decisión del dueño sobre volumen y moderación (feature 23 del backlog).",
+      "acceptance": [],
+      "status": "todo"
+    }
+  ]
+}

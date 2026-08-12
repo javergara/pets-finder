@@ -1,0 +1,651 @@
+[
+  {
+    "imagen": "20_perdido.jpg",
+    "estado": "no publicable",
+    "motivo": "no es una publicación (foto sin texto): los datos serían adivinados"
+  },
+  {
+    "imagen": "21_encontrado.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "gato",
+        "nombre_mascota": null,
+        "raza": null,
+        "color": "Bicolor (manchas)",
+        "tamano": null,
+        "descripcion": "Gatita de pelaje bicolor con pecho, patas y parte del hocico blancos, y lomo y cabeza de color gris atigrado. Posee ojos de color azul claro. Se reporta que no quiere comer y se asume que tiene dueño.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "La Cascada",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3006137675",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 1.0,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:ac4872fefab16dfb08ce6a167dcd794d483770196ea72107c6d6563e61b45508#0"
+      }
+    }
+  },
+  {
+    "imagen": "22_encontrado.png",
+    "estado": "no publicable",
+    "motivo": "Un reporte 'crawl' sin teléfono necesita un camino de contacto en crawl_metadata (la URL de la publicación o la cuenta que la publicó): sin eso el reporte no reúne a nadie"
+  },
+  {
+    "imagen": "23_perdido.jpg",
+    "estado": "no publicable",
+    "motivo": "no es una publicación (foto sin texto): los datos serían adivinados"
+  },
+  {
+    "imagen": "24_perdido.png",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Whiskey",
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": "grande",
+        "descripcion": "Gato macho, de tamaño grande. Pelaje bicolor (blanco con manchas negras en el lomo y la cabeza, especialmente una mancha negra alrededor de su ojo izquierdo). Lleva un collar color naranja. Se perdió en el barrio Cuarto de Legua, cerca de la Universidad Santiago de Cali, después del sismo.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Cuarto de Legua",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3155787522",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": "ok.clau",
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:516d2bbd7c0a01682933989ed46562322496f5990eaedb7056c031ac2567c7e6#0"
+      }
+    }
+  },
+  {
+    "imagen": "25_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "perro",
+        "nombre_mascota": "Renata",
+        "raza": null,
+        "color": "Bicolor (manchas)",
+        "tamano": "mediano",
+        "descripcion": "Perrita de contextura gruesa descrita como 'gordita'. Es de color blanco con manchas café claro (miel) en la cabeza y cuerpo, tiene ojos claros, hocico rosado. En la foto lleva una pañoleta amarilla. Se busca en la dirección Cra 72 #10bis-21, Torres del Limonar.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Torres del Limonar",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3170632496",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:a8983ec91a595ff76c62679dce7530664fac7d30ba984c195c1e0a16fc05fea8#0"
+      }
+    }
+  },
+  {
+    "imagen": "26_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "perro",
+        "nombre_mascota": "Mila",
+        "raza": "Criollo / mestizo",
+        "color": "Miel / dorado",
+        "tamano": "mediano",
+        "descripcion": "Perrita de tamaño mediano, descrita como muy cariñosa y amigable. Lleva un arnés rojo. Tiene pelaje largo y despeinado de color miel con sombreados oscuros.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Ciudad Jardín",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3164875865",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:84cf9f35a46e18b2207ab8d8452b60e06f43d0a682c434799e30fba552e5f532#0"
+      }
+    }
+  },
+  {
+    "imagen": "27_encontrado.png",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "perro",
+        "nombre_mascota": null,
+        "raza": "Criollo / mestizo",
+        "color": "Negro",
+        "tamano": "pequeño",
+        "descripcion": "Perrito negro de pelo medio-largo, ojos cafés expresivos, orejas caídas y peludas. Lleva puesta una pañoleta roja con estampado de perritos de caricatura.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Refugio",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3185190681",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:9f05f8953732e0cc6e2283b5bcc9c880e3d53744646b7baffc4176985237b212#0"
+      }
+    }
+  },
+  {
+    "imagen": "28_perdido.png",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Chimuelo",
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": "pequeño",
+        "descripcion": "Gato de color blanco con manchas naranja/café claro en la cabeza y el lomo, de ojos oscuros. Se perdió en el barrio Nueva Tequendama, específicamente en el Edificio Cantabria (calle 8b #45-17).",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Nueva Tequendama",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": null,
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": "marthoxgj",
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:180c31b552c2db424e40eb71fde6253850ae76bd8df5bf664cdfa4b66651efa4#0"
+      }
+    }
+  },
+  {
+    "imagen": "29_perdido.png",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Otto",
+        "raza": "Siamés",
+        "color": "Bicolor (manchas)",
+        "tamano": null,
+        "descripcion": "Gato siamés blanco con negro de ojos azules, lleva un collar del Capitán América.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Barrio Refugio",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-10",
+        "telefono_contacto": "3177373175",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": "2026-08-10",
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:073fcdea74502e6005936ee5994342407f73b9b92e480f55c1b41a4ccecd6533#0"
+      }
+    }
+  },
+  {
+    "imagen": "30_encontrado.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "perro",
+        "nombre_mascota": null,
+        "raza": "Criollo / mestizo",
+        "color": "Café",
+        "tamano": "pequeño",
+        "descripcion": "Perrita adulta, hembra de tamaño pequeño, pelaje de color café con cara de edad avanzada. Tiene orejas grandes y erguidas, ojos oscuros y hocico negro. Lleva puesta una pañoleta de color verde con estampados. Se encuentra bajo el cuidado de la clínica veterinaria Royi Pets.",
+        "foto_url": null,
+        "zona": "Otro",
+        "ciudad_texto": "Jamundí",
+        "barrio": "Alfaguara",
+        "lat": 4.6,
+        "lng": -74.1,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3104261293",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:763ff151f6aa0b573ec2d4493d35efceab35bd758593f4c64de9510eccdadbc5#0"
+      }
+    }
+  },
+  {
+    "imagen": "31_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Iru",
+        "raza": "Criollo / mestizo",
+        "color": "Naranja",
+        "tamano": null,
+        "descripcion": "Gato cariñoso de pelaje naranja que lleva un collar de color naranja o rojo con un dije. Responde a su nombre.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Conjunto Guadalupe - Cuarto de Legua",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3183494422",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 2,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:9546bf57d23520abb01d0fdf4e407166cdfe12a2ec3162db92eeb262965b18e8#0"
+      }
+    }
+  },
+  {
+    "imagen": "31_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Nala",
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": null,
+        "descripcion": "Gata cariñosa de pelaje bicolor (naranja y blanco, con manchas blancas en el pecho y la cara).",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Conjunto Guadalupe - Cuarto de Legua",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3183494422",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 1,
+          "total_mascotas": 2,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:9546bf57d23520abb01d0fdf4e407166cdfe12a2ec3162db92eeb262965b18e8#1"
+      }
+    }
+  },
+  {
+    "imagen": "33_perdido.jpg",
+    "estado": "no publicable",
+    "motivo": "Un reporte 'crawl' sin teléfono necesita un camino de contacto en crawl_metadata (la URL de la publicación o la cuenta que la publicó): sin eso el reporte no reúne a nadie"
+  },
+  {
+    "imagen": "34_encontrado.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "gato",
+        "nombre_mascota": null,
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": null,
+        "descripcion": "Gato de color blanco con algunas manchas oscuras en la cabeza y el lomo. Destaca por tener heterocromía, con un ojo de color verde/amarillo y el otro de color azul. Lleva puesto un collar sencillo de color rosado.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Floralia",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3232010510",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:b9664d09cb80f34916ee8a15d176a7cb7f5d1c5e25e04573cdd5fdf5697f8294#0"
+      }
+    }
+  },
+  {
+    "imagen": "35_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Frida",
+        "raza": "Criollo / mestizo",
+        "color": "Tricolor",
+        "tamano": null,
+        "descripcion": "Gata tricolor (blanca con una mancha negra alrededor del ojo derecho y orejas/frente de color naranja y negro). Tiene ojos verdes y nariz rosada. Desapareció durante el terremoto. Vive en el cuarto piso del edificio Carpa Jaguar.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Edificio Carpa Jaguar",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3176445649",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:847ac2d3b3e71a65d009393c2e039f4c44c70f56c7c0810882ea477d114e3629#0"
+      }
+    }
+  },
+  {
+    "imagen": "36_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "gato",
+        "nombre_mascota": "Millie",
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": null,
+        "descripcion": "Gata de pelaje mayoritariamente blanco con manchas grises oscuras en la parte superior de la cabeza y orejas, y dos manchas oscuras muy características en su pata delantera izquierda. Tiene ojos claros de tonalidad verdosa.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Edificio Balcones de Guadalupe Santa Anita",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3105376146",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:d9ecec4e47f613727e85b99a8a2c5e67353b0eff5046d0bc721899c1e020c21f#0"
+      }
+    }
+  },
+  {
+    "imagen": "37_encontrado.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "gato",
+        "nombre_mascota": null,
+        "raza": "Criollo / mestizo",
+        "color": "Tricolor",
+        "tamano": "mediano",
+        "descripcion": "Gato tricolor (calicó: manchas grises, blancas y naranja) con ojos amarillos/verdes. Se encuentra resguardado en la Veterinaria Maskotas JT en el Barrio Refugio, Calle 5 #66-24.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Refugio",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3144393595",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:967249572ae0808822829725c71774f81d2e0482805eda6d1ac99ea9c79c6970#0"
+      }
+    }
+  },
+  {
+    "imagen": "40_encontrado.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "encontrado",
+        "especie": "gato",
+        "nombre_mascota": null,
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": "mediano",
+        "descripcion": "Gatito bicolor con pelaje blanco y manchas de color naranja/amarillo atigrado. Tiene una mancha naranja característica en la parte superior de la cabeza y orejas, con la frente mayormente blanca y una pequeña mancha naranja entre los ojos. El lomo es de color naranja y el pecho y las patas son blancos. Fue encontrado el 10 de agosto.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Champañat",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": "conmigo",
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3128886900",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": "royipets",
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "instagram"
+        },
+        "idempotency_id": "sha256:b0024469a7dfb5229082c37a832663cc702f26d3139d93e27da4f4217f3c40f0#0"
+      }
+    }
+  },
+  {
+    "imagen": "43_perdido.jpg",
+    "estado": "no publicable",
+    "motivo": "no es una publicación (foto sin texto): los datos serían adivinados"
+  },
+  {
+    "imagen": "44_perdido.jpg",
+    "request": {
+      "method": "POST",
+      "url": "{PETFINDER_API_URL}/api/reports",
+      "json": {
+        "user_id": 1,
+        "tipo": "perdido",
+        "especie": "perro",
+        "nombre_mascota": "Luna",
+        "raza": "Criollo / mestizo",
+        "color": "Bicolor (manchas)",
+        "tamano": "pequeño",
+        "descripcion": "Perrita pequeña de pelaje negro con partes café y gris. Tiene cejas de color café claro. Al momento de perderse llevaba un collar rosado con pañoleta rosada que tiene dibujos de perritos. Tiene unas ronchitas rojas en la panza debido a alergias.",
+        "foto_url": null,
+        "zona": "Cali",
+        "ciudad_texto": null,
+        "barrio": "Cuarto de Legua",
+        "lat": 3.452,
+        "lng": -76.532,
+        "situacion": null,
+        "fecha_evento": "2026-08-12",
+        "telefono_contacto": "3108490464",
+        "fuente": "crawl",
+        "crawl_metadata": {
+          "url_post": null,
+          "autor_handle": null,
+          "fecha_post": null,
+          "texto_original": null,
+          "modelo_extraccion": "llamaextract",
+          "confianza": 0.95,
+          "indice_mascota": 0,
+          "total_mascotas": 1,
+          "plataforma": "desconocida"
+        },
+        "idempotency_id": "sha256:c427f92103ff9f400a074aa1695144601ffb9feb21384d943b68a3c8c0dd4f6f#0"
+      }
+    }
+  }
+]
