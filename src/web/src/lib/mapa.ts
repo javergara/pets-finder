@@ -1,9 +1,11 @@
-// Mapa propio en CSS/SVG puro (feature 14-shelter-map): sin dependencia externa
-// (Leaflet/Google Maps/OSM) ni conexión a internet en runtime. Los pines se
-// posicionan interpolando linealmente lat/lng dentro del bounding box de Bogotá.
+// Mapa propio en CSS/SVG puro: sin dependencia externa (Leaflet/Google Maps/OSM)
+// ni conexión a internet en runtime (ADR 0005 §5). Los pines se posicionan
+// interpolando linealmente lat/lng dentro de un bounding box.
 //
-// Estas constantes duplican intencionalmente BOGOTA_LAT_RANGE/BOGOTA_LNG_RANGE de
-// scripts/seed.py -- deben mantenerse en sync si ese bounding box cambia.
+// Versión provisional de la feature 01 fijada al bounding box de Bogotá; la
+// feature 04-reportar-ui la parametriza por zona (lib/ciudades.ts, en sync con
+// services/ciudades.py del backend) y añade la inversa coordsDesdeFraccion
+// para poner un pin con click.
 const LAT_MIN = 4.55;
 const LAT_MAX = 4.8;
 const LNG_MIN = -74.2;

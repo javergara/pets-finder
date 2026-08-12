@@ -192,7 +192,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 
   Verificado: `npm test -- --run` → **93/93 en verde** (82 previos + 11 de `LandingPublica.test.tsx` + 2 de `App.test.tsx`); `npx tsc -b` sin errores; `npm run lint` (oxlint) limpio; `npx prettier --check .` limpio (tras `prettier --write` sobre los 2 archivos nuevos). `bash init.sh` completo en verde de punta a punta: **195 tests de API + 93 de frontend**, lint/formato limpios en ambos lados, backend sin diff (la feature es 100% frontend). Grep propio (`grep -n "api/client" src/web/src/screens/LandingPublica.tsx`) confirma que la única coincidencia es un comentario explicativo, sin ningún import real — la línea 2 del `acceptance` de `15-public-landing` queda verificada tanto por lectura de código como por el diseño mismo del test (que no mockea ni necesita mockear `api/client`). Cierra los 3 pasos de implementación de `15-public-landing`; no se cambió `status` en `feature_list.json` (corresponde al cierre del revisor).
 
-## 2026-08-12 — 01-pivot-fundaciones (pivot Adopta → Reencuentro)
+## 2026-08-12 — 01-pivot-fundaciones (pivot Adopta → Reencuentro) — commit 1aaf320 (+ fix de revisión)
 
 - Rama de archivo `adopta-v1` + tag `adopta-v1.0.0` desde `cde337f` (toda la era Adopta preservada; ver ADR 0005).
 - `git rm` de ~100 archivos específicos de adopción: 8 modelos + 7 schemas + 7 services + 7 routers del backend, 12 suites pytest, 14 pantallas + 6 componentes + sus tests del frontend, `design/screens/` + `design/prototypes/` completos, skill `match-scoring`, ADRs 0002-0004, `data/seed/`.

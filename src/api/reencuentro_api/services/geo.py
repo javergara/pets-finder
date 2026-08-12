@@ -1,7 +1,7 @@
 """Distancia entre coordenadas geográficas.
 
-Función pura (sin I/O): usada por services/filters.py para el filtro de
-distancia del deck de descubrimiento (User.lat/lng vs Pet.lat/lng).
+Función pura (sin I/O): base del ordenamiento por cercanía entre un reporte
+perdido y los encontrados candidatos (services/coincidencias.py, feature 08).
 """
 
 import math
