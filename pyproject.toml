@@ -1,3 +1,26 @@
+# [project] es lo que instala Vercel para la función serverless (su builder usa
+# `uv lock` sobre este archivo y exige la tabla). Mantener las dependencias en
+# sync con src/api/requirements.txt (la fuente que usa init.sh en local).
+[project]
+name = "reencuentro"
+version = "2.1.0"
+description = "API de Reencuentro: mascotas perdidas y encontradas tras el sismo (funciones serverless de Vercel)"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.141.1",
+  "uvicorn==0.52.1",
+  "sqlalchemy==2.0.52",
+  "pydantic==2.13.4",
+  "requests==2.32.3",
+  "httpx==0.27.2",
+  "python-multipart==0.0.17",
+  "psycopg[binary]==3.3.4",
+]
+
+# Sin build: esto no es un paquete instalable, solo declara dependencias.
+[tool.uv]
+package = false
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
