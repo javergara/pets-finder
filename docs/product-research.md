@@ -57,3 +57,14 @@ Además del benchmark, entraron mejoras realistas de lo ya construido: avistamie
 ## 7. El tercer actor: la ayuda organizada (features 32-33, 2026-08-12)
 
 Además de dueños↔rescatistas, una emergencia tiene un tercer actor: **quien organiza la ayuda** (centros de acopio, fundaciones, tiendas, veterinarias). La sección unificada **/ayudar** los pone en un solo mapa/directorio con contacto directo por WhatsApp (coherente con §3: sin chat interno, sin pagos en la app — "Cómo donar" es texto informativo). La mecánica de **necesidades** ("50 kg de comida" → "Quiero ayudar" → "Cubierta 💚") replica la métrica de esperanza de los reencuentros: pedidos concretos y accionables en vez de "ayuden por favor", y celebración visible cuando la ayuda llega. Publica cualquiera con la cuenta liviana; la moderación queda en el backlog (23).
+
+## 8. Benchmark: Encuentra tu Peludo (2026-08-12)
+
+Evaluación de <https://encuentratupeludo.vercel.app/> (también post-terremoto, también en Vercel). Su feed muestra contadores reales por tipo — **204 perdidos / 25 vistos / 9 rescatados** — un dato de mercado en sí mismo: la demanda es abrumadoramente de dueños buscando.
+
+**Lo que ya cubrimos igual o mejor**: publicación rápida (ellos sin cuenta — nosotros mantenemos la cuenta liviana porque sostiene marcar-reunido/editar/eliminar, ADR 0005), una foto ≤4MB (nosotros ≤5MB con compresión en el navegador), WhatsApp directo, filtros por ciudad/especie/estado, su página /ayuda por ciudad (nuestra red de apoyo tiene mapa, necesidades accionables y "cómo donar" — más completa), y su tipo "Visto" (nuestro `situacion: vista` + los avistamientos georreferenciados sobre reportes perdidos).
+
+**Lo que vale la pena adoptar**:
+- **Contadores visibles por tipo** en el feed (su "Perdidos 204" da urgencia y prueba social; nosotros no mostramos números en el listado) → feature `34`.
+- **Recencia** ("hace 2 horas") en tarjetas — en emergencia, lo reciente vale más que la fecha absoluta → feature `34`.
+- **Compartir por reporte**: ellos lo tienen por tarjeta; refuerza la prioridad de nuestra `21-compartir-reporte` (ya en backlog).

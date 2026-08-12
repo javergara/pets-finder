@@ -439,3 +439,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Pedido del usuario: "por defecto en las zonas siempre aparece Armenia".
 - `SelectorCiudad`: prop `placeholder` nueva (option vacía). `ReportarMascota` y `RegistrarOrganizacion` arrancan con zona vacía → "Selecciona la zona" + mapa en vista nacional (cajaDeZona('') = COLOMBIA); validación al enviar. `Registro`: "Selecciona tu ciudad" como primera opción, sin default.
 - Tests actualizados (llenarMinimo elige zona explícita; Registro espera valor inicial vacío y las 7 zonas tras el placeholder). También estabilizado un comentario en `listar_necesidades` que hacía pelear a black consigo mismo. `bash init.sh` verde (97 API + 83 web).
+
+## 2026-08-12 — Benchmark de Encuentra tu Peludo → feature 34 al backlog
+
+- Evaluado <https://encuentratupeludo.vercel.app/> (docs/product-research.md §8). Ya cubrimos igual o mejor casi todo (foto comprimida, WhatsApp, filtros, ayuda por ciudad — la nuestra con mapa y necesidades). Adoptables: contadores por tipo en el feed + recencia relativa → `34-contadores-y-recencia` en todo. Su compartir-por-reporte refuerza la prioridad de la 21. Dato de mercado: 204 perdidos vs 9 rescatados en su feed.

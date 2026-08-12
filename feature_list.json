@@ -440,6 +440,19 @@
         "Las tarjetas de /ayudar muestran cuántas necesidades activas tiene cada organización",
         "bash init.sh en verde; tabla necesidades creada en prod antes del merge a main"
       ]
+    },
+    {
+      "id": "34-contadores-y-recencia",
+      "title": "Contadores por tipo en el listado y tiempos relativos en las tarjetas",
+      "description": "Benchmark de encuentratupeludo.vercel.app (docs/product-research.md §8): su feed muestra contadores reales por tipo (204 perdidos / 25 vistos / 9 rescatados) que dan urgencia y prueba social, y recencia por reporte. Añadir: (a) contadores en los filtros de tipo del listado ('Perdidos (12)') y un resumen en la landing, calculados por el backend (query agregada, sin N+1); (b) tiempo relativo desde creado_en ('hace 2 horas', 'ayer') en tarjetas y detalle, complementando la fecha del evento.",
+      "status": "todo",
+      "depends_on": ["19-optimizacion-carga-y-tab"],
+      "acceptance": [
+        "El listado muestra cuántos reportes activos hay por tipo (y el total con los filtros aplicados)",
+        "Las tarjetas y el detalle muestran la recencia relativa del reporte ('hace X horas/días') además de la fecha del evento (función pura con tests)",
+        "Los contadores salen de una query agregada del backend, no de contar en el cliente",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }
