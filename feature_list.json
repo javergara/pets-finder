@@ -106,7 +106,7 @@
       "id": "09-reunidos",
       "title": "Marcar como reunido, mis reportes y franja de reencuentros",
       "description": "POST /api/reports/{id}/reunido (solo el autor, 403 si no; 409 si ya está reunido; setea resuelto_en), GET /api/reports/reunidos (contador + últimos), /mis-reportes con editar y marcar reunido, y franja de reencuentros con contador en la landing de emergencia.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["06-detalle-contacto"],
       "acceptance": [
         "Marcar reunido lo saca del listado y del mapa por defecto, y sube el contador de la landing",

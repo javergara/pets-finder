@@ -258,7 +258,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Frontend: `listarCoincidencias` en client.ts; sección "Posibles coincidencias" en ReporteDetalle (solo activos, tarjetas compactas con foto/descripcion/`a X km`, link al detalle del candidato), con copy direccional por tipo.
 - Tests: `test_coincidencias.py` (6: filtros, orden por distancia, la fecha penaliza como medio km/día, bidireccional, endpoint con el par sembrado ~600 m, 404) y 2 casos nuevos en `ReporteDetalle.test.tsx` (sección con distancia y href; ausencia sin coincidencias). API: 45, web: 48.
 
-## 2026-08-12 — 09-reunidos (en revisión)
+## 2026-08-12 — 09-reunidos — commit 59f5918
 
 - Backend: `POST /api/reports/{id}/reunido` (solo autor → 403 español; repetido → 409; setea estado+resuelto_en), `GET /api/reports/reunidos` (ReunidosResumenOut: total + 6 recientes por resuelto_en desc) — **ruta literal declarada antes que las dinámicas** con comentario de la regla; `GET /api/reports` gana filtro `user_id` para "mis reportes".
 - Frontend: `screens/MisReportes.tsx` (/mis-reportes: lista propia con estado=todos, marcar reunida, edición inline de descripción/teléfono vía PUT, chip "Reunida 💚"); botón "Marcar como reunida" en ReporteDetalle visible SOLO para el autor (getActiveUserId() === user_id, validado también en backend); franja de reencuentros en LandingEmergencia (contador + mini-galería de GET /reunidos, tolerante a fallo: la landing nunca se bloquea).

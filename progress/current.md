@@ -202,3 +202,19 @@ Revisión independiente sobre `develop` @ `4d09c3c`. Evidencia ejecutable de est
 - `feature_list.json`: `08-coincidencias` a `done` con edición puntual sobre la línea 97; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: actualizar "(en revisión)" de `changes.md` al hash (`4d09c3c`) al commitear.
+
+## Veredicto del revisor — feature 09 (2026-08-12): APROBADA (con 1 observación no bloqueante)
+
+Revisión independiente sobre `develop` @ `59f5918`. Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — 51/51 tests de API + 56/56 de web (12 suites), lint/formato limpios.
+- **Acceptance 1**: test de transición + salida del listado, y **E2E en vivo del revisor repetido de punta a punta** contra el seed real: 403 para no-autor → el autor marca el reporte 1 (estado=reunido, `resuelto_en` seteado) → 409 al repetir → `/api/reports` baja a 14 activos sin Rocky (listado y mapa comparten endpoint) → **contador de la landing 2→3**. Seed reseteado al final (17 reportes, 2 reunidos).
+- **Acceptance 2**: tests de 403 en español para no-autor y 409 al marcar dos veces (también verificados en vivo).
+- **Acceptance 3**: tests del detalle — el botón "Marcar como reunida" aparece con `user_id` del autor y `queryByRole` confirma su ausencia para no-autor; al usarlo celebra con la franja 💚.
+- **Acceptance 4**: test de regresión dedicado (`/api/reports/reunidos` → 200 `{total: 0, recientes: []}`, nunca 422) **y verificado por lectura**: en `routers/reports.py` la ruta literal está declarada en la línea 73, antes que `/{report_id}/reunido` (96), `/{report_id}/coincidencias` (121) y `/{report_id}` (143), con el comentario de la regla.
+- Extras: filtro `user_id` en GET con test, franja de la landing con contador + mini-galería y tolerante a total 0 (tests), `/mis-reportes` con edición inline y marcar reunida (4 tests). Tono consistente: "reencuentros logrados", nunca fracaso.
+- `feature_list.json`: `09-reunidos` a `done` con edición puntual sobre la línea 109; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+**Observación no bloqueante (hallazgo del E2E en vivo, documentar para la feature 10)**: el orden de `recientes` (`resuelto_en desc`) es correcto, pero el seed fija los 2 reencuentros a las **15:00 y 18:30 del 2026-08-12** — en el día de la demo, un reencuentro marcado en vivo antes de esas horas queda *segundo* en la franja (verificado: id 17 a las 18:30 aparece por encima del recién marcado a las 15:36 UTC). El acceptance no exige que el nuevo quede de primero (contador y galería funcionan), y el test de la suite no lo detecta porque su otro reunido tiene `resuelto_en=NULL`. Fix sugerido si se quiere pulir en la 10: mover los `resuelto_en` del seed al 2026-08-11 (sigue siendo determinista y siempre queda en el pasado).
+
+Menor recurrente: actualizar "(en revisión)" de `changes.md` al hash (`59f5918`) al commitear.
