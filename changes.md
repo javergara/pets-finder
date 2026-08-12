@@ -304,7 +304,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Borrados: render.yaml y src/web/vercel.json. `.vercelignore` nuevo. `docs/deploy.md` reescrito (un solo proyecto Vercel con root en la raíz, 4 env vars, seed contra prod desde la máquina local, límites del free tier con la pausa semanal de Supabase). README y architecture §7 actualizados.
 - Tests: `test_vercel_entry.py` (2: /health y /api/reports vía el entry con TestClient; identidad con la app del paquete). API 55, web 58, build de producción verde.
 
-## 2026-08-12 — 14-mapa-leaflet (en revisión)
+## 2026-08-12 — 14-mapa-leaflet — commit d3bb11f
 
 - ADR 0008 (reemplaza la parte de mapa del 0005 §5): Leaflet + tiles OSM (gratis, sin API key ni tarjeta — Google Maps descartado por exigir facturación). Decisión del usuario.
 - `MapaLienzo.tsx` reescrito conservando su contrato: mapa Leaflet real con atribución, fitBounds al bounding box de la zona (incluida la vista Todo Colombia), CircleMarkers con los hex de los tokens danger/forest + tooltip, click del mapa → lat/lng reales (adiós interpolación inversa). Lista sr-only con un botón accesible por pin — ruta de lectores de pantalla y contrato testeable (guard MODE==='test': Leaflet no corre en jsdom).

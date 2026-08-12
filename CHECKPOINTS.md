@@ -24,7 +24,7 @@ El revisor no aprueba nada que no cumpla lo de este archivo, con evidencia ejecu
 
 - **Sincronía backend↔frontend de zonas**: los bounding boxes de `services/ciudades.py` y `lib/ciudades.ts` deben coincidir (idealmente verificado por test o al menos por revisión de diff).
 - **Rutas literales antes que dinámicas**: `/api/reports/reunidos` registrado antes que `/api/reports/{report_id}` (comentado en `main.py`).
-- **Sin dependencias prohibidas**: grep de `leaflet|mapbox|google.maps|WebSocket` vacío en código vivo; la única dependencia nueva del pivot es `python-multipart`.
+- **Dependencias bajo control**: cada dependencia nueva necesita un ADR que la justifique. Las aceptadas hasta ahora: `python-multipart` (uploads, ADR 0005), `psycopg2-binary` (Postgres, ADR 0006) y `leaflet` (mapa real OSM, ADR 0008 — que reemplazó la regla anterior de "sin librerías de mapas"). Sigue prohibido sin ADR: chat/WebSockets, Google Maps (exige facturación), y cualquier SDK que duplique un flujo ya resuelto con REST.
 - **Uploads seguros**: nombre de archivo uuid con extensión derivada del content-type, nunca del filename del cliente.
 - **Tono**: nunca lenguaje de fracaso — los estados son "activo" y "reunido".
 
