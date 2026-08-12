@@ -364,7 +364,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `ReporteDetalle.tsx`: sección de borrado solo-autor con confirmación en dos pasos dentro de la página (sin `window.confirm`), botón deshabilitado mientras elimina, error de API en español, y navegación a `/reportes` al confirmar.
 - Tests: +3 en `tests/api/test_reports.py` (204+desaparece del listado y del detalle, 403+sigue intacto, 404) y +2 en `ReporteDetalle.test.tsx` (dos pasos con Cancelar sin llamar al API; el botón no existe para no-autores). `bash init.sh` verde: 68 API + 60 web.
 
-## 2026-08-12 — Feature 19: optimización de carga y branding de la pestaña (commit: en revisión)
+## 2026-08-12 — Feature 19: optimización de carga y branding de la pestaña (commit: 9fb4c8e)
 
 - Pedido del usuario tras el diagnóstico de lentitud (API caliente ~0,35 s; culpables: cold start serverless y fotos completas en las tarjetas).
 - `src/web/src/lib/imagen.ts` (nuevo): `comprimirImagen()` — canvas a máx 1280px, JPEG calidad 0.8, con fallback al archivo original (sin soporte del navegador, formato no decodificable, o resultado no más pequeño). `FotoUpload` la aplica antes de `subirFoto`.
