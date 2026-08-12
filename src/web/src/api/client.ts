@@ -1,4 +1,4 @@
-import { type Reporte, type ReporteIn, type UserProfile } from './types';
+import { type Coincidencia, type Reporte, type ReporteIn, type UserProfile } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
@@ -60,6 +60,10 @@ export function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]
 
 export function obtenerReporte(reporteId: number): Promise<Reporte> {
   return request(`/api/reports/${reporteId}`);
+}
+
+export function listarCoincidencias(reporteId: number): Promise<Coincidencia[]> {
+  return request(`/api/reports/${reporteId}/coincidencias`);
 }
 
 export function crearReporte(datos: ReporteIn): Promise<Reporte> {

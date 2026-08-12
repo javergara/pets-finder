@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Reporte } from '../api/types';
 import { ZONAS } from '../lib/ciudades';
@@ -8,7 +8,12 @@ import { ReporteDetalle } from './ReporteDetalle';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, obtenerReporte: vi.fn() };
+  return { ...actual, obtenerReporte: vi.fn(), listarCoincidencias: vi.fn() };
+});
+
+beforeEach(() => {
+  // La mayoría de los casos no ejercita coincidencias: lista vacía por defecto.
+  vi.mocked(client.listarCoincidencias).mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -107,6 +112,38 @@ describe('ReporteDetalle', () => {
     expect(await screen.findByRole('heading', { name: 'Gato' })).toBeInTheDocument();
     expect(screen.getByText('Encontrada')).toBeInTheDocument();
     expect(screen.getByText('La tiene resguardada quien la reportó')).toBeInTheDocument();
+  });
+
+  it('muestra las posibles coincidencias con su distancia y link al detalle', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    vi.mocked(client.listarCoincidencias).mockResolvedValue([
+      {
+        ...crearReporte({
+          id: 2,
+          tipo: 'encontrado',
+          nombre_mascota: null,
+          situacion: 'conmigo',
+          descripcion: 'Perro color miel resguardado',
+        }),
+        distancia_km: 0.6,
+      },
+    ]);
+
+    renderDetalle();
+
+    expect(await screen.findByText('Posibles coincidencias')).toBeInTheDocument();
+    expect(screen.getByText('a 0.6 km')).toBeInTheDocument();
+    const links = screen.getAllByRole('link');
+    expect(links.some((l) => l.getAttribute('href') === '/reporte/2')).toBe(true);
+  });
+
+  it('sin coincidencias no muestra la sección', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+
+    renderDetalle();
+
+    await screen.findByRole('heading', { name: 'Rocky' });
+    expect(screen.queryByText('Posibles coincidencias')).not.toBeInTheDocument();
   });
 
   it('un reporte reunido celebra el reencuentro y no muestra botones de contacto', async () => {

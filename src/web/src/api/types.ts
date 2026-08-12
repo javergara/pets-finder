@@ -19,6 +19,8 @@ export type Reporte = {
   resuelto_en: string | null;
 };
 
+export type Coincidencia = Reporte & { distancia_km: number };
+
 export type ReporteIn = {
   user_id: number;
   tipo: 'perdido' | 'encontrado';

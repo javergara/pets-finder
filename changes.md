@@ -250,3 +250,10 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `screens/MapaReportes.tsx` (`/mapa`): selector con "Todo Colombia" (vista sobre el lienzo nacional, resuelta por cajaDeZona) + las 6 zonas; pide todos los activos una vez y filtra en memoria por zona (los reportes "Otro" solo aparecen en la vista nacional, en su coordenada real); pins bg-danger/bg-forest con leyenda; click en pin → mini-tarjeta con link al detalle; contador de visibles.
 - Ruta `/mapa` en App.tsx. Sin dependencias nuevas (package.json sin leaflet/mapbox/google — verificado por grep).
 - Tests: `MapaReportes.test.tsx` (4: vista nacional plotea las 3 zonas a la vez, colores por tipo + leyenda, filtro por zona, mini-tarjeta con href). Web: 46.
+
+## 2026-08-12 — 08-coincidencias (en revisión)
+
+- `services/coincidencias.py`: función pura `ordenar_coincidencias(reporte, candidatos)` — filtra tipo opuesto + misma especie + misma zona + estado activo, ordena por `distancia_km + PESO_DIAS(0.5) * |Δdías|` (heurística explicable, sin AI); devuelve la distancia geográfica real para la UI. Funciona en ambas direcciones (perdido→encontrados y viceversa).
+- `GET /api/reports/{id}/coincidencias` (router delgado: query cruda + delega a la función pura), `CoincidenciaOut` (ReportOut + distancia_km).
+- Frontend: `listarCoincidencias` en client.ts; sección "Posibles coincidencias" en ReporteDetalle (solo activos, tarjetas compactas con foto/descripcion/`a X km`, link al detalle del candidato), con copy direccional por tipo.
+- Tests: `test_coincidencias.py` (6: filtros, orden por distancia, la fecha penaliza como medio km/día, bidireccional, endpoint con el par sembrado ~600 m, 404) y 2 casos nuevos en `ReporteDetalle.test.tsx` (sección con distancia y href; ausencia sin coincidencias). API: 45, web: 48.

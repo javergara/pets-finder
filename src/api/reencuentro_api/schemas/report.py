@@ -92,3 +92,9 @@ class ReportOut(BaseModel):
     estado: str
     creado_en: datetime
     resuelto_en: datetime | None
+
+
+class CoincidenciaOut(ReportOut):
+    """Un candidato a ser la misma mascota, con su distancia geográfica real."""
+
+    distancia_km: float

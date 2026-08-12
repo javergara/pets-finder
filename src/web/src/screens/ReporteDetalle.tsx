@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { mediaUrl, obtenerReporte } from '../api/client';
-import type { Reporte } from '../api/types';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { listarCoincidencias, mediaUrl, obtenerReporte } from '../api/client';
+import type { Coincidencia, Reporte } from '../api/types';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
 
@@ -25,11 +25,13 @@ function formatearFecha(iso: string): string {
 export function ReporteDetalle() {
   const { id } = useParams<{ id: string }>();
   const [reporte, setReporte] = useState<Reporte | null>(null);
+  const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
     obtenerReporte(Number(id)).then(setReporte);
+    listarCoincidencias(Number(id)).then(setCoincidencias);
   }, [id]);
 
   if (!reporte) {
@@ -111,6 +113,43 @@ export function ReporteDetalle() {
             etiqueta={titulo}
             telefono={reporte.telefono_contacto}
           />
+        </section>
+      )}
+
+      {reporte.estado === 'activo' && coincidencias.length > 0 && (
+        <section className="rounded-2xl border border-forest-tint-line bg-forest-tint p-6">
+          <h2 className="mb-1 font-display text-lg text-ink">Posibles coincidencias</h2>
+          <p className="mb-4 text-sm text-ink-soft">
+            {reporte.tipo === 'perdido'
+              ? 'Mascotas encontradas de la misma especie, cerca de donde se perdió.'
+              : 'Mascotas perdidas de la misma especie, cerca de donde la encontraste.'}
+          </p>
+          <ul className="space-y-3">
+            {coincidencias.map((c) => (
+              <li key={c.id}>
+                <Link
+                  to={`/reporte/${c.id}`}
+                  className="flex items-center gap-4 rounded-xl border border-line bg-surface p-3"
+                >
+                  <span
+                    className="h-14 w-14 shrink-0 rounded-lg bg-surface-alt bg-cover bg-center"
+                    style={{
+                      backgroundImage: c.foto_url ? `url(${mediaUrl(c.foto_url)})` : undefined,
+                    }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-ink">
+                      {c.nombre_mascota ?? ETIQUETA_ESPECIE[c.especie]}
+                    </span>
+                    <span className="block truncate text-sm text-muted">{c.descripcion}</span>
+                  </span>
+                  <span className="shrink-0 font-mono text-sm text-forest">
+                    a {c.distancia_km} km
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>

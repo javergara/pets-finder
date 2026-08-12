@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 
 from ..models.report import Report
 from ..models.user import User
-from ..schemas.report import ReportIn, ReportOut, ReportUpdate
+from ..schemas.report import CoincidenciaOut, ReportIn, ReportOut, ReportUpdate
+from ..services.coincidencias import ordenar_coincidencias
 from ..services.db import get_session
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -56,6 +57,28 @@ def listar_reportes(
 # Recordatorio (comentado también en main.py): cualquier ruta literal nueva bajo
 # /api/reports (p. ej. /reunidos, feature 09) debe declararse ANTES que estas
 # rutas dinámicas /{report_id} en este archivo, o queda eclipsada (422).
+
+
+@router.get("/{report_id}/coincidencias", response_model=list[CoincidenciaOut])
+def listar_coincidencias(
+    report_id: int, session: Session = Depends(get_session)
+) -> list[CoincidenciaOut]:
+    """Candidatos del tipo opuesto que podrían ser la misma mascota.
+
+    El router solo carga los candidatos crudos; el filtro y el orden viven en
+    la función pura `services/coincidencias.py::ordenar_coincidencias`.
+    """
+    reporte = session.get(Report, report_id)
+    if reporte is None:
+        raise HTTPException(404, f"El reporte {report_id} no existe")
+
+    candidatos = session.execute(select(Report).where(Report.id != report_id)).scalars().all()
+    resultado = ordenar_coincidencias(reporte, list(candidatos))
+
+    return [
+        CoincidenciaOut(distancia_km=distancia, **ReportOut.model_validate(c).model_dump())
+        for c, distancia in resultado
+    ]
 
 
 @router.get("/{report_id}", response_model=ReportOut)
