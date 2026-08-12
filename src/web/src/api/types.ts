@@ -4,6 +4,9 @@ export type Reporte = {
   tipo: 'perdido' | 'encontrado';
   especie: 'perro' | 'gato' | 'otro';
   nombre_mascota: string | null;
+  raza: string | null;
+  color: string | null;
+  tamano: 'pequeño' | 'mediano' | 'grande' | null;
   descripcion: string;
   foto_url: string | null;
   zona: string;
@@ -31,6 +34,9 @@ export type ReporteIn = {
   tipo: 'perdido' | 'encontrado';
   especie: 'perro' | 'gato' | 'otro';
   nombre_mascota?: string;
+  raza?: string;
+  color?: string;
+  tamano?: 'pequeño' | 'mediano' | 'grande';
   descripcion: string;
   foto_url?: string;
   zona: string;

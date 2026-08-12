@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { type FiltrosReportes, listarReportes } from '../api/client';
 import type { Reporte } from '../api/types';
 import { ReporteCard } from '../components/ReporteCard';
+import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
 import { NOMBRES_ZONAS, ZONA_OTRO } from '../lib/ciudades';
 
 const TODOS = 'todos';
@@ -11,7 +12,13 @@ export function Reportes() {
   const [tipo, setTipo] = useState(TODOS);
   const [especie, setEspecie] = useState(TODOS);
   const [zona, setZona] = useState(TODOS);
+  const [raza, setRaza] = useState(TODOS);
+  const [color, setColor] = useState(TODOS);
+  const [tamano, setTamano] = useState(TODOS);
   const [reportes, setReportes] = useState<Reporte[] | null>(null);
+
+  // La raza depende de la especie elegida: solo se ofrece con perro o gato.
+  const razasDisponibles = especie === TODOS ? [] : razasPorEspecie(especie);
 
   // Cada cambio de filtro re-consulta al backend (el orden y la exclusión de
   // reunidos los decide la API, no el cliente).
@@ -20,8 +27,11 @@ export function Reportes() {
     if (tipo !== TODOS) filtros.tipo = tipo as FiltrosReportes['tipo'];
     if (especie !== TODOS) filtros.especie = especie as FiltrosReportes['especie'];
     if (zona !== TODOS) filtros.zona = zona;
+    if (raza !== TODOS) filtros.raza = raza;
+    if (color !== TODOS) filtros.color = color;
+    if (tamano !== TODOS) filtros.tamano = tamano as FiltrosReportes['tamano'];
     listarReportes(filtros).then(setReportes);
-  }, [tipo, especie, zona]);
+  }, [tipo, especie, zona, raza, color, tamano]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">
@@ -49,13 +59,64 @@ export function Reportes() {
             Especie
             <select
               value={especie}
-              onChange={(e) => setEspecie(e.target.value)}
+              onChange={(e) => {
+                setEspecie(e.target.value);
+                // La raza elegida deja de aplicar al cambiar de especie.
+                setRaza(TODOS);
+              }}
               className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
             >
               <option value={TODOS}>Todas</option>
               <option value="perro">Perros</option>
               <option value="gato">Gatos</option>
               <option value="otro">Otros</option>
+            </select>
+          </label>
+          {razasDisponibles.length > 0 && (
+            <label className="flex flex-col text-xs text-muted">
+              Raza
+              <select
+                value={raza}
+                onChange={(e) => setRaza(e.target.value)}
+                className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+              >
+                <option value={TODOS}>Todas</option>
+                {razasDisponibles.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="flex flex-col text-xs text-muted">
+            Color
+            <select
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value={TODOS}>Todos</option>
+              {COLORES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col text-xs text-muted">
+            Tamaño
+            <select
+              value={tamano}
+              onChange={(e) => setTamano(e.target.value)}
+              className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value={TODOS}>Todos</option>
+              {TAMANOS.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex flex-col text-xs text-muted">

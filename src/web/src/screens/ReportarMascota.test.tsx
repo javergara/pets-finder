@@ -29,6 +29,9 @@ function crearReporteRespuesta(overrides: Partial<Reporte> = {}): Reporte {
     tipo: 'perdido',
     especie: 'perro',
     nombre_mascota: 'Rocky',
+    raza: null,
+    color: null,
+    tamano: null,
     descripcion: 'Criollo color miel',
     foto_url: null,
     zona: 'Armenia',
@@ -64,6 +67,27 @@ describe('ReportarMascota — campos condicionales', () => {
 
     expect(screen.getByLabelText('Nombre de tu mascota (opcional)')).toBeInTheDocument();
     expect(screen.queryByLabelText('¿Dónde está ahora?')).not.toBeInTheDocument();
+  });
+
+  it('ofrece raza/color/tamaño predefinidos, y la raza desaparece con especie "otro"', () => {
+    renderReportar('perdido');
+
+    // Con perro (default): las tres características, con opciones predefinidas.
+    expect(screen.getByLabelText('Raza')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Labrador' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Color')).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Miel / dorado' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Tamaño')).toBeInTheDocument();
+
+    // Con gato: cambian las razas.
+    fireEvent.change(screen.getByLabelText('¿Qué animal es?'), { target: { value: 'gato' } });
+    expect(screen.getByRole('option', { name: 'Siamés' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Labrador' })).not.toBeInTheDocument();
+
+    // Con "otro" no hay raza; color y tamaño siguen.
+    fireEvent.change(screen.getByLabelText('¿Qué animal es?'), { target: { value: 'otro' } });
+    expect(screen.queryByLabelText('Raza')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Color')).toBeInTheDocument();
   });
 
   it('en "encontrado" muestra la situación y no el nombre', () => {
@@ -120,6 +144,24 @@ describe('ReportarMascota — envío', () => {
     );
     // Sin situacion en un perdido (el backend lo rechazaría con 422).
     expect(vi.mocked(client.crearReporte).mock.calls[0][0].situacion).toBeUndefined();
+  });
+
+  it('las características elegidas van en el payload; sin elegir, no se envían', async () => {
+    vi.mocked(client.crearReporte).mockResolvedValue(crearReporteRespuesta());
+
+    renderReportar('perdido');
+    llenarMinimo();
+    fireEvent.change(screen.getByLabelText('Raza'), { target: { value: 'Labrador' } });
+    fireEvent.change(screen.getByLabelText('Color'), { target: { value: 'Negro' } });
+    fireEvent.change(screen.getByLabelText('Tamaño'), { target: { value: 'grande' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar reporte de perdida' }));
+
+    await screen.findByText('Reporte publicado');
+
+    const payload = vi.mocked(client.crearReporte).mock.calls[0][0];
+    expect(payload.raza).toBe('Labrador');
+    expect(payload.color).toBe('Negro');
+    expect(payload.tamano).toBe('grande');
   });
 
   it('publica un encontrado con situacion y sin nombre_mascota', async () => {

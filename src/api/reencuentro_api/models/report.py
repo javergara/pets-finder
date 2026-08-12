@@ -26,6 +26,12 @@ class Report(Base):
     tipo: Mapped[str] = mapped_column(String(20))  # "perdido" | "encontrado"
     especie: Mapped[str] = mapped_column(String(20))  # "perro" | "gato" | "otro"
     nombre_mascota: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Características predefinidas para filtrar (feature 15): opcionales, con las
+    # opciones definidas en el frontend (lib/caracteristicas.ts). Nullable también
+    # porque los reportes anteriores a la feature no las tienen.
+    raza: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    color: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    tamano: Mapped[str | None] = mapped_column(String(20), nullable=True)  # pequeño|mediano|grande
     descripcion: Mapped[str] = mapped_column(String(2000))
     foto_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
     zona: Mapped[str] = mapped_column(String(40))

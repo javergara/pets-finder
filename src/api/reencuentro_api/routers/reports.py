@@ -39,6 +39,9 @@ def listar_reportes(
     tipo: str | None = None,
     especie: str | None = None,
     zona: str | None = None,
+    raza: str | None = None,
+    color: str | None = None,
+    tamano: str | None = None,
     user_id: int | None = None,
     estado: str = "activo",
     session: Session = Depends(get_session),
@@ -59,6 +62,12 @@ def listar_reportes(
         query = query.where(Report.especie == especie)
     if zona is not None:
         query = query.where(Report.zona == zona)
+    if raza is not None:
+        query = query.where(Report.raza == raza)
+    if color is not None:
+        query = query.where(Report.color == color)
+    if tamano is not None:
+        query = query.where(Report.tamano == tamano)
     if user_id is not None:
         query = query.where(Report.user_id == user_id)
     query = query.order_by(Report.fecha_evento.desc(), Report.id.desc())

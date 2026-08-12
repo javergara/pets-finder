@@ -49,6 +49,21 @@ export function ReporteCard({ reporte }: { reporte: Reporte }) {
           <span className="rounded-full bg-forest-tint px-2.5 py-1 text-xs text-forest">
             {ETIQUETA_ESPECIE[reporte.especie]}
           </span>
+          {reporte.raza && (
+            <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+              {reporte.raza}
+            </span>
+          )}
+          {reporte.color && (
+            <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+              {reporte.color}
+            </span>
+          )}
+          {reporte.tamano && (
+            <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+              {reporte.tamano.charAt(0).toUpperCase() + reporte.tamano.slice(1)}
+            </span>
+          )}
           {reporte.situacion === 'conmigo' && (
             <span className="rounded-full bg-forest-tint px-2.5 py-1 text-xs text-forest">
               Resguardada

@@ -58,6 +58,9 @@ export type FiltrosReportes = {
   tipo?: 'perdido' | 'encontrado';
   especie?: 'perro' | 'gato' | 'otro';
   zona?: string;
+  raza?: string;
+  color?: string;
+  tamano?: 'pequeño' | 'mediano' | 'grande';
   userId?: number;
   estado?: 'activo' | 'reunido' | 'todos';
 };
@@ -67,6 +70,9 @@ export function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]
   if (filtros.tipo) params.set('tipo', filtros.tipo);
   if (filtros.especie) params.set('especie', filtros.especie);
   if (filtros.zona) params.set('zona', filtros.zona);
+  if (filtros.raza) params.set('raza', filtros.raza);
+  if (filtros.color) params.set('color', filtros.color);
+  if (filtros.tamano) params.set('tamano', filtros.tamano);
   if (filtros.userId !== undefined) params.set('user_id', String(filtros.userId));
   if (filtros.estado) params.set('estado', filtros.estado);
   const query = params.toString();

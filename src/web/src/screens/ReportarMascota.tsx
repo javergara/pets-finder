@@ -5,6 +5,7 @@ import type { Reporte } from '../api/types';
 import { FotoUpload } from '../components/FotoUpload';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { SelectorCiudad } from '../components/SelectorCiudad';
+import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
 import { ZONA_OTRO, cajaDeZona } from '../lib/ciudades';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 
@@ -29,6 +30,10 @@ const COPY = {
 export function ReportarMascota({ tipo }: Props) {
   const [especie, setEspecie] = useState<'perro' | 'gato' | 'otro'>('perro');
   const [nombreMascota, setNombreMascota] = useState('');
+  // Características predefinidas ('' = sin especificar, no se envía).
+  const [raza, setRaza] = useState('');
+  const [color, setColor] = useState('');
+  const [tamano, setTamano] = useState('');
   const [situacion, setSituacion] = useState<'conmigo' | 'vista'>('conmigo');
   const [descripcion, setDescripcion] = useState('');
   const [zona, setZona] = useState('Armenia');
@@ -80,6 +85,9 @@ export function ReportarMascota({ tipo }: Props) {
         especie,
         nombre_mascota:
           tipo === 'perdido' && nombreMascota.trim() ? nombreMascota.trim() : undefined,
+        raza: raza || undefined,
+        color: color || undefined,
+        tamano: (tamano || undefined) as 'pequeño' | 'mediano' | 'grande' | undefined,
         descripcion: descripcion.trim(),
         foto_url: fotoUrl ?? undefined,
         zona,
@@ -141,13 +149,76 @@ export function ReportarMascota({ tipo }: Props) {
           <select
             id="reporte-especie"
             value={especie}
-            onChange={(e) => setEspecie(e.target.value as typeof especie)}
+            onChange={(e) => {
+              setEspecie(e.target.value as typeof especie);
+              // Las razas dependen de la especie: al cambiarla, la elegida deja de aplicar.
+              setRaza('');
+            }}
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
           >
             <option value="perro">Perro</option>
             <option value="gato">Gato</option>
             <option value="otro">Otro</option>
           </select>
+        </div>
+
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          {razasPorEspecie(especie).length > 0 && (
+            <div>
+              <label htmlFor="reporte-raza" className="text-sm font-medium text-ink-soft">
+                Raza
+              </label>
+              <select
+                id="reporte-raza"
+                value={raza}
+                onChange={(e) => setRaza(e.target.value)}
+                className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+              >
+                <option value="">No sé / sin especificar</option>
+                {razasPorEspecie(especie).map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label htmlFor="reporte-color" className="text-sm font-medium text-ink-soft">
+              Color
+            </label>
+            <select
+              id="reporte-color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+            >
+              <option value="">Sin especificar</option>
+              {COLORES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="reporte-tamano" className="text-sm font-medium text-ink-soft">
+              Tamaño
+            </label>
+            <select
+              id="reporte-tamano"
+              value={tamano}
+              onChange={(e) => setTamano(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+            >
+              <option value="">Sin especificar</option>
+              {TAMANOS.map((t) => (
+                <option key={t} value={t}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {tipo === 'perdido' && (
