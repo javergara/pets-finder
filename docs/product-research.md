@@ -53,3 +53,7 @@ Evaluación de <https://reunemascotas.brannd.com.co/> — app hermana del **mism
 - Su formulario ultra liviano confirma la decisión del registro mínimo: no adoptamos "reportar sin cuenta" porque perderíamos marcar-reunido y eliminar (ligados a autoría), pero refuerza mantener el registro en 3 campos.
 
 Además del benchmark, entraron mejoras realistas de lo ya construido: avistamientos de terceros (`28`, patrón PawBoost/Love Lost), edición completa del reporte (`29`), búsqueda + paginación (`30`) y pin por geolocalización (`31`).
+
+## 7. El tercer actor: la ayuda organizada (features 32-33, 2026-08-12)
+
+Además de dueños↔rescatistas, una emergencia tiene un tercer actor: **quien organiza la ayuda** (centros de acopio, fundaciones, tiendas, veterinarias). La sección unificada **/ayudar** los pone en un solo mapa/directorio con contacto directo por WhatsApp (coherente con §3: sin chat interno, sin pagos en la app — "Cómo donar" es texto informativo). La mecánica de **necesidades** ("50 kg de comida" → "Quiero ayudar" → "Cubierta 💚") replica la métrica de esperanza de los reencuentros: pedidos concretos y accionables en vez de "ayuden por favor", y celebración visible cuando la ayuda llega. Publica cualquiera con la cuenta liviana; la moderación queda en el backlog (23).
