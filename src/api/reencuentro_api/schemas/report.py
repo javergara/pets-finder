@@ -8,6 +8,7 @@ from ..services.ciudades import ZONA_OTRO, zona_valida
 Tipo = Literal["perdido", "encontrado"]
 Especie = Literal["perro", "gato", "otro"]
 Situacion = Literal["conmigo", "vista"]
+Tamano = Literal["pequeño", "mediano", "grande"]
 
 
 class ReportIn(BaseModel):
@@ -15,6 +16,11 @@ class ReportIn(BaseModel):
     tipo: Tipo
     especie: Especie
     nombre_mascota: str | None = None
+    # Características predefinidas (feature 15) — el catálogo de opciones vive en
+    # el frontend (lib/caracteristicas.ts); aquí solo se acota longitud/valores.
+    raza: str | None = None
+    color: str | None = None
+    tamano: Tamano | None = None
     descripcion: str
     foto_url: str | None = None
     zona: str
@@ -79,6 +85,9 @@ class ReportOut(BaseModel):
     tipo: str
     especie: str
     nombre_mascota: str | None
+    raza: str | None
+    color: str | None
+    tamano: str | None
     descripcion: str
     foto_url: str | None
     zona: str

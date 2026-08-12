@@ -158,6 +158,9 @@ def _sembrar_variedad(db_session, usuario):
             tipo="perdido",
             especie="perro",
             nombre_mascota="Rocky",
+            raza="Criollo / mestizo",
+            color="Miel / dorado",
+            tamano="mediano",
             descripcion="d",
             zona="Armenia",
             lat=4.54,
@@ -182,6 +185,9 @@ def _sembrar_variedad(db_session, usuario):
             tipo="perdido",
             especie="gato",
             nombre_mascota="Mishi",
+            raza="Siamés",
+            color="Gris",
+            tamano="pequeño",
             descripcion="d",
             zona="Pereira",
             lat=4.81,
@@ -287,6 +293,48 @@ def test_editar_reporte_ajeno_devuelve_403_en_espanol(client, db_session, usuari
 
     assert respuesta.status_code == 403
     assert "Solo quien creó el reporte" in respuesta.json()["detail"]
+
+
+def test_crear_reporte_con_caracteristicas_las_persiste(client, usuario):
+    respuesta = client.post(
+        "/api/reports",
+        json=_payload_perdido(usuario, raza="Labrador", color="Negro", tamano="grande"),
+    )
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["raza"] == "Labrador"
+    assert cuerpo["color"] == "Negro"
+    assert cuerpo["tamano"] == "grande"
+
+
+def test_tamano_invalido_devuelve_422(client, usuario):
+    respuesta = client.post("/api/reports", json=_payload_perdido(usuario, tamano="gigante"))
+
+    assert respuesta.status_code == 422
+
+
+def test_listado_filtra_por_raza_color_y_tamano(client, db_session, usuario):
+    """Feature 15: los filtros por características son exactos y combinables.
+    Los reportes sin características (null, anteriores a la feature) no matchean
+    los filtros pero sí aparecen sin ellos."""
+    _sembrar_variedad(db_session, usuario)
+
+    por_color = client.get("/api/reports?color=Miel%20%2F%20dorado").json()
+    assert len(por_color) == 1
+    assert por_color[0]["nombre_mascota"] == "Rocky"
+
+    por_raza = client.get("/api/reports?raza=Siam%C3%A9s").json()
+    assert len(por_raza) == 1
+    assert por_raza[0]["nombre_mascota"] == "Mishi"
+
+    combinado = client.get("/api/reports?tipo=perdido&tamano=mediano&zona=Armenia").json()
+    assert len(combinado) == 1
+    assert combinado[0]["nombre_mascota"] == "Rocky"
+
+    # Sin filtros de características, los null siguen apareciendo.
+    todos_activos = client.get("/api/reports").json()
+    assert len(todos_activos) == 3
 
 
 def test_listado_filtra_por_user_id(client, db_session, usuario, otro_usuario):

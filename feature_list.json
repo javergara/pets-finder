@@ -189,6 +189,20 @@
         "leaflet es la única dependencia nueva de package.json y bash init.sh pasa en verde",
         "Verificación manual en navegador: mapa con calles en /mapa, /reporte/:id y el formulario de reportar"
       ]
+    },
+    {
+      "id": "15-caracteristicas-busqueda",
+      "title": "Características predefinidas (raza, color, tamaño) para reportar y filtrar",
+      "description": "Pedido del usuario: al reportar, selects con opciones predefinidas — raza (listas por especie, con Criollo/mestizo y Otra), color (paleta fija de pelajes) y tamaño (pequeño/mediano/grande) — antes del texto libre de descripción; y en el listado, filtros por esas mismas características para que quien busca encuentre por rasgos. Columnas nullable nuevas en Report (raza, color, tamano), filtros exactos en GET /api/reports, chips en ReporteCard y línea de características en el detalle. Migración de producción: ALTER TABLE aditivo ANTES del deploy + backfill de los 17 reportes del seed en prod (sin drop).",
+      "status": "done",
+      "depends_on": ["14-mapa-leaflet"],
+      "acceptance": [
+        "El formulario de reportar ofrece raza (opciones según la especie elegida; oculta para 'otro'), color y tamaño como selects opcionales predefinidos, antes de la descripción libre, y el payload los envía solo si se eligieron",
+        "GET /api/reports filtra por raza, color y tamano con match exacto (tests), combinables con los filtros existentes",
+        "El listado tiene los filtros nuevos (raza visible solo con especie perro o gato) y las tarjetas muestran chips de las características",
+        "tamano inválido responde 422; los campos son opcionales y los reportes existentes (null) siguen apareciendo sin filtros",
+        "bash init.sh en verde; el seed local incluye características coherentes con las historias"
+      ]
     }
   ]
 }

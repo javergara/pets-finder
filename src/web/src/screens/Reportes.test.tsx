@@ -21,6 +21,9 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
     tipo: 'perdido',
     especie: 'perro',
     nombre_mascota: 'Rocky',
+    raza: null,
+    color: null,
+    tamano: null,
     descripcion: 'Criollo color miel con collar rojo',
     foto_url: '/media/seed/report_1.jpg',
     zona: 'Armenia',
@@ -93,6 +96,35 @@ describe('Reportes', () => {
     fireEvent.change(screen.getByLabelText('Zona'), { target: { value: 'Cali' } });
     await waitFor(() =>
       expect(client.listarReportes).toHaveBeenLastCalledWith({ tipo: 'perdido', zona: 'Cali' }),
+    );
+  });
+
+  it('los filtros de características re-consultan, y la raza solo aparece con especie', async () => {
+    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+
+    renderReportes();
+    await screen.findByText('Rocky');
+
+    // Sin especie elegida no hay filtro de raza.
+    expect(screen.queryByLabelText('Raza')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Color'), { target: { value: 'Negro' } });
+    await waitFor(() => expect(client.listarReportes).toHaveBeenLastCalledWith({ color: 'Negro' }));
+
+    fireEvent.change(screen.getByLabelText('Tamaño'), { target: { value: 'grande' } });
+    await waitFor(() =>
+      expect(client.listarReportes).toHaveBeenLastCalledWith({ color: 'Negro', tamano: 'grande' }),
+    );
+
+    fireEvent.change(screen.getByLabelText('Especie'), { target: { value: 'perro' } });
+    fireEvent.change(await screen.findByLabelText('Raza'), { target: { value: 'Labrador' } });
+    await waitFor(() =>
+      expect(client.listarReportes).toHaveBeenLastCalledWith({
+        especie: 'perro',
+        raza: 'Labrador',
+        color: 'Negro',
+        tamano: 'grande',
+      }),
     );
   });
 

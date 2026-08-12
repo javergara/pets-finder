@@ -322,3 +322,15 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Arranque resiliente del serverless: create_all fallido se loguea sin tumbar el boot (antes: FUNCTION_INVOCATION_FAILED mudo hasta en /health) + log del dialecto de DB para diagnóstico.
 - Bucket `fotos` creado vía API y seed corrido contra producción (autorización explícita del usuario): 5 usuarios + 17 reportes + fotos en el bucket, verificado fila a fila y por GET público.
 - Verificación final de producción: health, 15 activos con fotos del bucket, filtros, reunidos (2), coincidencias (0.6 km), 404 español, SPA fallback.
+
+## 2026-08-12 — 15-caracteristicas-busqueda — commit e6743ad (migración de prod aplicada antes del merge)
+
+- Pedido del usuario: características predefinidas al reportar y filtros por ellas al buscar.
+- `models/report.py`: columnas nullable `raza`/`color`/`tamano` (nullable también porque los reportes pre-feature no las tienen). `schemas`: ReportIn/Out con los campos; `tamano` como Literal pequeño|mediano|grande (422 si no).
+- `GET /api/reports`: filtros exactos `raza`/`color`/`tamano`, combinables con los existentes.
+- `lib/caracteristicas.ts` (fuente de las opciones): RAZAS_PERRO (16), RAZAS_GATO (7), COLORES (10 pelajes), TAMANOS; `razasPorEspecie` (vacío para "otro").
+- Formulario: selects Raza (según especie, se resetea al cambiarla, oculto en "otro") / Color / Tamaño ANTES de la descripción libre; '' = sin especificar → no se envía.
+- Listado: filtros nuevos (Raza solo con especie perro/gato); ReporteCard y detalle muestran chips de características.
+- Seed local: 16 de 17 reportes con características coherentes con sus historias (el loro queda sin ellas — no aplican).
+- Migración de producción: ALTER TABLE aditivo (3 columnas nullable, IF NOT EXISTS) + backfill por id de los reportes del seed con guarda `AND raza IS NULL` — pendiente de autorización explícita del usuario ANTES de mergear a main (el código nuevo consulta columnas que aún no existen en prod).
+- Tests: +3 API (persistencia, 422 tamano inválido, filtros exactos/combinados/nulls visibles) y +3 web (selects por especie, payload, filtros re-consultan). API 64, web 55.

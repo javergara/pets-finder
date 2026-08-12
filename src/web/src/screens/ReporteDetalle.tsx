@@ -116,6 +116,25 @@ export function ReporteDetalle() {
 
       <section className="rounded-2xl border border-line bg-surface p-6">
         <h2 className="mb-2 font-display text-lg text-ink">Descripción y señas</h2>
+        {(reporte.raza || reporte.color || reporte.tamano) && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {reporte.raza && (
+              <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+                {reporte.raza}
+              </span>
+            )}
+            {reporte.color && (
+              <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+                {reporte.color}
+              </span>
+            )}
+            {reporte.tamano && (
+              <span className="rounded-full bg-surface-alt px-2.5 py-1 text-xs text-ink-soft">
+                {reporte.tamano.charAt(0).toUpperCase() + reporte.tamano.slice(1)}
+              </span>
+            )}
+          </div>
+        )}
         <p className="text-ink-soft">{reporte.descripcion}</p>
         {reporte.situacion && (
           <p className="mt-3 text-sm text-muted">{ETIQUETA_SITUACION[reporte.situacion]}</p>
