@@ -379,3 +379,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `ReporteDetalle.tsx`: la foto pasa a `object-contain` con `max-h-[75vh]` y fondo `bg-surface-alt` (la imagen completa siempre, sin recorte; las señas de la mascota pueden estar justo en lo cortado).
 - `FotoUpload.tsx`: el preview igual (`object-contain`, `max-h-80`) — debe mostrar tal cual quedará la foto, no una versión 4:3 engañosa.
 - Las tarjetas del listado conservan el crop 4:3 (uniformidad de galería; la foto completa está a un click en el detalle). Sin cambios de comportamiento: `bash init.sh` verde (70 API + 64 web).
+
+## 2026-08-12 — Fix: foto completa también en las tarjetas + cache-bust del favicon
+
+- Pedido del usuario: la mascota completa también en el listado (reconocible rápido) y el ícono nuevo no se veía.
+- `ReporteCard.tsx`: `object-cover` → `object-contain` (contenedor 4:3 con fondo `bg-surface-alt` se mantiene — tarjetas uniformes, foto entera adentro).
+- `index.html`: `href="/favicon.svg?v=2"` — el archivo nuevo ya se servía bien; el rayo de Vercel estaba cacheado por navegador bajo la URL vieja. `bash init.sh` verde (70 API + 64 web).
