@@ -402,7 +402,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Evaluado <https://reunemascotas.brannd.com.co/> (app hermana del mismo terremoto) — análisis en docs/product-research.md §6. Adoptables: Medellín como zona propia y vista pública de reunidos; su reporte-sin-cuenta NO se adopta (romperia autoría de reunido/eliminar).
 - `feature_list.json`: +6 features en `todo` — 26-zona-medellin, 27-vista-reencuentros, 28-avistamientos, 29-editar-reporte-completo, 30-busqueda-y-paginacion, 31-pin-mi-ubicacion. `validate_feature_list.py` exit 0.
 
-## 2026-08-12 — Feature 26: Medellín como zona con mapa propio (commit: en revisión)
+## 2026-08-12 — Feature 26: Medellín como zona con mapa propio (commit: 6e4ece0)
 
 - Benchmark de Reúne Mascotas: Medellín entra como séptima zona (Valle de Aburrá: lat 6.13-6.36, lng -75.66 - -75.50, centro 6.244/-75.581) en services/ciudades.py y lib/ciudades.ts.
 - Selectores (reportar/listado/mapa/registro) la toman solos de NOMBRES_ZONAS; 'Medellín' sale de OTRAS_CIUDADES_COLOMBIA (ahora vive en el grupo de zonas del registro).
