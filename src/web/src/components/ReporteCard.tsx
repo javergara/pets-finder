@@ -28,14 +28,16 @@ export function ReporteCard({ reporte }: { reporte: Reporte }) {
       className="flex flex-col overflow-hidden rounded-[22px] border border-line bg-surface transition-shadow hover:shadow-[0_18px_40px_-28px_rgba(27,26,23,.5)]"
     >
       {/* <img loading="lazy"> en vez de background-image: el navegador solo
-          descarga las fotos de las tarjetas que se acercan al viewport. */}
+          descarga las fotos de las tarjetas que se acercan al viewport.
+          object-contain (no cover): la mascota completa también en la tarjeta,
+          para reconocerla rápido sin entrar al detalle. */}
       <div className="relative aspect-4/3 bg-surface-alt">
         {reporte.foto_url && (
           <img
             src={mediaUrl(reporte.foto_url)}
             alt={`Foto del reporte de ${titulo}`}
             loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-contain"
           />
         )}
         <div className="relative flex items-start p-3">
