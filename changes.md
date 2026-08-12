@@ -417,7 +417,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Tests: tests/api/test_avistamientos.py (7) + 3 en ReporteDetalle.test.tsx (lista+pin ochre, crear con payload, sección ausente en encontrados). bash init.sh verde: 78 API + 67 web.
 - ⚠️ Migración de prod pendiente ANTES del merge a main: CREATE TABLE sightings (aditivo). Requiere autorización del usuario.
 
-## 2026-08-12 — Feature 32: red de apoyo — centros de acopio, fundaciones y tiendas (commit: en revisión)
+## 2026-08-12 — Feature 32: red de apoyo — centros de acopio, fundaciones y tiendas (commit: ea5dfa7)
 
 - Plan aprobado por el usuario (2026-08-12): sección unificada "Ayudar" con el tercer actor de la emergencia.
 - Modelo `Organizacion` (tabla organizaciones: tipo centro_acopio|fundacion|tienda|veterinaria, dirección OBLIGATORIA, horario, como_donar texto libre — sin pagos, foto, zona validada + pin, autoría con cuenta liviana, estado activo|cerrado).
