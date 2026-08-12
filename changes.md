@@ -210,3 +210,11 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `scripts/seed.py` completo: 5 usuarios + 17 reportes deterministas (coords y fechas fijas, `creado_en` explícito) alrededor del sismo, par de coincidencia obvia en Armenia (Rocky perdido ↔ perro encontrado a ~600 m, 1 día), 2 reunidos; fotos `data/media/seed/report_N.jpg` con placedog/cataas y fallback SVG (especie "otro" va directo a SVG); validación de que cada coord cae en su bounding box antes de escribir.
 - Tests: `test_ciudades.py` (5) y `test_reports.py` (17): creación ambos tipos, 6 casos 422, filtros/orden/estados, 404/403 en español, edición parcial. Total API: 32.
 - Determinismo verificado fila por fila: dos corridas de seed producen tablas `reports` idénticas (incluyendo foto_url y creado_en).
+
+## 2026-08-12 — 03-upload-fotos (en revisión)
+
+- `routers/uploads.py`: POST /api/uploads multipart. Content-type ∈ {jpeg,png,webp} → 415 en español si no; lectura por chunks con límite 5 MB → 413 y borrado del archivo a medias; nombre `uuid4().hex` + extensión derivada del content-type (nunca del filename hostil del cliente); `UPLOADS_DIR` como variable de módulo monkeypatcheable. Registrado en main.py.
+- `python-multipart==0.0.17` añadido a src/api/requirements.txt (única dependencia nueva del pivot, prevista en ADR 0005).
+- `api/client.ts::subirFoto`: FormData con fetch directo (no pasa por `request()` — el Content-Type: application/json por defecto rompería el boundary multipart, riesgo anotado en el plan).
+- `components/FotoUpload.tsx`: input file con accept de imágenes, preview local con object URL (revocado en cleanup), estados subiendo/lista/error, entrega `foto_url` al padre.
+- Tests: `test_uploads.py` (5: 201 jpg/webp, nombre uuid resistente a path traversal, 415, 413 sin restos) con `UPLOADS_DIR` en tmp_path; `FotoUpload.test.tsx` (2: preview+callback, error sin callback). API 37, web 14.

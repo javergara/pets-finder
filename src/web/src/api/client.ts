@@ -40,3 +40,21 @@ export function registrarUsuario(datos: {
     body: JSON.stringify(datos),
   });
 }
+
+/** Sube la foto de un reporte. No pasa por `request()`: con FormData el
+ * navegador debe fijar solo el Content-Type multipart con su boundary — el
+ * `Content-Type: application/json` que `request()` pone por defecto lo
+ * rompería. */
+export async function subirFoto(archivo: File): Promise<{ foto_url: string }> {
+  const formData = new FormData();
+  formData.append('foto', archivo);
+  const respuesta = await fetch(`${API_BASE_URL}/api/uploads`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
+  }
+  return respuesta.json() as Promise<{ foto_url: string }>;
+}

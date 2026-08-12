@@ -33,7 +33,7 @@
       "id": "03-upload-fotos",
       "title": "Subida de fotos: endpoint multipart y componente FotoUpload",
       "description": "POST /api/uploads con UploadFile: valida content-type (jpeg/png/webp) y tamaño (≤5 MB por chunks), guarda con nombre uuid derivando la extensión del content-type (nunca del filename del cliente) en data/media/uploads/, responde foto_url servible bajo /media. Componente FotoUpload.tsx con input file, preview local y estados de carga/error.",
-      "status": "todo",
+      "status": "in_progress",
       "depends_on": ["01-pivot-fundaciones"],
       "acceptance": [
         "Subir un jpeg válido responde 201 con foto_url bajo /media/uploads/ y el archivo queda en disco con nombre uuid distinto del original",

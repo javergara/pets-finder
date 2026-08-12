@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .models.base import Base, engine
-from .routers import reports, users
+from .routers import reports, uploads, users
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MEDIA_DIR = REPO_ROOT / "data" / "media"
@@ -40,6 +40,7 @@ def health() -> dict[str, str]:
 # (/api/reports/{report_id}), o queda eclipsada y responde 422.
 app.include_router(users.router)
 app.include_router(reports.router)
+app.include_router(uploads.router)
 
 MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
