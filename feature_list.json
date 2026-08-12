@@ -222,12 +222,25 @@
       "id": "17-registro-ciudades-lista",
       "title": "Registro: la ciudad se elige de una lista de ciudades de Colombia",
       "description": "Pedido del usuario: al entrar/crear cuenta, el campo Ciudad deja de ser texto libre y pasa a ser un select con las ciudades de Colombia (las 6 zonas cubiertas destacadas primero, luego las demás capitales y ciudades principales del país). Lista única en src/web/src/lib/ciudades.ts; el backend no cambia (User.ciudad sigue siendo string libre).",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["16-mobile-ui"],
       "acceptance": [
         "El formulario de registro ofrece la ciudad como select (no input de texto) con las 6 zonas cubiertas primero y el resto de ciudades de Colombia después, default Armenia",
         "El valor elegido se envía tal cual en el payload de registrarUsuario (tests de Registro actualizados y en verde)",
         "La lista vive una sola vez en lib/ciudades.ts y cubre al menos las capitales departamentales de Colombia",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "18-eliminar-reporte",
+      "title": "El autor de un reporte puede eliminarlo",
+      "description": "Pedido del usuario: quien postea un reporte puede también eliminarlo. DELETE /api/reports/{id}?user_id= con la misma validación de autoría del MVP (403 no-autor, 404 inexistente, 204 al borrar); en el detalle, botón 'Eliminar este reporte' visible solo para el autor, con confirmación en dos pasos dentro de la página (sin window.confirm) y navegación al listado tras borrar. La foto en Storage no se borra (huérfana aceptada en el MVP, documentado).",
+      "status": "done",
+      "depends_on": ["17-registro-ciudades-lista"],
+      "acceptance": [
+        "DELETE /api/reports/{id} con user_id del autor responde 204 y el reporte desaparece del listado y del detalle (404)",
+        "Con user_id de otro usuario responde 403 en español y el reporte sigue existiendo; con id inexistente responde 404",
+        "En el detalle, el botón de eliminar solo aparece para el autor, exige confirmación en dos pasos y al confirmar llama al API y navega fuera del detalle",
         "bash init.sh en verde"
       ]
     }

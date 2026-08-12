@@ -4,9 +4,16 @@
 
 ## Qué está pasando
 
-**Feature activa: `17-registro-ciudades-lista` (in_progress, implementación lista, en revisión).** Features `01`-`16` aprobadas por el revisor independiente. Suites: 65 tests de API + 58 de web, todo en verde.
+**Feature activa: `18-eliminar-reporte` (in_progress, implementación lista, en revisión).** Features `01`-`17` aprobadas por el revisor independiente. Suites: 68 tests de API + 60 de web, todo en verde.
 
-## Hecho en la feature 17
+## Hecho en la feature 18
+
+- [x] `DELETE /api/reports/{id}?user_id=` en `routers/reports.py`: 204 autor / 403 ajeno (mensaje en español) / 404 inexistente. La foto queda huérfana en Storage (documentado en el docstring — decisión: no darle a este endpoint credenciales de borrado sobre el bucket).
+- [x] `client.ts`: `eliminarReporte(id, userId)` (request() ya manejaba 204 sin body).
+- [x] `ReporteDetalle.tsx`: sección "Eliminar este reporte" visible solo para el autor, confirmación en dos pasos en la página (sin window.confirm), estado eliminando/deshabilitado, error en español, navega a /reportes al borrar.
+- [x] Tests: +3 API (`test_reports.py`, sección feature 18) y +2 web (`ReporteDetalle.test.tsx`: flujo dos pasos con cancelar + no-autor no ve el botón). `bash init.sh` verde: 68 API + 60 web.
+
+## Hecho en la feature 17 (histórico)
 
 - [x] `OTRAS_CIUDADES_COLOMBIA` en `src/web/src/lib/ciudades.ts`: las 32 capitales departamentales (menos las 6 que ya son zonas) + ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), alfabético.
 - [x] `Registro.tsx`: el campo Ciudad pasa de `<input type="text">` a `<select>` con dos optgroups — "Zonas con mapa propio" (las 6, en el orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Backend sin cambios (`User.ciudad` sigue string libre).
@@ -125,3 +132,31 @@ Revisión independiente sobre `develop` @ `6d7cbcb`. Evidencia de esta sesión:
 - `feature_list.json`: `16-mobile-ui` a `done` con edición puntual sobre la línea 211; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 El merge a `main` (deploy directo, sin migración esta vez) queda en manos de la sesión principal tras este veredicto. Menor recurrente: hash (`6d7cbcb`) en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 17 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `7fe7dde` (ya mergeado a `main` con autorización explícita del usuario y deploy verificado en vivo por la sesión principal — esta revisión cierra el `done` formal). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 65/65 tests de API + 58/58 de web** (los 2 nuevos de `Registro.test.tsx` incluidos).
+- **Acceptance 1**: test directo — el campo Ciudad es `SELECT` (aserción de `tagName`), con valor por defecto `Armenia`, y las primeras 6 opciones son exactamente las zonas en el orden de `NOMBRES_ZONAS` (Armenia, Pereira, Manizales, Cali, Quibdó, Bogotá) dentro del optgroup "Zonas con mapa propio", seguidas del optgroup "Resto de Colombia". Verificado también por lectura del JSX.
+- **Acceptance 2**: test directo — elegir "Medellín" envía `ciudad: 'Medellín'` tal cual en el payload de `registrarUsuario`; los 6 tests preexistentes del registro (incluido el flujo entrar-o-crear y `?volver=`) pasan sin cambios.
+- **Acceptance 3 — verificación programática del revisor**: la lista vive **una sola vez** en `lib/ciudades.ts` (`OTRAS_CIUDADES_COLOMBIA`, 34 entradas); script propio del revisor contra la lista real: **32/32 capitales departamentales cubiertas** (las 26 de la lista + las 6 zonas, con Bogotá D.C. por Cundinamarca), sin faltantes, **orden alfabético** correcto (ignorando tildes), **sin duplicados ni solapamiento** con las zonas; las 8 no-capitales añadidas son ciudades grandes razonables (Bello, Soacha, Soledad, Barrancabermeja, Buenaventura, Palmira, Tuluá, Dosquebradas).
+- Backend intacto verificado: el commit no toca `src/api/` — `User.ciudad` sigue `String(80)` libre, los valores históricos de producción siguen válidos y no hay migración.
+- Estado en disco consistente: entrada en `changes.md` y `progress/current.md` actualizados en el mismo commit.
+- `feature_list.json`: `17-registro-ciudades-lista` a `done` con edición puntual sobre la línea 225; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0. **17/17 features en `done`.**
+
+Menor recurrente: hash (`7fe7dde`) en la entrada de `changes.md` al commitear este cierre.
+
+## Veredicto del revisor — feature 18 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `2de6fd8`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 68/68 tests de API + 60/60 de web** (+3 API, +2 web de esta feature).
+- **Acceptance 1**: test (`204` → detalle `404` → ausente del listado) **+ E2E en vivo del revisor contra el seed real**: `DELETE /api/reports/1?user_id=1` → 204 con body vacío, detalle 404, listado 15→14 activos sin Rocky. Seed reseteado al final.
+- **Acceptance 2**: tests (403 con el mensaje exacto "Solo quien creó el reporte puede eliminarlo" y reporte intacto; 404 inexistente) **+ verificados en vivo** (403 con user_id=2 dejando el reporte 200; 404 con id 9999).
+- **Acceptance 3**: tests del detalle — el botón "Eliminar este reporte" solo aparece para el autor (`queryByRole` nulo con user_id ajeno); la confirmación es en dos pasos **dentro de la página** y el test cubre el ciclo completo: primer click no llama al API, **Cancelar** vuelve atrás sin llamar, y "Sí, eliminar" llama `eliminarReporte(1, 1)` y navega a `/reportes`. Por lectura: `disabled` + "Eliminando…" durante la llamada, error de `ApiError` en español con fallback, sin `window.confirm`.
+- Decisiones consistentes con el nivel de confianza del MVP (ADR 0005 §4): autoría por `user_id` (query param en DELETE, mismo patrón que editar/reunido); la foto huérfana en Storage está **documentada en el docstring** con su porqué (no darle al endpoint credenciales de borrado del bucket) — sin discrepancia doc/código. `request()` del cliente ya maneja 204 explícitamente (verificado por lectura). La ruta dinámica DELETE no eclipsa ninguna literal.
+- Estado en disco: entradas de `changes.md` y `progress/current.md` incluidas en el mismo working tree.
+- `feature_list.json`: `18-eliminar-reporte` a `done` con edición puntual sobre la línea 238 (el bloque completo del item aparece como adición en `git diff` porque la entrada misma es parte del working tree sin commitear; la edición del revisor fue únicamente el valor de `status`); `validate_feature_list.py` → exit 0. **18/18 features en `done`.**
+
+Pendiente de la sesión principal: commit de la feature + este veredicto (menor recurrente: hash en la entrada de `changes.md`), y el merge/deploy según el flujo autorizado por el usuario.

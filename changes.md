@@ -349,9 +349,17 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Verificación visual en 390px: landing (CTAs apilados), formulario (selects a ancho completo, características apiladas), listado (filtros envueltos) y mapa (tiles + leyenda) — todo correcto; el resto del layout ya era responsive por los breakpoints existentes.
 - Suites: 65 API + 56 web en verde (fix de solo clases CSS, sin cambios de comportamiento).
 
-## 2026-08-12 — Feature 17: registro con lista de ciudades de Colombia (commit: en revisión)
+## 2026-08-12 — Feature 17: registro con lista de ciudades de Colombia (commit: 7fe7dde)
 
 - Pedido del usuario: al entrar/crear cuenta, la ciudad se elige de una lista en vez de texto libre.
 - `src/web/src/lib/ciudades.ts`: nueva `OTRAS_CIUDADES_COLOMBIA` (34 entradas) — cubre las 32 capitales departamentales (las 6 zonas cubiertas viven aparte en `ZONAS`) más ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), orden alfabético.
 - `src/web/src/screens/Registro.tsx`: campo Ciudad ahora es `<select>` con optgroups "Zonas con mapa propio" (orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Mismo id/label/clases; backend intacto (`User.ciudad` string libre, así los valores históricos de prod siguen válidos).
 - `src/web/src/screens/Registro.test.tsx`: +2 tests (el campo es un SELECT con las 6 zonas primero y las capitales presentes; la ciudad elegida se envía tal cual). `bash init.sh` verde: 65 API + 58 web.
+
+## 2026-08-12 — Feature 18: el autor puede eliminar su reporte (commit: 88e281e)
+
+- Pedido del usuario: quien postea un reporte puede también eliminarlo.
+- `routers/reports.py`: `DELETE /api/reports/{report_id}?user_id=` — 204 autor, 403 ajeno ("Solo quien creó el reporte puede eliminarlo"), 404 inexistente. La foto en Storage/local NO se borra (huérfana aceptada: el endpoint no recibe credenciales de borrado del bucket; documentado en docstring).
+- `client.ts`: `eliminarReporte(id, userId)` — `request()` ya soportaba 204 sin body.
+- `ReporteDetalle.tsx`: sección de borrado solo-autor con confirmación en dos pasos dentro de la página (sin `window.confirm`), botón deshabilitado mientras elimina, error de API en español, y navegación a `/reportes` al confirmar.
+- Tests: +3 en `tests/api/test_reports.py` (204+desaparece del listado y del detalle, 403+sigue intacto, 404) y +2 en `ReporteDetalle.test.tsx` (dos pasos con Cancelar sin llamar al API; el botón no existe para no-autores). `bash init.sh` verde: 68 API + 60 web.
