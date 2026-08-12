@@ -244,3 +244,9 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - `components/ContactoBotones.tsx`: "Contactar por WhatsApp" (target _blank) + "Llamar".
 - `screens/ReporteDetalle.tsx` (`/reporte/:id`): foto grande, título (nombre o especie), badge por tipo, descripción + situación del encontrado, mini-mapa con el pin en la posición real, sección de contacto solo en reportes activos, y franja de celebración si ya está reunido (sin botones de contacto — no tiene sentido contactar por una mascota ya reencontrada).
 - Tests: `contacto.test.ts` (7: normalización 57, no duplicar indicativo, limpieza de símbolos, encoding, tel:, mensaje por tipo) y `ReporteDetalle.test.tsx` (4: hrefs exactos + mensaje decodificado, pin posicionado y con color por tipo, variante encontrado, estado reunido sin contacto). Web: 42.
+
+## 2026-08-12 — 07-mapa-reportes (en revisión)
+
+- `screens/MapaReportes.tsx` (`/mapa`): selector con "Todo Colombia" (vista sobre el lienzo nacional, resuelta por cajaDeZona) + las 6 zonas; pide todos los activos una vez y filtra en memoria por zona (los reportes "Otro" solo aparecen en la vista nacional, en su coordenada real); pins bg-danger/bg-forest con leyenda; click en pin → mini-tarjeta con link al detalle; contador de visibles.
+- Ruta `/mapa` en App.tsx. Sin dependencias nuevas (package.json sin leaflet/mapbox/google — verificado por grep).
+- Tests: `MapaReportes.test.tsx` (4: vista nacional plotea las 3 zonas a la vez, colores por tipo + leyenda, filtro por zona, mini-tarjeta con href). Web: 46.
