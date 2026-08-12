@@ -409,7 +409,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Test comparativo nuevo backend↔frontend (test_zonas_en_sync_con_el_frontend: parsea lib/ciudades.ts y compara número a número — truena si se olvida un lado del duplicado consciente). Tests que usaban Medellín como zona inválida pasan a Palmira.
 - Seed: +2 reportes en Medellín (Simón perdido en Laureles ↔ avistado en El Poblado — par de coincidencia). 19 reportes, determinista (doble corrida verificada). Prod NO se toca (sin cambio de esquema; el seed jamás corre contra prod).
 
-## 2026-08-12 — Feature 28: avistamientos "la vi por aquí" (commit: en revisión)
+## 2026-08-12 — Feature 28: avistamientos "la vi por aquí" (commit: 6b6caeb)
 
 - Modelo nuevo `Sighting` (tabla `sightings`: report_id FK, lat/lng, fecha, comentario ≤200, nombre opcional, creado_en) — SIN autoría: avisar no requiere registro (decisión de la feature: en emergencia, cada fricción es una pista perdida).
 - Endpoints: POST/GET `/api/reports/{id}/avistamientos` — 201 solo en reportes perdido+activo (409 en encontrado/reunido con mensaje en español, 404 inexistente, 422 comentario vacío); listado por fecha del avistamiento desc.
