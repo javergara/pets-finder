@@ -162,3 +162,17 @@ Revisión independiente sobre `develop` @ `e2e3853` (+ `b3a55c6` chore de status
 - `feature_list.json`: `05-listado-reportes` a `done` con edición puntual sobre la línea 61; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0. DB dejada en el estado limpio del seed.
 
 Menor recurrente para la sesión principal: actualizar "(en revisión)" de la entrada de `changes.md` al hash (`e2e3853`) al commitear.
+
+## Veredicto del revisor — feature 06 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `e20938c`. Evidencia ejecutable de esta sesión:
+
+- **`bash init.sh` corrido de verdad: verde completo** — tests de API en verde y 42/42 de web (10 suites), lint/formato limpios.
+- **Acceptance 1 (hrefs exactos)**: `contacto.test.ts` asevera los strings completos (`https://wa.me/573001234567?text=Hola`, `tel:+573001234567`), incluyendo no duplicar el indicativo (`573001234567` entra tal cual), limpieza de `+`/espacios/guiones y URL-encoding del mensaje; `ReporteDetalle.test.tsx` asevera el prefijo exacto `https://wa.me/573001234561?text=` con el teléfono del seed normalizado y el `tel:+573001234561` literal.
+- **Acceptance 2 (mensaje menciona reporte y app)**: el test del componente decodifica el `?text=` y asevera "Rocky" y "Reencuentro"; tests unitarios cubren ambas variantes por tipo.
+- **Acceptance 3 (mini-mapa con el pin)**: test del componente (posición dentro del lienzo + `bg-danger` por tipo) **más comprobación numérica propia del revisor**: replicando `posicionEnMapa` para el reporte 1 del seed (Rocky, Armenia, coords confirmadas en DB: 4.540, -75.680) la posición interpolada es exactamente `left=58.3333%`, `top=44.4444%` — coincide con el valor esperado calculado a mano contra el bounding box de Armenia.
+- **Extra (estado reunido)**: test presente — franja "Esta mascota ya se reencontró con su familia. 💚" y cero botones de contacto. Consistente con el tono del producto: celebración, nunca lenguaje de fracaso, y sin fricción inútil (contactar por una mascota ya reencontrada no tiene sentido).
+- Consistencia con ADR 0005 §3: el contacto es exactamente wa.me + tel:, sin chat interno ni dependencia nueva alguna (el commit no toca package.json). `target="_blank" rel="noreferrer"` en WhatsApp. Ruta `/reporte/:id` registrada. Funciones de `lib/contacto.ts` puras como pide conventions. Entrada de la feature en `changes.md`.
+- `feature_list.json`: `06-detalle-contacto` a `done` con edición puntual sobre la línea 73; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: actualizar "(en revisión)" de la entrada de `changes.md` al hash (`e20938c`) al commitear.

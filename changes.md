@@ -238,7 +238,7 @@ Cambios importantes con fecha y referencia a commit. Granular y técnico — el 
 - Ruta `/reportes` en App.tsx.
 - Tests: `Reportes.test.tsx` (4: render con datos por tarjeta usando within, filtros re-consultan con el payload exacto, tarjeta navega a /reporte/:id, estado vacío con acción). Web: 31.
 
-## 2026-08-12 — 06-detalle-contacto (en revisión)
+## 2026-08-12 — 06-detalle-contacto — commit e20938c
 
 - `lib/contacto.ts`: `urlWhatsApp` (normaliza a 57+10 dígitos, mensaje URL-encoded), `urlTelefono` (tel:+57...), `mensajeContacto` (menciona el reporte y la app, con variante por tipo). Funciones puras.
 - `components/ContactoBotones.tsx`: "Contactar por WhatsApp" (target _blank) + "Llamar".
