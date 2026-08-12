@@ -334,3 +334,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Seed local: 16 de 17 reportes con características coherentes con sus historias (el loro queda sin ellas — no aplican).
 - Migración de producción: ALTER TABLE aditivo (3 columnas nullable, IF NOT EXISTS) + backfill por id de los reportes del seed con guarda `AND raza IS NULL` — pendiente de autorización explícita del usuario ANTES de mergear a main (el código nuevo consulta columnas que aún no existen en prod).
 - Tests: +3 API (persistencia, 422 tamano inválido, filtros exactos/combinados/nulls visibles) y +3 web (selects por especie, payload, filtros re-consultan). API 64, web 55.
+
+## 2026-08-12 — fix: entrar-o-crear cuenta — commit 353c8ec (bug de producción reportado por el usuario)
+
+- Bug: la sesión vive solo en localStorage; al perderse (otro navegador/dispositivo, storage limpio) el usuario iba a /registro y su correo respondía 409 "ya existe" — bloqueado sin forma de volver a entrar.
+- Fix: POST /api/users es ahora "entrar o registrar": correo existente → devuelve ESA cuenta con 200 (sin editar el perfil); correo nuevo → 201. Email normalizado a minúsculas en ambas ramas.
+- Copy: "Entra o crea tu cuenta". Tests: +2 API (reingreso misma fila, normalización) y el caso 409 del frontend reemplazado por reingreso exitoso. API 65, web 56.
