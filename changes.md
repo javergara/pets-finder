@@ -426,7 +426,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Tests: tests/api/test_organizaciones.py (11) + 13 en 3 archivos Vitest. bash init.sh verde: 89 API + 80 web; build de prod limpio.
 - ⚠️ Migración prod pendiente ANTES del merge: CREATE TABLE organizaciones (autorizada en el plan aprobado).
 
-## 2026-08-12 — Feature 33: necesidades — pedir y cubrir ayuda concreta (commit: en revisión)
+## 2026-08-12 — Feature 33: necesidades — pedir y cubrir ayuda concreta (commit: 3dadbe5)
 
 - Segunda parte del plan aprobado. Modelo `Necesidad` (tabla necesidades: organizacion_id FK, categoria alimento|medicinas|insumos|voluntarios|hogar_de_paso|dinero|otro, descripcion ≤300, estado pendiente|cubierta, cubierta_en).
 - Endpoints anidados en /api/organizaciones/{id}/necesidades: POST (solo autor de la org, 403), GET (pendientes primero — estado desc aprovecha p>c alfabético, luego id desc), POST .../{nid}/cubierta (solo autor, 409 doble, 404 si la necesidad es de otra org). `OrganizacionOut.necesidades_pendientes` calculado (query agregada, sin N+1) en listado y detalle.
