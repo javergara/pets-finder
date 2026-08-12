@@ -372,9 +372,10 @@ def main() -> None:
         session.commit()
         activos = sum(1 for r in reports if r.estado == "activo")
         reunidos = len(reports) - activos
+        destino = "Postgres remoto" if engine.dialect.name == "postgresql" else "data/app.db"
         print(
             f"Seed listo: {len(users)} usuarios, {len(reports)} reportes "
-            f"({activos} activos, {reunidos} reunidos) en data/app.db"
+            f"({activos} activos, {reunidos} reunidos) en {destino}"
         )
     finally:
         session.close()
