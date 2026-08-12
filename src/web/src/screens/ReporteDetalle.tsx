@@ -60,11 +60,13 @@ export function ReporteDetalle() {
         ← Volver
       </button>
 
+      {/* La foto completa, sin recorte (object-contain con tope de alto): las
+          señas de la mascota pueden estar justo en lo que un crop 4:3 corta. */}
       {reporte.foto_url && (
         <img
           src={mediaUrl(reporte.foto_url)}
           alt={`Foto del reporte de ${titulo}`}
-          className="aspect-4/3 w-full rounded-[22px] border border-line object-cover"
+          className="max-h-[75vh] w-full rounded-[22px] border border-line bg-surface-alt object-contain"
         />
       )}
 

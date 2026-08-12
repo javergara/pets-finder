@@ -372,3 +372,10 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `main.py`: `SKIP_DB_CREATE_ALL=1` salta `create_all` en el lifespan (cold start más corto en prod; esquema ya existente). Sin la env var todo sigue igual.
 - `index.html`: título `petfinder-col`, `lang="es"`. `public/favicon.svg`: ícono propio (huella #f7f3ea sobre #1f4d3a, tokens del design system) — reemplaza el SVG por defecto de Vercel/Vite que se veía en la pestaña.
 - Tests: `tests/api/test_arranque.py` (+2: create_all por defecto / omitido con la variable), `lib/imagen.test.ts` (+3: fallback jsdom, reescala 4000x3000→1280x960 con JPEG más pequeño, no-infla), `FotoUpload.test.tsx` (+1: sube la versión comprimida). `bash init.sh` verde: 70 API + 64 web.
+
+## 2026-08-12 — Fix: la foto del detalle y el preview de subida ya no se recortan
+
+- Reporte del usuario con screenshot: en el detalle, una foto vertical perdía cabeza/patas — `aspect-4/3` + `object-cover` forzaban un crop.
+- `ReporteDetalle.tsx`: la foto pasa a `object-contain` con `max-h-[75vh]` y fondo `bg-surface-alt` (la imagen completa siempre, sin recorte; las señas de la mascota pueden estar justo en lo cortado).
+- `FotoUpload.tsx`: el preview igual (`object-contain`, `max-h-80`) — debe mostrar tal cual quedará la foto, no una versión 4:3 engañosa.
+- Las tarjetas del listado conservan el crop 4:3 (uniformidad de galería; la foto completa está a un click en el detalle). Sin cambios de comportamiento: `bash init.sh` verde (70 API + 64 web).
