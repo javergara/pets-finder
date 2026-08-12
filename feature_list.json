@@ -243,6 +243,20 @@
         "En el detalle, el botón de eliminar solo aparece para el autor, exige confirmación en dos pasos y al confirmar llama al API y navega fuera del detalle",
         "bash init.sh en verde"
       ]
+    },
+    {
+      "id": "19-optimizacion-carga-y-tab",
+      "title": "Optimización de carga (fotos) y branding de la pestaña",
+      "description": "Pedido del usuario tras el diagnóstico de lentitud: (a) comprimir las fotos en el navegador antes de subirlas (canvas a máx 1280px JPEG, con fallback al archivo original si el navegador no puede), (b) carga perezosa de las fotos del listado (img loading=lazy en ReporteCard, antes background-image que carga siempre), (c) omitir create_all en el arranque de producción con SKIP_DB_CREATE_ALL=1 para recortar el arranque en frío, y (d) branding de la pestaña: título petfinder-col y favicon propio (huella sobre fondo forest) en vez del rayo por defecto de Vercel.",
+      "status": "done",
+      "depends_on": ["18-eliminar-reporte"],
+      "acceptance": [
+        "FotoUpload comprime la foto con lib/imagen.ts antes de llamar a subirFoto; si la compresión no aplica (navegador sin canvas, o el resultado no es más pequeño) sube el archivo original (tests)",
+        "Las fotos de las tarjetas del listado son <img loading=\"lazy\"> con alt descriptivo (antes background-image)",
+        "Con SKIP_DB_CREATE_ALL=1 el lifespan no ejecuta create_all; sin la variable sigue ejecutándolo (tests)",
+        "El título de la pestaña es petfinder-col y public/favicon.svg es el ícono propio (ya no el SVG por defecto de Vercel/Vite)",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }

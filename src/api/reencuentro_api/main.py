@@ -19,6 +19,14 @@ async def lifespan(_app: FastAPI):
     # Diagnóstico visible en los logs de la función (Vercel): qué DB resolvió el
     # entorno. Si aparece "sqlite" en producción, faltan las env vars de Supabase.
     logger.warning("Arranque — dialecto de DB: %s", engine.dialect.name)
+    # SKIP_DB_CREATE_ALL=1 (producción, feature 19): el esquema de prod ya existe
+    # y no cambia solo — saltarse los round-trips de verificación de create_all
+    # recorta el arranque en frío del serverless. Sin la variable (dev/tests),
+    # create_all sigue creando el esquema como siempre.
+    if os.environ.get("SKIP_DB_CREATE_ALL", "").strip() == "1":
+        logger.warning("SKIP_DB_CREATE_ALL=1 — se omite create_all en el arranque")
+        yield
+        return
     # Arranque resiliente: si create_all falla (p. ej. SQLite sobre el filesystem
     # de solo lectura de serverless porque faltan las env vars), la app igual
     # sirve /health y cada endpoint de datos falla por request con error claro —
