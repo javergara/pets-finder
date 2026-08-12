@@ -91,16 +91,29 @@ describe('Registro', () => {
     await screen.findByText('Landing stub');
   });
 
-  it('si el correo ya está registrado, muestra el mensaje del backend y no navega', async () => {
+  it('con un correo ya registrado ENTRA a esa cuenta (bug de producción: antes era 409)', async () => {
+    const setActiveUserIdSpy = vi.spyOn(session, 'setActiveUserId');
+    // El backend devuelve la cuenta existente (200) — el frontend no distingue.
+    vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(7));
+
+    renderConRouter();
+    llenarFormulario();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await screen.findByText('Landing stub');
+    expect(setActiveUserIdSpy).toHaveBeenCalledWith(7);
+  });
+
+  it('si el backend falla de verdad, muestra el mensaje y no navega', async () => {
     vi.mocked(client.registrarUsuario).mockRejectedValue(
-      new client.ApiError('Ya existe una cuenta con el correo ana@example.com'),
+      new client.ApiError('No pudimos crear tu cuenta. Intenta de nuevo.'),
     );
 
     renderConRouter();
     llenarFormulario();
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
-    await screen.findByText('Ya existe una cuenta con el correo ana@example.com');
+    await screen.findByText('No pudimos crear tu cuenta. Intenta de nuevo.');
 
     expect(screen.queryByText('Landing stub')).not.toBeInTheDocument();
   });

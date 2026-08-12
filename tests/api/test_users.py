@@ -20,20 +20,37 @@ def test_registrar_usuario_devuelve_201_con_el_perfil(client, db_session):
     assert cuerpo["barrio"] == "La Castellana"
 
 
-def test_registrar_usuario_con_email_duplicado_devuelve_409_en_espanol(client, db_session):
+def test_email_existente_entra_a_la_cuenta_en_vez_de_409(client, db_session):
+    """Regresión del bug de producción: la sesión vive en localStorage; si se
+    pierde, el mismo formulario debe DEVOLVER la cuenta existente (200) para
+    volver a entrar — antes respondía 409 y el usuario quedaba bloqueado."""
     user = User(nombre="Ana", email="ana@example.co", ciudad="Pereira")
     db_session.add(user)
     db_session.commit()
 
     respuesta = client.post(
         "/api/users",
-        json={"nombre": "Otra Ana", "email": "ana@example.co"},
+        json={"nombre": "Otro Nombre", "email": "ana@example.co"},
     )
 
-    assert respuesta.status_code == 409
-    detalle = respuesta.json()["detail"]
-    assert "ana@example.co" in detalle
-    assert "Ya existe una cuenta" in detalle
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["id"] == user.id
+    # Entrar no edita el perfil: conserva el nombre original.
+    assert cuerpo["nombre"] == "Ana"
+    # Y no creó una fila nueva.
+    assert db_session.query(User).count() == 1
+
+
+def test_el_email_se_normaliza_a_minusculas(client, db_session):
+    creacion = client.post("/api/users", json={"nombre": "Ana", "email": "Ana@Example.co"})
+    assert creacion.status_code == 201
+    assert creacion.json()["email"] == "ana@example.co"
+
+    # Reingresar con otra capitalización entra a la misma cuenta.
+    reingreso = client.post("/api/users", json={"nombre": "Ana", "email": "ANA@example.CO"})
+    assert reingreso.status_code == 200
+    assert reingreso.json()["id"] == creacion.json()["id"]
 
 
 def test_registrar_usuario_es_recuperable_via_get(client, db_session):
