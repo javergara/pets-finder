@@ -1,0 +1,10 @@
+# Lo que Vercel no necesita para construir ni ejecutar (frontend + función API).
+.venv
+node_modules
+tests
+design
+progress
+memory
+.claude
+*.md
+!README.md

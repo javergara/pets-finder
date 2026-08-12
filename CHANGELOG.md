@@ -2,9 +2,15 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [Unreleased] — 2.1.0 (preparación del deploy real)
 
-Pendiente: `11-despliegue` (configuración Vercel + Render y guía de deploy).
+### Added
+- **`12-persistencia-supabase`** (ADR 0006): Postgres + Storage de Supabase como persistencia gratuita — API sin estado, fotos al bucket con URL pública absoluta, fallback local intacto para dev.
+- **`13-api-vercel-serverless`** (ADR 0007): la API corre como función serverless en el mismo proyecto de Vercel (`api/index.py`) — cero tarjetas de crédito (Render eliminado tras exigirla), same-origin sin CORS ni `VITE_API_BASE_URL`, auto-deploy total con cada push a `main`.
+- **`14-mapa-leaflet`** (ADR 0008): mapa real con Leaflet + OpenStreetMap (gratis, sin API key) en `/mapa`, el detalle y el formulario — pins por color, click con lat/lng reales, equivalente accesible por pin; se elimina la interpolación propia (`lib/mapa.ts`).
+
+### Fixed
+- El letrero de la landing ya no dice "Eje Cafetero": el alcance es todo el país.
 
 ## [2.0.0] - 2026-08-12
 

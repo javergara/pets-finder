@@ -82,7 +82,9 @@ describe('ReporteDetalle', () => {
     );
   });
 
-  it('el mini-mapa muestra el pin en la posición del reporte', async () => {
+  it('el mini-mapa incluye el pin del reporte con su color por tipo', async () => {
+    // Los tiles y la posición real los pinta Leaflet en el navegador (no corre
+    // en jsdom); el contrato testeable es el equivalente accesible del pin.
     vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
 
     renderDetalle();
@@ -90,15 +92,6 @@ describe('ReporteDetalle', () => {
     const pin = await screen.findByRole('button', {
       name: 'Ubicación del reporte de Rocky',
     });
-    // El centro del bounding box de Armenia no cae en el centro exacto del
-    // lienzo (el bounding box no es simétrico respecto al centro declarado),
-    // pero la posición interpolada debe estar dentro del lienzo.
-    const left = parseFloat(pin.style.left);
-    const top = parseFloat(pin.style.top);
-    expect(left).toBeGreaterThan(0);
-    expect(left).toBeLessThan(100);
-    expect(top).toBeGreaterThan(0);
-    expect(top).toBeLessThan(100);
     expect(pin.className).toContain('bg-danger');
   });
 

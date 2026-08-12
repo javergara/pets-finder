@@ -94,25 +94,16 @@ describe('ReportarMascota — envío', () => {
     });
   }
 
-  it('publica un reporte perdido con las coords del pin puesto por click en el mapa', async () => {
+  it('publica un reporte perdido con el pin (por defecto, el centro de la zona)', async () => {
+    // El click sobre el mapa real (Leaflet) entrega lat/lng directas y no corre
+    // en jsdom (guard MODE==='test' en MapaLienzo) — se verifica manualmente en
+    // navegador (acceptance 5 de la feature 14). Aquí se cubre el contrato: el
+    // payload lleva las coords del pin, que arranca en el centro declarado de la
+    // zona elegida (lib/ciudades.ts).
     vi.mocked(client.crearReporte).mockResolvedValue(crearReporteRespuesta());
-    // jsdom no calcula layout: lienzo simulado de 100×100 px en el origen.
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-      left: 0,
-      top: 0,
-      width: 100,
-      height: 100,
-      right: 100,
-      bottom: 100,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    } as DOMRect);
 
     renderReportar('perdido');
     llenarMinimo();
-    // Click en el centro exacto del lienzo → centro del bounding box de Armenia.
-    fireEvent.click(screen.getByTestId('mapa-lienzo'), { clientX: 50, clientY: 50 });
     fireEvent.click(screen.getByRole('button', { name: 'Publicar reporte de perdida' }));
 
     await screen.findByText('Reporte publicado');
@@ -123,8 +114,8 @@ describe('ReportarMascota — envío', () => {
         user_id: 1,
         tipo: 'perdido',
         zona: 'Armenia',
-        lat: expect.closeTo((caja.latMin + caja.latMax) / 2, 3),
-        lng: expect.closeTo((caja.lngMin + caja.lngMax) / 2, 3),
+        lat: caja.centroLat,
+        lng: caja.centroLng,
       }),
     );
     // Sin situacion en un perdido (el backend lo rechazaría con 422).

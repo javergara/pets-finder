@@ -1,72 +1,67 @@
 # Despliegue — Reencuentro
 
-Arquitectura (ADR 0006): **frontend estático en Vercel** + **API FastAPI sin estado en Render (free tier)** + **persistencia en Supabase** (Postgres para la base de datos, Storage para las fotos). Todo el tier gratuito.
+Arquitectura (ADRs 0006 + 0007): **todo en Vercel + Supabase, sin tarjetas de crédito**. Un solo proyecto de Vercel sirve el frontend estático y la API FastAPI como función serverless; la persistencia (Postgres + fotos) vive en Supabase. Cada push a `main` redespliega todo automáticamente.
 
 ```
-Navegante ──▶ Vercel (src/web, build de Vite)          ← auto-deploy con cada push a main
-                 │  fetch a VITE_API_BASE_URL
-                 ▼
-              Render (src/api, uvicorn, SIN disco)     ← auto-deploy con cada push a main
-                 ├─ DATABASE_URL ──▶ Supabase Postgres (500 MB gratis)
-                 └─ fotos ──▶ Supabase Storage, bucket público "fotos" (1 GB gratis)
+Navegante ──▶ Vercel (un solo proyecto, plan Hobby gratis)
+                 ├─ estático: build de src/web (Vite)
+                 └─ /api/* ──▶ función serverless Python (api/index.py → FastAPI)
+                                  ├─ DATABASE_URL ──▶ Supabase Postgres (500 MB gratis)
+                                  └─ fotos ──▶ Supabase Storage, bucket "fotos" (1 GB gratis)
 ```
 
-En dev local nada de esto aplica: sin las env vars de Supabase, la app usa SQLite + filesystem exactamente como siempre (`bash dev.sh`).
+En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `http://127.0.0.1:8000`).
 
-## 0. Prerrequisito: repo en GitHub
-
-Vercel y Render despliegan desde GitHub. Al publicar el repo, **pushear todo el archivo del proyecto**:
-
-```bash
-git remote add origin git@github.com:TU_USUARIO/reencuentro.git
-git push -u origin main develop adopta-v1 --tags   # adopta-v1 y adopta-v1.0.0 incluidos: respaldo remoto de la era Adopta
-```
+> Repo remoto: `git@github.com:javergara/pets-finder.git`, con rama por defecto `main`. Si se re-publica en otro remoto, pushear también el archivo de la era Adopta: `git push -u origin main develop adopta-v1 --tags`.
 
 ## 1. Supabase (la persistencia)
 
-1. Crear el proyecto: desde el dashboard de Vercel → **Storage → Marketplace → Supabase** (o directo en [supabase.com](https://supabase.com), gratis).
-2. **Base de datos**: en Settings → Database, copiar el **connection string del pooler** (modo *Transaction*, puerto 6543): `postgresql://postgres.xxxx:PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres`. Será el `DATABASE_URL` de Render.
-3. **Fotos**: en Storage → New bucket → nombre **`fotos`**, marcado como **Public bucket** (las fotos de reportes son públicas por diseño).
-4. En Settings → API copiar: la **URL del proyecto** (`https://xxxx.supabase.co`) y la **`service_role` key** (⚠️ solo para el backend — nunca en Vercel ni en el código).
+1. Crear el proyecto: desde el dashboard de Vercel → **Storage → Marketplace → Supabase** (o directo en [supabase.com](https://supabase.com), gratis, sin tarjeta).
+2. **Base de datos**: en Settings → Database, copiar el **connection string del pooler** (modo *Transaction*, puerto 6543): `postgresql://postgres.xxxx:PASSWORD@aws-0-us-east-1.pooler.supabase.com:6543/postgres`.
+3. **Fotos**: Storage → New bucket → nombre **`fotos`**, marcado como **Public bucket**.
+4. En Settings → API copiar: la **URL del proyecto** (`https://xxxx.supabase.co`) y la **`service_role` key** (⚠️ secreta — solo va en env vars del servidor, nunca en el código).
 
-## 2. API en Render
+## 2. Proyecto en Vercel
 
-1. En [render.com](https://render.com): **New → Blueprint**, apuntando al repo. Render lee `render.yaml` y crea `reencuentro-api` (free tier, **sin disco** — la API es sin estado). Al crearlo pide los valores `sync: false`:
-   - `DATABASE_URL`: el connection string del pooler (paso 1.2).
-   - `SUPABASE_URL` y `SUPABASE_SERVICE_KEY`: del paso 1.4.
-   - `CORS_ORIGINS`: el dominio de Vercel (paso 3) — se puede poner un placeholder y corregirlo después.
-2. **Seed inicial** (⚠️ UNA sola vez — hace `drop_all`: re-correrlo contra producción borra los reportes reales): en la Shell del servicio:
-   ```bash
-   cd /opt/render/project/src && python scripts/seed.py
-   ```
-   Con las env vars presentes, el seed crea el esquema en Postgres y sube las fotos al bucket (URLs públicas absolutas).
+1. [vercel.com](https://vercel.com) → **Add New → Project** → importar `pets-finder`.
+2. **Root Directory: dejar la raíz del repo** (no `src/web` — el `vercel.json` de la raíz ya define el build del frontend y la función de la API). Framework preset: **Other**.
+3. **Environment Variables** (las cuatro, para Production y Preview):
 
-## 3. Frontend en Vercel
+   | Variable | Valor |
+   |---|---|
+   | `DATABASE_URL` | connection string del **pooler** (paso 1.2) |
+   | `SUPABASE_URL` | `https://xxxx.supabase.co` |
+   | `SUPABASE_SERVICE_KEY` | `service_role` key |
+   | `SUPABASE_BUCKET` | `fotos` |
 
-1. En [vercel.com](https://vercel.com): **Add New → Project**, importar el repo.
-2. **Root Directory: `src/web`** (Vite autodetectado; `src/web/vercel.json` ya trae el rewrite SPA para que `/reporte/18` o `/mapa` funcionen al recargar).
-3. Env var: `VITE_API_BASE_URL` = URL pública de Render (p. ej. `https://reencuentro-api.onrender.com`), **sin barra final**.
-4. Deploy. Con el dominio asignado, volver a Render y fijar `CORS_ORIGINS` (sin barra final, comas si hay varios). Desde aquí, **cada push a `main` redespliega frontend y API automáticamente**.
+   No hace falta `VITE_API_BASE_URL` (la web llama a `/api` en el mismo dominio) ni `CORS_ORIGINS` (same-origin).
+4. **Deploy**. Desde aquí, cada push a `main` redespliega frontend y API juntos.
+
+## 3. Seed inicial (desde tu máquina)
+
+⚠️ **UNA sola vez** — hace `drop_all`: re-correrlo contra producción borra los reportes reales.
+
+```bash
+source .venv/bin/activate
+DATABASE_URL="postgresql://...pooler.supabase.com:6543/postgres" \
+SUPABASE_URL="https://xxxx.supabase.co" \
+SUPABASE_SERVICE_KEY="eyJ..." \
+python scripts/seed.py
+```
+
+Crea el esquema en Postgres y sube las 17 fotos del seed al bucket (URLs públicas absolutas).
 
 ## 4. Verificación post-deploy
 
-1. `https://<api>.onrender.com/health` → `{"status":"ok"}` (el primer request tras inactividad tarda ~30 s: el free tier duerme).
-2. `https://<api>.onrender.com/api/reports` → JSON del seed, con `foto_url` absolutas de `supabase.co`.
-3. Abrir el dominio de Vercel: la landing carga con la franja de reencuentros y las fotos (si la API está sana pero esto falla, revisar `CORS_ORIGINS`).
-4. Flujo completo: registrarse → reportar con foto y pin → verlo en `/reportes` y `/mapa` → **Manual Deploy en Render** → el reporte y su foto siguen ahí (viven en Supabase, no en el servicio).
+1. `https://tu-proyecto.vercel.app/health` → `{"status":"ok"}` (primer request tras inactividad: ~1-2 s de arranque en frío de la función).
+2. `https://tu-proyecto.vercel.app/api/reports` → JSON del seed con `foto_url` de `supabase.co`.
+3. Abrir la landing: franja de reencuentros con fotos. Navegar a `/reportes` y `/mapa`, recargar en una ruta interna (el rewrite SPA debe responder la app, no un 404).
+4. Flujo completo: registrarse → reportar con foto y pin → verlo en el listado/mapa → un **Redeploy** en Vercel → el reporte y su foto siguen ahí (viven en Supabase).
 
-## Variables de entorno (resumen)
+## Límites del tier gratuito (estimados para esta app)
 
-| Dónde | Variable | Valor |
-|---|---|---|
-| Render | `DATABASE_URL` | connection string del **pooler** de Supabase (puerto 6543) |
-| Render | `SUPABASE_URL` | `https://xxxx.supabase.co` |
-| Render | `SUPABASE_SERVICE_KEY` | `service_role` key (Settings → API) — solo backend |
-| Render | `SUPABASE_BUCKET` | `fotos` (ya en render.yaml) |
-| Render | `CORS_ORIGINS` | dominio(s) de Vercel, separados por comas |
-| Render | `PYTHON_VERSION` | `3.10.17` (ya en render.yaml) |
-| Vercel | `VITE_API_BASE_URL` | URL pública de la API en Render |
-
-## Cuándo esto deja de alcanzar
-
-Los límites del free tier de Supabase (500 MB de DB, 1 GB de fotos) cubren de sobra la emergencia. Si el proyecto crece: subir el plan de Supabase (mismo código) y/o mover la API del free tier de Render para eliminar el arranque en frío. Nada de eso requiere cambios de arquitectura — la API ya es sin estado (ADR 0006).
+- **Reportes/usuarios**: cientos de miles (una fila pesa <1 KB de los 500 MB de Postgres) — no es el cuello de botella.
+- **Fotos**: ~300-500 con fotos de celular típicas (1 GB de Storage). **Este es el límite real.**
+- **Tráfico de fotos**: ~10 GB/mes de egress en Supabase; 100 GB/mes de bandwidth en Vercel Hobby.
+- ⚠️ **El proyecto Supabase se pausa tras 1 semana sin actividad** — se reactiva con un click en su dashboard.
+- Si despega: comprimir imágenes en el upload (multiplica la capacidad ×10, mejora futura anotada) o Supabase Pro ($25/mes: 8 GB DB + 100 GB fotos).
