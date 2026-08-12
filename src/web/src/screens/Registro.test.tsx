@@ -20,24 +20,23 @@ function crearPerfil(id: number): UserProfile {
     id,
     nombre: 'Ana Martínez',
     email: 'ana@example.com',
-    ciudad: 'Bogotá',
-    barrio: 'Chapinero',
+    ciudad: 'Armenia',
+    barrio: 'La Castellana',
     lat: null,
     lng: null,
     avatar_url: null,
     bio: null,
-    creado_en: '2026-01-01T00:00:00Z',
-    home_profile: null,
-    metricas: { matches_activos: 0, visitas_agendadas: 0, apadrinamientos: 0 },
+    creado_en: '2026-08-11T00:00:00Z',
   };
 }
 
-function renderConRouter() {
+function renderConRouter(entrada = '/registro') {
   return render(
-    <MemoryRouter initialEntries={['/registro']}>
+    <MemoryRouter initialEntries={[entrada]}>
       <Routes>
         <Route path="/registro" element={<Registro />} />
-        <Route path="/cuestionario" element={<div>Cuestionario stub</div>} />
+        <Route path="/" element={<div>Landing stub</div>} />
+        <Route path="/reportar/perdido" element={<div>Reportar perdido stub</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -46,14 +45,14 @@ function renderConRouter() {
 function llenarFormulario() {
   fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'Ana Martínez' } });
   fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'ana@example.com' } });
-  fireEvent.change(screen.getByLabelText('Ciudad'), { target: { value: 'Bogotá' } });
+  fireEvent.change(screen.getByLabelText('Ciudad'), { target: { value: 'Armenia' } });
   fireEvent.change(screen.getByLabelText('Barrio (opcional)'), {
-    target: { value: 'Chapinero' },
+    target: { value: 'La Castellana' },
   });
 }
 
 describe('Registro', () => {
-  it('al completar el formulario y enviar, registra al usuario, guarda su id activo y navega a /cuestionario', async () => {
+  it('al completar el formulario y enviar, registra al usuario, guarda su id activo y navega a "/"', async () => {
     const setActiveUserIdSpy = vi.spyOn(session, 'setActiveUserId');
     vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(42));
 
@@ -61,15 +60,35 @@ describe('Registro', () => {
     llenarFormulario();
     fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
 
-    await screen.findByText('Cuestionario stub');
+    await screen.findByText('Landing stub');
 
     expect(client.registrarUsuario).toHaveBeenCalledWith({
       nombre: 'Ana Martínez',
       email: 'ana@example.com',
-      ciudad: 'Bogotá',
-      barrio: 'Chapinero',
+      ciudad: 'Armenia',
+      barrio: 'La Castellana',
     });
     expect(setActiveUserIdSpy).toHaveBeenCalledWith(42);
+  });
+
+  it('con ?volver=/reportar/perdido, tras registrarse vuelve al formulario de reporte', async () => {
+    vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(7));
+
+    renderConRouter('/registro?volver=/reportar/perdido');
+    llenarFormulario();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await screen.findByText('Reportar perdido stub');
+  });
+
+  it('un ?volver= externo (URL absoluta) se ignora y navega a "/"', async () => {
+    vi.mocked(client.registrarUsuario).mockResolvedValue(crearPerfil(8));
+
+    renderConRouter('/registro?volver=https://evil.example.com');
+    llenarFormulario();
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }));
+
+    await screen.findByText('Landing stub');
   });
 
   it('si el correo ya está registrado, muestra el mensaje del backend y no navega', async () => {
@@ -83,6 +102,6 @@ describe('Registro', () => {
 
     await screen.findByText('Ya existe una cuenta con el correo ana@example.com');
 
-    expect(screen.queryByText('Cuestionario stub')).not.toBeInTheDocument();
+    expect(screen.queryByText('Landing stub')).not.toBeInTheDocument();
   });
 });

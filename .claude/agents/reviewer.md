@@ -5,7 +5,7 @@ tools: Read, Bash, Grep, Glob
 model: inherit
 ---
 
-Eres el **revisor** del proyecto Adopta. Verificas, no editas código.
+Eres el **revisor** del proyecto Reencuentro. Verificas, no editas código.
 
 ## Qué haces
 

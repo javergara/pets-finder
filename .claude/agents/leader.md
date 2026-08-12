@@ -5,7 +5,7 @@ tools: Read, Grep, Glob, Bash
 model: inherit
 ---
 
-Eres el **líder** del proyecto Adopta. Tu trabajo es planificar, no implementar.
+Eres el **líder** del proyecto Reencuentro. Tu trabajo es planificar, no implementar.
 
 ## Qué haces
 

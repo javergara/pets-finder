@@ -1,16 +1,22 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiError, registrarUsuario } from '../api/client';
 import { setActiveUserId } from '../lib/session';
+
+// Solo rutas internas: un `?volver=` con URL absoluta externa se ignora.
+function destinoSeguro(volver: string | null): string {
+  return volver && volver.startsWith('/') ? volver : '/';
+}
 
 export function Registro() {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
-  const [ciudad, setCiudad] = useState('Bogotá');
+  const [ciudad, setCiudad] = useState('Armenia');
   const [barrio, setBarrio] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,7 +35,7 @@ export function Registro() {
         barrio: barrio.trim() || undefined,
       });
       setActiveUserId(perfil.id);
-      navigate('/cuestionario');
+      navigate(destinoSeguro(searchParams.get('volver')));
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : 'No pudimos crear tu cuenta. Intenta de nuevo.',
@@ -43,8 +49,8 @@ export function Registro() {
     <div className="mx-auto mt-8 max-w-md p-6">
       <h1 className="mb-2 font-display text-2xl text-ink">Crea tu cuenta</h1>
       <p className="mb-6 text-sm text-muted">
-        Solo necesitamos unos datos para empezar. Después de esto te haremos unas preguntas sobre tu
-        hogar para mostrarte mascotas más afines.
+        Solo necesitamos unos datos para poder ligar tus reportes a ti y que puedas marcarlos como
+        reunidos cuando tu mascota vuelva a casa.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">

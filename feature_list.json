@@ -1,229 +1,151 @@
 {
-  "$comment": "Alcance del proyecto Adopta. Regla dura: como máximo un item en status 'in_progress' a la vez (verificado por init.sh). milestone: 'mvp' = alcance del primer MVP local (Fase 7); 'post-mvp' = siguiente en la cola tras el MVP; 'backlog' = fuera de alcance por ahora, ver docs/product-research.md §7.",
+  "project": "Reencuentro",
+  "note": "Pivot post-terremoto (Eje Cafetero, 2026-08-10). La versión anterior del proyecto (Adopta, adopción de mascotas, 15 features done) vive completa en la rama git 'adopta-v1' y el tag 'adopta-v1.0.0'. Regla dura: máximo un item in_progress.",
   "items": [
     {
-      "id": "01-foundations-data",
-      "title": "Fundaciones y datos",
-      "description": "Esquema SQLite (User, HomeProfile, Shelter, Pet, Swipe, Match), seed determinista (scripts/seed.py) de mascotas/refugios/adoptantes con HomeProfile sintético y fotos con fallback offline, API FastAPI base (health check, listar mascotas).",
-      "status": "done",
-      "milestone": "mvp",
+      "id": "01-pivot-fundaciones",
+      "title": "Fundaciones del pivot: archivo, borrado, rename y harness",
+      "description": "Rama adopta-v1 + tag como archivo permanente del trabajo de adopción. Borrado del código/tests/diseño específicos de adopción, rename del paquete adopta_api a reencuentro_api, harness actualizado (feature_list, CLAUDE.md, AGENTS.md, CHECKPOINTS, docs, ADR 0005, CHANGELOG 2.0.0 en Unreleased), API mínima (health + users) y web mínima (landing de emergencia v1 + registro) en verde.",
+      "status": "in_progress",
       "depends_on": [],
       "acceptance": [
-        "python scripts/seed.py corre sin red (fallback a placeholders locales) y produce data/app.db con datos deterministas (misma seed = mismos datos)",
-        "Existen al menos 15 mascotas, 3 refugios y 5 adoptantes (con HomeProfile) en el seed",
-        "GET /api/pets devuelve la lista de mascotas disponibles desde SQLite",
-        "Tests de persistencia en tests/api/ pasan (crear/leer las 6 entidades)"
+        "git branch lista adopta-v1 y git tag lista adopta-v1.0.0, ambos apuntando al último commit de la era Adopta (cde337f)",
+        "No queda ninguna referencia a adopta_api ni a features de adopción en src/, scripts/, tests/ (los docs históricos en progress/history.md y CHANGELOG pueden mencionarla)",
+        "bash init.sh pasa en verde con la API mínima (POST/GET /api/users, /health) y la web mínima (landing de emergencia con 2 CTAs + registro con ?volver=)",
+        "python3 scripts/validate_feature_list.py sale 0 con esta lista"
       ]
     },
     {
-      "id": "02-swipe-deck",
-      "title": "Deck de descubrimiento (swipe)",
-      "description": "Deck de swipe conectado a la API: like ('Me interesa') registra Swipe y crea Match de inmediato (no mutuo); pass ('Ahora no', nunca 'rechazar') solo registra Swipe. Gestos de arrastre + botones accesibles equivalentes, según design/prototypes/HANDOFF.md §5.2.",
-      "status": "done",
-      "milestone": "mvp",
-      "depends_on": ["01-foundations-data"],
+      "id": "02-reportes-backend",
+      "title": "Backend de reportes: modelo Report, zonas y CRUD con filtros",
+      "description": "Modelo único Report (tipo perdido|encontrado, campos condicionales nombre_mascota/situacion), services/ciudades.py como fuente de verdad de las 6 zonas + bounding box nacional, schemas con validación condicional, endpoints POST/GET/PUT con filtros (tipo, especie, zona, estado default activo, orden fecha_evento desc), y seed determinista nuevo (~16 reportes en las zonas afectadas, un par perdido/encontrado diseñado como coincidencia obvia, 2 reunidos).",
+      "status": "todo",
+      "depends_on": ["01-pivot-fundaciones"],
       "acceptance": [
-        "POST /api/swipes registra dirección like|pass y, si es like, crea un Match automáticamente",
-        "El deck en el frontend consume GET /api/pets y excluye mascotas ya swipeadas por el adoptante activo",
-        "Swipe por gesto (arrastre) y por botones (equivalente de teclado/click) producen el mismo resultado",
-        "Ninguna copy de la UI usa lenguaje de descarte ('rechazar', 'nope')"
+        "POST /api/reports crea reportes de ambos tipos; 422 si situacion falta en 'encontrado' o sobra en 'perdido', o si la zona no es válida",
+        "GET /api/reports filtra por tipo/especie/zona, excluye reunidos por defecto y ordena por fecha_evento descendente",
+        "PUT /api/reports/{id} devuelve 403 en español si el user_id no es el autor; GET de id inexistente devuelve 404 en español",
+        "python3 scripts/seed.py es determinista (dos corridas seguidas producen los mismos datos) y funciona sin red (fallback SVG)",
+        "Los bounding boxes de services/ciudades.py contienen el centro declarado de cada zona (test)"
       ]
     },
     {
-      "id": "03-pet-profile",
-      "title": "Ficha de mascota",
-      "description": "Vista de detalle de una mascota (galería, historia, salud, identidad, afinidad con explicación, chips de carácter), accesible desde la carta del deck o desde matches.",
-      "status": "done",
-      "milestone": "mvp",
-      "depends_on": ["01-foundations-data"],
+      "id": "03-upload-fotos",
+      "title": "Subida de fotos: endpoint multipart y componente FotoUpload",
+      "description": "POST /api/uploads con UploadFile: valida content-type (jpeg/png/webp) y tamaño (≤5 MB por chunks), guarda con nombre uuid derivando la extensión del content-type (nunca del filename del cliente) en data/media/uploads/, responde foto_url servible bajo /media. Componente FotoUpload.tsx con input file, preview local y estados de carga/error.",
+      "status": "todo",
+      "depends_on": ["01-pivot-fundaciones"],
       "acceptance": [
-        "GET /api/pets/{id} devuelve el detalle completo de la mascota",
-        "La ficha muestra el score de afinidad con su frase explicativa (nunca el número solo)",
-        "Ruta /mascota/:id navegable desde el deck y desde matches"
+        "Subir un jpeg válido responde 201 con foto_url bajo /media/uploads/ y el archivo queda en disco con nombre uuid distinto del original",
+        "Content-type no permitido devuelve 415 y archivo de más de 5 MB devuelve 413, ambos en español",
+        "FotoUpload muestra preview local tras elegir archivo y entrega el foto_url al formulario padre al terminar la subida"
       ]
     },
     {
-      "id": "04-matches",
-      "title": "Mis matches",
-      "description": "Listado de matches del adoptante (creados por swipe like), con badge de afinidad, estado y acceso a la ficha de la mascota.",
-      "status": "done",
-      "milestone": "mvp",
-      "depends_on": ["02-swipe-deck"],
+      "id": "04-reportar-ui",
+      "title": "Reportar mascota: landing de emergencia, formulario y pin en el mapa",
+      "description": "App.tsx definitivo con la nav de Reencuentro, LandingEmergencia con CTAs gigantes y accesos a listado/mapa, ReportarMascota como un componente con dos rutas (/reportar/perdido y /reportar/encontrado) y campos condicionales, selección de ubicación con pin por click sobre el mapa propio (MapaLienzo + inversa coordsDesdeFraccion en lib/mapa.ts parametrizado por zona), selector de zona (6 zonas + Otro lugar sobre el mapa nacional), y gate de registro con ?volver=.",
+      "status": "todo",
+      "depends_on": ["02-reportes-backend", "03-upload-fotos"],
       "acceptance": [
-        "GET /api/matches?user_id= devuelve los matches del adoptante ordenados por fecha de creación descendente",
-        "Cada match muestra nombre, foto, afinidad y estado",
-        "Estado vacío cuando el adoptante no tiene matches, con enlace a Descubrir",
-        "Test de integración: hacer like a una mascota la hace aparecer en /api/matches"
+        "Un usuario registrado crea un reporte end-to-end con foto subida y pin puesto por click, y el backend lo persiste con las coords del pin",
+        "Un usuario sin registrar que intenta reportar pasa por /registro?volver= y vuelve al formulario al terminar",
+        "El formulario muestra nombre_mascota solo en 'perdido' y situacion solo en 'encontrado'",
+        "posicionEnMapa y coordsDesdeFraccion son inversas (test de roundtrip) para todas las zonas"
       ]
     },
     {
-      "id": "05-affinity-score",
-      "title": "Score de compatibilidad",
-      "description": "Cálculo de afinidad HomeProfile↔Pet con la ponderación de docs/product-research.md §5 (energía/rutina 30%, tamaño/vivienda 20%, convivencia 20%, preferencia especie/tamaño 15%, experiencia/presupuesto 15%) y las reglas duras de incompatibilidad (niños/gatos).",
-      "status": "done",
-      "milestone": "mvp",
-      "depends_on": ["01-foundations-data"],
+      "id": "05-listado-reportes",
+      "title": "Listado de reportes con filtros",
+      "description": "/reportes: galería de tarjetas con foto grande (ReporteCard, adaptación del estilo visual de las tarjetas de mascota de adopta-v1), badge por tipo (perdido=danger, encontrado=forest), filtros por tipo/especie/zona aplicados al backend, orden por fecha.",
+      "status": "todo",
+      "depends_on": ["02-reportes-backend"],
       "acceptance": [
-        "Función de scoring pura y testeable en src/api (o skill match-scoring) que dado un HomeProfile y un Pet devuelve un entero 0-100 más la frase explicativa",
-        "Reglas duras probadas: hogar con niños + mascota no apta con niños => marcada incompatible y excluida del deck por defecto",
-        "Tests unitarios cubren al menos: caso alta afinidad, caso baja afinidad, caso regla dura activada",
-        "El deck ordena por afinidad descendente con inserción de mascotas difíciles de ubicar cada 4-5 tarjetas"
+        "El listado muestra los reportes activos del seed con su foto, tipo, especie, zona y fecha, ordenados por fecha_evento descendente",
+        "Cambiar los filtros re-consulta al backend y actualiza la galería",
+        "Cada tarjeta navega a /reporte/:id"
       ]
     },
     {
-      "id": "06-filters",
-      "title": "Filtros de descubrimiento",
-      "description": "Filtros de especie, tamaño, distancia, edad, nivel de energía y convivencia sobre el deck, aplicados al instante (design/prototypes/HANDOFF.md §5.2).",
-      "status": "done",
-      "milestone": "post-mvp",
-      "depends_on": ["02-swipe-deck"],
+      "id": "06-detalle-contacto",
+      "title": "Detalle del reporte con contacto directo",
+      "description": "/reporte/:id: foto grande, datos completos, mini-mapa con el pin, y botones de contacto directo — WhatsApp (wa.me con mensaje precargado) y llamada (tel:), con normalización del teléfono colombiano en lib/contacto.ts.",
+      "status": "todo",
+      "depends_on": ["05-listado-reportes"],
       "acceptance": [
-        "GET /api/pets acepta query params de filtro y devuelve solo coincidencias",
-        "El contador 'N perfiles cerca de ti' se actualiza al cambiar filtros",
-        "Botón 'Restablecer filtros' vuelve al estado por defecto (15 km)"
+        "Los hrefs generados son exactamente https://wa.me/57XXXXXXXXXX?text=... y tel:+57XXXXXXXXXX (tests de lib/contacto.ts y del componente)",
+        "El mensaje precargado de WhatsApp menciona el reporte (nombre o especie) y la app",
+        "El mini-mapa muestra el pin en la posición del reporte"
       ]
     },
     {
-      "id": "07-adopter-profile",
-      "title": "Perfil del adoptante",
-      "description": "Vista de 'Mi perfil': cabecera, métricas (matches activos, visitas agendadas, apadrinamientos), resumen del HomeProfile y texto 'Sobre mí'.",
-      "status": "done",
-      "milestone": "post-mvp",
-      "depends_on": ["01-foundations-data"],
+      "id": "07-mapa-reportes",
+      "title": "Mapa de reportes por zona y Todo Colombia",
+      "description": "/mapa: selector de zona (las 6 + vista Todo Colombia con el bounding box nacional), todos los reportes activos ploteados con color por tipo (perdido=danger, encontrado=forest), leyenda, y click en un pin abre una mini-tarjeta con link al detalle. Sin dependencias externas de mapas.",
+      "status": "todo",
+      "depends_on": ["05-listado-reportes"],
       "acceptance": [
-        "GET /api/users/{id} devuelve perfil + HomeProfile + métricas agregadas",
-        "La tarjeta 'Mi hogar' refleja las respuestas del cuestionario/HomeProfile sintético"
+        "Los pins usan bg-danger para perdidos y bg-forest para encontrados, y la leyenda lo explica",
+        "La vista Todo Colombia plotea reportes de todas las zonas a la vez",
+        "package.json no incorpora ninguna librería de mapas (leaflet/mapbox/google)"
       ]
     },
     {
-      "id": "08-onboarding-cuestionario",
-      "title": "Onboarding: cuestionario de hogar interactivo",
-      "description": "Flujo de registro + cuestionario de 6 pasos que crea el HomeProfile real y bloquea /descubrir hasta completarse (design/prototypes/HANDOFF.md §5.1). Reemplaza el HomeProfile sintético del seed por uno editable.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["01-foundations-data"],
+      "id": "08-coincidencias",
+      "title": "Posibles coincidencias entre perdidos y encontrados",
+      "description": "services/coincidencias.py: función pura que filtra candidatos del tipo opuesto, misma especie, misma zona y estado activo, y los ordena por distancia haversine + penalización por diferencia de fechas. GET /api/reports/{id}/coincidencias y sección 'Posibles coincidencias' en el detalle.",
+      "status": "todo",
+      "depends_on": ["06-detalle-contacto"],
       "acceptance": [
-        "POST /api/users crea un adoptante nuevo sin HomeProfile (home_profile: null en la respuesta) y rechaza con 409 un email ya registrado",
-        "PUT /api/users/{id}/home-profile crea el HomeProfile si no existe y lo reemplaza por completo si ya existe (mismo endpoint sirve para completar por primera vez y para editar desde Mi perfil)",
-        "El wizard de /cuestionario tiene 6 pasos con barra de progreso 'Paso N de 6' y no permite llegar a /descubrir sin completarlo",
-        "El frontend usa un usuario activo persistido en localStorage (no DEMO_USER_ID hardcodeado) en Descubrir, Matches, Mi perfil y Ficha de mascota, con DEMO_USER_ID como valor por defecto para no romper el flujo de los usuarios semilla",
-        "Un adoptante sin HomeProfile que intenta acceder a /descubrir, /matches o /mascota/:id es redirigido a /cuestionario; un adoptante semilla (con HomeProfile ya sembrado) accede sin fricción",
-        "Editar el HomeProfile desde /cuestionario en modo edición recalcula la afinidad mostrada de inmediato en /descubrir, sin caché que invalidar (ADR 0003)"
+        "La función pura filtra por tipo opuesto/especie/zona/estado y ordena por distancia con la fecha como penalización (tests unitarios)",
+        "El endpoint devuelve el par sembrado como coincidencia obvia en el detalle del reporte perdido del seed",
+        "La sección del detalle muestra las coincidencias con su distancia y linkea a cada una"
       ]
     },
     {
-      "id": "09-shelter-panel",
-      "title": "Panel del refugio",
-      "description": "Publicación de mascotas, revisión de solicitudes con cuestionario adjunto, agendar visita / pedir info / descartar con motivo, métricas del refugio.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["04-matches"],
+      "id": "09-reunidos",
+      "title": "Marcar como reunido, mis reportes y franja de reencuentros",
+      "description": "POST /api/reports/{id}/reunido (solo el autor, 403 si no; 409 si ya está reunido; setea resuelto_en), GET /api/reports/reunidos (contador + últimos), /mis-reportes con editar y marcar reunido, y franja de reencuentros con contador en la landing de emergencia.",
+      "status": "todo",
+      "depends_on": ["06-detalle-contacto"],
       "acceptance": [
-        "GET /api/shelters/{id} devuelve perfil + 4 métricas (mascotas_publicadas, interesados_este_mes, visitas_agendadas, adopciones_cerradas) y 404 en español si el refugio no existe",
-        "GET /api/shelters/{id}/solicitudes lista los Match de las mascotas de ese refugio con adoptante, mascota, afinidad y una etiqueta de estado calculada (Cuestionario nuevo / Sin responder · N días / Visita agendada), ordenados por creado_en descendente",
-        "GET /api/shelters/{id}/solicitudes/{match_id} muestra el cuestionario completo del adoptante (HomeProfile) y su 'Sobre mí', y devuelve 404 si el match no pertenece a ese refugio",
-        "POST /api/pets publica una mascota nueva asociada a un shelter_id existente (201) y devuelve 404 en español si el refugio no existe",
-        "La pantalla /refugio muestra la cabecera, las 4 métricas y la tabla de solicitudes; el detalle de una solicitud no incluye botones de Agendar visita / Pedir información / Descartar (quedan en 10-adoption-request-flow)",
-        "Ningún endpoint de esta feature muta Match.estado — verificado explícitamente por el revisor antes de aprobar (ADR 0002)"
+        "Marcar reunido lo saca del listado y del mapa por defecto, y sube el contador de la landing",
+        "Un usuario que no es el autor recibe 403 en español; marcarlo dos veces devuelve 409",
+        "El botón de marcar reunido solo se muestra al autor del reporte",
+        "La ruta literal /api/reports/reunidos está registrada antes que /api/reports/{report_id} y responde 200"
       ]
     },
     {
-      "id": "10-adoption-request-flow",
-      "title": "Solicitud de adopción y visita",
-      "description": "Paso posterior al match: el refugio acepta/rechaza la solicitud de adopción (no el match) y agenda visita; estados 'esperando refugio' / 'visita agendada'.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["09-shelter-panel"],
+      "id": "10-verificacion-final",
+      "title": "Verificación end-to-end y release 2.0.0",
+      "description": "Recorrido manual completo del flujo (reportar perdido con foto y pin → verlo en listado y mapa → contacto → crear encontrado cercano → coincidencia → marcar reunido → contador), greps del revisor (sin adopta en código vivo, sin librerías de mapas/chat), docs/verification.md regenerado, CHANGELOG 2.0.0 fechado, merge develop → main.",
+      "status": "todo",
+      "depends_on": [
+        "04-reportar-ui",
+        "05-listado-reportes",
+        "06-detalle-contacto",
+        "07-mapa-reportes",
+        "08-coincidencias",
+        "09-reunidos"
+      ],
       "acceptance": [
-        "El refugio puede agendar visita (desde 'solicitado' o 'en_revision'), pedir más información (desde 'solicitado') o descartar con motivo obligatorio (desde 'solicitado', 'en_revision' o 'visita_agendada') vía nuevos endpoints POST en routers/shelters.py; ninguna acción muta el match si la solicitud está en estado terminal ('adoptado'/'cerrado') o si la transición no es válida — responde 409 en español",
-        "La validación de la matriz de transiciones vive en una función pura y testeada (services/solicitudes.py::validar_transicion), no en el router; calcular_etiqueta_solicitud distingue 'en_revision' de 'solicitado' con su propia etiqueta",
-        "El motivo de descarte se persiste en Match.motivo_descarte pero nunca se expone en GET /api/matches (lado adoptante) ni en schemas/match.py — verificado con un test explícito",
-        "SolicitudDetalle.tsx muestra los 3 botones de acción con estado habilitado/deshabilitado según la matriz de transiciones válidas para el estado actual, y un formulario con motivo obligatorio para descartar",
-        "MisMatches.tsx (lado adoptante) refleja los 5 estados posibles de un match con copy propio para cada uno, sin exponer el motivo de descarte y sin lenguaje que culpe al refugio",
-        "bash init.sh pasa completo (backend + frontend) incluyendo los tests nuevos de transición, 409, 404 cruzado entre refugios y los 5 estados visuales"
+        "bash init.sh en verde completo y python3 scripts/seed.py determinista en dos corridas seguidas",
+        "El recorrido manual en navegador real cubre el flujo completo perdido→encontrado→coincidencia→reunido sin errores",
+        "grep de adopta/leaflet/mapbox/WebSocket no encuentra nada en código vivo; la única dependencia nueva es python-multipart",
+        "CHANGELOG [2.0.0] fechado y develop mergeado a main"
       ]
     },
     {
-      "id": "11-chat",
-      "title": "Mensajería en tiempo real",
-      "description": "Chat adoptante↔refugio por match, con aviso de sistema inicial y respuestas rápidas sugeridas. Requiere revisar el ADR de stack (posible migración a un BaaS con realtime).",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["04-matches"],
+      "id": "11-despliegue",
+      "title": "Estrategia y configuración de despliegue (Vercel + Render)",
+      "description": "Frontend estático en Vercel (vercel.json con rewrites SPA, VITE_API_BASE_URL por entorno) y API en Render con disco persistente para SQLite y uploads (render.yaml), CORS configurable por env var, guía paso a paso en docs/deploy.md y sección Deploy en README. El deploy real lo ejecuta el usuario con la guía; aquí se deja todo configurado y el build de producción probado en local.",
+      "status": "todo",
+      "depends_on": ["10-verificacion-final"],
       "acceptance": [
-        "GET /api/matches/{match_id}/thread crea el Thread y su mensaje de sistema inicial la primera vez que se pide (idempotente en llamadas siguientes) y devuelve 404 en español si el match no existe",
-        "WS /ws/matches/{match_id}/thread persiste cada mensaje entrante (Message + Thread.ultimo_mensaje_en) y lo difunde a todas las conexiones activas del mismo hilo; una conexión con user_id/shelter_id que no pertenece a ese match es rechazada",
-        "Los mensajes están aislados por hilo: un mensaje enviado en el hilo de un match no llega a conexiones abiertas sobre el hilo de otro match",
-        "MisMatches.tsx tiene un enlace 'Abrir conversación' por match hacia /matches/:matchId/mensajes, y SolicitudDetalle.tsx tiene el equivalente hacia /refugio/solicitudes/:matchId/mensajes",
-        "La pantalla de hilo muestra el aviso de sistema como primer elemento, burbujas propias/ajenas con los estilos de design/screens/mensajes.md, y (solo lado adoptante) dos respuestas rápidas siempre visibles ('Sí, agendar' / 'Proponer otra hora') que envían el texto tal cual",
-        "docs/decisions/0004-chat-websockets-fastapi.md documenta la decisión de WebSockets sobre FastAPI (sin BaaS), la limitación de un solo proceso sin Redis, y cómo se pasa identidad sin auth real",
-        "bash init.sh pasa completo (backend + frontend) incluyendo tests de creación lazy del hilo, mensajería WS entre dos conexiones simuladas, aislamiento entre hilos y cierre por ownership inválido"
-      ]
-    },
-    {
-      "id": "12-sponsorship",
-      "title": "Apadrinamiento",
-      "description": "Niveles de donación recurrente, lista de mascotas que necesitan apoyo, novedades mensuales al padrino.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["01-foundations-data"],
-      "acceptance": [
-        "GET /api/pets/necesitan-apoyo devuelve solo mascotas que cumplen services/deck.py::es_dificil_de_ubicar, cada una con monto_recaudado_cop (suma de Sponsorship.activo) y porcentaje_cubierto contra una meta ilustrativa fija de demo, con tope de 100%",
-        "POST /api/sponsorships crea el compromiso (user_id, pet_id, monto_cop, periodicidad mensual|unico) con 201, 404 en español si user_id o pet_id no existen, y rechaza monto_cop <= 0",
-        "GET /api/users/{user_id}/sponsorships lista los apadrinamientos del usuario con resumen de la mascota y una novedad de ejemplo estática por apadrinamiento activo (sin scheduler real, decisión documentada de alcance)",
-        "UserMetricsOut.apadrinamientos y ShelterMetricsOut.apadrinamientos_recaudados_cop (features 07 y 09, ya aprobadas) dejan de estar fijos en 0 y reflejan datos reales de Sponsorship, sin reabrir el resto de esas features",
-        "La pantalla /apadrinar muestra los tres niveles ($30.000, $70.000 destacado, monto libre), el selector mensual/pago único, la lista 'Necesitan apoyo ahora' con barra de progreso y %, y el botón Apadrinar por mascota",
-        "Mi perfil muestra una sección 'Mis apadrinamientos' con los apadrinamientos activos del usuario y su novedad",
-        "Cero integración con ninguna pasarela de pago real (sin Stripe/PSE/Wompi/URLs externas de cobro) — verificado explícitamente por el revisor antes de aprobar, consistente con HANDOFF §11"
-      ]
-    },
-    {
-      "id": "13-favorites",
-      "title": "Favoritos",
-      "description": "Guardar mascotas sin hacer swipe definitivo, para revisar después.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["03-pet-profile"],
-      "acceptance": [
-        "Un usuario puede marcar una mascota como favorita desde el deck (Descubrir) o desde su ficha (MascotaDetalle), sin que eso cuente como un swipe: la mascota sigue apareciendo en el deck",
-        "POST /api/users/{user_id}/favorites es idempotente (200 si ya existía, 201 si es nuevo) y DELETE /api/users/{user_id}/favorites/{pet_id} también (204 exista o no la fila)",
-        "GET /api/users/{user_id}/favorites devuelve la lista completa de mascotas favoritas del usuario (PetOut[]), vacía si no tiene ninguna (200, no 404)",
-        "Favoritear una mascota nunca crea un Swipe ni un Match, y nunca la excluye de GET /api/pets?user_id= (verificado con test de regresión explícito)",
-        "Existe una pantalla /favoritos (dentro del guard de HomeProfile) donde el usuario revisa sus favoritos y puede quitarlos directamente desde la lista, sin entrar a la ficha",
-        "PetOut expone es_favorito (bool, default false) calculado sin N+1 cuando se pasa user_id, igual que ya ocurre con afinidad"
-      ]
-    },
-    {
-      "id": "14-shelter-map",
-      "title": "Mapa de refugios",
-      "description": "Vista de mapa con refugios cercanos y sus mascotas publicadas.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": ["01-foundations-data"],
-      "acceptance": [
-        "GET /api/shelters (sin id) lista todos los refugios con id, nombre, verificado, lat, lng y mascotas_disponibles (conteo de Pet.estado == 'disponible' de ese refugio, distinto de ShelterMetricsOut.mascotas_publicadas que cuenta el histórico total)",
-        "GET /api/shelters incluye distancia_km (haversine vía services/geo.py) solo cuando se pasa user_id y tanto el usuario como el refugio tienen lat/lng; ausente/null en cualquier otro caso, y 404 en español si user_id no existe",
-        "GET /api/shelters incluye, por refugio, la lista de sus mascotas disponibles (id, nombre, fotos) para el panel de detalle del mapa, sin requerir una llamada adicional a GET /api/pets",
-        "Existe la pantalla /mapa (fuera del guard de HomeProfile, igual que /apadrinar y /perfil) con un lienzo propio en CSS/SVG donde cada refugio se posiciona interpolando linealmente su lat/lng dentro del bounding box de Bogotá; refugios verificados se distinguen visualmente de los que no lo son",
-        "Click en un pin abre un panel con nombre del refugio, insignia de verificado, distancia (si está disponible) y una mini-lista de sus mascotas disponibles, cada una enlazando a /mascota/:id",
-        "La feature no introduce ninguna dependencia externa de mapas ni conexión a internet en runtime — verificado explícitamente por el revisor con grep de 'leaflet'/'mapbox'/'google.maps'/URLs de tiles, y confirmando que package.json/requirements no ganan una dependencia nueva de mapas"
-      ]
-    },
-    {
-      "id": "15-public-landing",
-      "title": "Landing pública",
-      "description": "Página de marketing: propuesta de valor, cómo funciona, por qué el cuestionario va primero, franja de apadrinamiento, vista previa del panel de refugio.",
-      "status": "done",
-      "milestone": "backlog",
-      "depends_on": [],
-      "acceptance": [
-        "GET / (ruta raíz) renderiza la landing pública (LandingPublica) en vez de redirigir a /descubrir; /descubrir sigue siendo alcanzable y funciona exactamente igual que antes (regresión verificada con test)",
-        "La landing no realiza ninguna llamada a la API (sin imports de src/web/src/api/client): las cifras de credibilidad, las tarjetas Canela/Toribio y la tabla de vista previa del panel son contenido estático, tal como especifica el prototipo aprobado",
-        "El <Nav/> interno de la app no se renderiza en /; la landing tiene su propia barra de navegación pública (Cómo funciona / Para refugios / Apadrinar / Entrar a la app), y todas las rutas internas conservan el <Nav/> interno sin cambios",
-        "Los CTAs de la landing navegan a los destinos correctos: 'Empezar el cuestionario' → /cuestionario, 'Entrar a la app' → /descubrir, 'Soy un refugio' y 'Registrar mi refugio' → /refugio, 'Ver quién necesita apoyo' → /apadrinar",
-        "Los enlaces de ancla del nav y del footer (#como, #apadrinar, #refugios) llevan a las secciones correspondientes dentro de la misma página, sin depender de react-router",
-        "El copy de las 6 secciones coincide verbatim con design/prototypes/Adopta Landing.dc.html, incluidas las 3 cifras de credibilidad (2.140 / 86 / 7%) y el grid 2x2 (6 / 24 h / 1 / 0)",
-        "bash init.sh pasa en verde y una revisión manual en navegador confirma que ninguna de las 14 rutas internas preexistentes (/registro, /cuestionario, /descubrir, /mascota/:id, /favoritos, /matches, /matches/:matchId/mensajes, /perfil, /apadrinar, /mapa, /refugio, /refugio/publicar, /refugio/solicitudes/:matchId, /refugio/solicitudes/:matchId/mensajes) cambió de comportamiento tras la reestructuración de App.tsx"
+        "npm run build produce un build de producción sin errores y vercel.json tiene el rewrite SPA",
+        "render.yaml declara el servicio de la API con el disco persistente montado en data/",
+        "docs/deploy.md documenta los pasos exactos y todas las variables de entorno (VITE_API_BASE_URL, CORS_ORIGINS, DATABASE_URL)",
+        "La API arranca en local con CORS_ORIGINS apuntando a un dominio de prueba y responde /health"
       ]
     }
   ]

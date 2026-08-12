@@ -1,20 +1,20 @@
-# Convenciones de desarrollo — Adopta
+# Convenciones de desarrollo — Reencuentro
 
 ## 1. Estructura de carpetas
 
 ```
-src/api/adopta_api/
+src/api/reencuentro_api/
   models/      # entidades SQLAlchemy (1 archivo por entidad o grupo pequeño relacionado)
   schemas/     # Pydantic, contrato HTTP — nunca se exponen los modelos SQLAlchemy directo
-  services/    # lógica de negocio pura (affinity.py, matching.py, ...), testeable sin FastAPI/DB
+  services/    # lógica de negocio pura (geo.py, ciudades.py, coincidencias.py), testeable sin FastAPI/DB
   routers/     # endpoints delgados: parsean input, llaman a services/, devuelven schemas
   main.py      # arma la app FastAPI, monta routers, CORS
 
 src/web/src/
-  screens/     # una carpeta por pantalla (routing), ver design/screens/
+  screens/     # una pantalla por archivo (routing)
   components/  # componentes compartidos entre pantallas
-  api/         # cliente HTTP tipado hacia src/api (fetch/TanStack Query)
-  lib/         # utilidades sin estado de UI
+  api/         # cliente HTTP tipado hacia src/api
+  lib/         # utilidades sin estado de UI (mapa, ciudades, contacto, session)
 ```
 
 Regla: si un archivo mezcla lógica de negocio con manejo de HTTP/DB, se está poniendo en el lugar equivocado — la lógica va a `services/`, no a `routers/` ni a componentes de React con `fetch` embebido y cálculo a la vez.
@@ -23,20 +23,19 @@ Regla: si un archivo mezcla lógica de negocio con manejo de HTTP/DB, se está p
 
 - **Python:** `snake_case` para funciones/variables/módulos, `PascalCase` para clases (modelos, schemas Pydantic). Los schemas Pydantic de salida llevan sufijo `Out` (`PetOut`), los de entrada `In` (`SwipeIn`) cuando ambos existen para la misma entidad.
 - **TypeScript/React:** `camelCase` para funciones/variables, `PascalCase` para componentes y tipos, un componente por archivo con el mismo nombre (`MatchCard.tsx` exporta `MatchCard`).
-- **Rutas de API:** sustantivos en plural, en inglés (`/api/pets`, `/api/swipes`, `/api/matches`) por consistencia con el resto del ecosistema HTTP; el **copy visible al usuario** siempre en español (es-CO), nunca se traduce la URL.
+- **Rutas de API:** sustantivos en plural, en inglés (`/api/users`, `/api/reports`, `/api/uploads`) por consistencia con el resto del ecosistema HTTP; el **copy visible al usuario** siempre en español (es-CO), nunca se traduce la URL.
 - **IDs de features/ADRs:** `NN-slug-en-espanol` para `feature_list.json`, `NNNN-slug-en-espanol` para ADRs (ya en uso en `docs/decisions/`).
 
 ## 3. Manejo de errores
 
 - El backend responde con `HTTPException` de FastAPI y un cuerpo `{"detail": "mensaje en español"}` — el mensaje de error es copy de producto, no un stack trace ni un código interno.
 - Nunca se atrapan excepciones genéricas (`except Exception`) para ocultar un bug; se atrapan solo los casos de negocio esperables (p. ej. `HomeProfile` inexistente al pedir afinidad → 404 con mensaje claro).
-- En el frontend, todo `fetch` a la API pasa por el cliente de `src/web/src/api/` que normaliza errores a un tipo único; las pantallas muestran el estado de error definido en `design/screens/*.md` (nunca un mensaje técnico crudo).
-- Excepción documentada en `design/prototypes/HANDOFF.md` §8: errores de red en el swipe se encolan localmente y se reintentan — el gesto nunca se bloquea por un fallo de red.
+- En el frontend, todo `fetch` a la API pasa por el cliente de `src/web/src/api/` que normaliza errores a un tipo único (`ApiError`); las pantallas muestran mensajes de producto en español, nunca un mensaje técnico crudo.
 
 ## 4. Tests
 
-- **Backend:** `pytest`. Los `services/` (afinidad, matching) tienen tests unitarios sin DB real; los `routers/` tienen tests de integración con una SQLite en memoria/temporal (fixture por test, nunca se comparte estado entre tests).
-- **Frontend:** Vitest + Testing Library para lógica de componentes (p. ej. el umbral de swipe); no se persigue cobertura de UI pixel-perfect, sino comportamiento (qué pasa al deslizar, qué se llama en la API).
+- **Backend:** `pytest`. Los `services/` (geo, ciudades, coincidencias) tienen tests unitarios sin DB real; los `routers/` tienen tests de integración con una SQLite en memoria/temporal (fixture por test, nunca se comparte estado entre tests).
+- **Frontend:** Vitest + Testing Library para lógica de componentes (p. ej. el pin por click en el mapa); no se persigue cobertura de UI pixel-perfect, sino comportamiento (qué se muestra, qué se llama en la API).
 - Cada feature de `feature_list.json` con `acceptance` verificable debe tener al menos un test que la cubra directamente — el revisor no aprueba una feature cuyo `acceptance` no tiene test asociado.
 
 ## 5. Formato y lint

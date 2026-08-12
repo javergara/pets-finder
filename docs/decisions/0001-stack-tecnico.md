@@ -1,7 +1,7 @@
 # 0001 — Stack técnico del MVP
 
 ## Estado
-Aceptado.
+Aceptado. **Adenda (2026-08-12, pivot Reencuentro — ADR 0005):** el stack sigue vigente tal cual tras el pivot; el paquete se renombró `adopta_api` → `reencuentro_api` y las referencias a features de adopción de este ADR son históricas (esa era vive en la rama `adopta-v1`).
 
 ## Contexto
 `design/prototypes/HANDOFF.md` §10 (spec de diseño preexistente) recomienda React+TS+Vite+Tailwind en el frontend y Supabase/Firebase para auth/DB/storage/**chat en tiempo real**. El proceso de harness engineering que gobierna este proyecto (`plan.md`) por defecto pide un stack local reproducible sin dependencias cloud: FastAPI+SQLAlchemy+SQLite, con un solo comando de arranque.

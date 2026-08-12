@@ -2,9 +2,20 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y [SemVer](https://semver.org/lang/es/).
 
-## [Unreleased]
+## [Unreleased] — 2.0.0 (pivot Reencuentro, en curso)
 
-Sin cambios pendientes de release.
+Pivot completo del producto tras el terremoto del Eje Cafetero (2026-08-10): de **Adopta** (adopción de mascotas) a **Reencuentro** (reporte y reunificación de mascotas perdidas/encontradas). Ver ADR 0005.
+
+### Removed
+- **Todo el producto de adopción** (features `01`-`15` de la era Adopta): modelos (`HomeProfile`, `Shelter`, `Pet`, `Swipe`, `Match`, `Sponsorship`, `Favorite`, `Thread`, `Message`), servicios (afinidad, deck, matching, solicitudes, chat WebSocket), routers, las 14 pantallas, el sistema de diseño por pantalla y los prototipos. **Nada se perdió**: la era Adopta vive íntegra en la rama `adopta-v1` (tag `adopta-v1.0.0`).
+- ADRs 0002-0004 (match no-mutuo, afinidad al vuelo, chat WebSockets): su objeto ya no existe en el árbol; se conservan en la rama.
+
+### Added
+- **`01-pivot-fundaciones`**: rama de archivo `adopta-v1` + tag; paquete renombrado `adopta_api` → `reencuentro_api`; harness completo actualizado (feature_list con 11 features nuevas, CLAUDE/AGENTS/CHECKPOINTS, ADR 0005, product-research y architecture reescritos); API mínima (registro liviano + perfil) y web mínima (landing de emergencia + registro con `?volver=`); media movida a `data/media/{seed,uploads}`.
+
+### Changed
+- `Registro.tsx` ahora soporta `?volver=` (para volver al formulario de reporte tras registrarse) y solo acepta rutas internas como destino.
+- Clave de sesión en localStorage: `adopta_active_user_id` → `reencuentro_active_user_id` (+ helper `hasActiveUser()`).
 
 ## [1.0.0] - 2026-08-04
 

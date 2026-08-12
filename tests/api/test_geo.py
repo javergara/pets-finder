@@ -1,8 +1,8 @@
 import pytest
 
-from adopta_api.services.geo import distancia_km
+from reencuentro_api.services.geo import distancia_km
 
-# Coordenadas de barrios de Bogotá usadas en scripts/seed.py (BARRIO_COORDS).
+# Coordenadas de barrios de Bogotá (referencia estable para probar el haversine).
 USAQUEN = (4.6946, -74.0307)
 CHAPINERO = (4.6486, -74.0629)
 KENNEDY = (4.6280, -74.1497)

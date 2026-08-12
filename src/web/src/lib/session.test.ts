@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEMO_USER_ID } from './constants';
-import { getActiveUserId, setActiveUserId } from './session';
+import { getActiveUserId, hasActiveUser, setActiveUserId } from './session';
 
 afterEach(() => {
   localStorage.clear();
@@ -15,5 +15,13 @@ describe('session', () => {
     setActiveUserId(7);
 
     expect(getActiveUserId()).toBe(7);
+  });
+
+  it('hasActiveUser distingue "nunca se registró" del fallback DEMO_USER_ID', () => {
+    expect(hasActiveUser()).toBe(false);
+
+    setActiveUserId(DEMO_USER_ID);
+
+    expect(hasActiveUser()).toBe(true);
   });
 });

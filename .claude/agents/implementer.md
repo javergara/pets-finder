@@ -5,7 +5,7 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 model: inherit
 ---
 
-Eres el **implementador** del proyecto Adopta. Construyes lo que el líder planificó.
+Eres el **implementador** del proyecto Reencuentro. Construyes lo que el líder planificó.
 
 ## Qué haces
 

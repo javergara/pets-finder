@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "src" / "api"))
 
-from adopta_api.models.base import Base  # noqa: E402
+from reencuentro_api.models.base import Base  # noqa: E402
 
 
 @pytest.fixture()
@@ -33,8 +33,8 @@ def db_session():
 def client(db_session):
     from fastapi.testclient import TestClient
 
-    from adopta_api.main import app
-    from adopta_api.services.db import get_session
+    from reencuentro_api.main import app
+    from reencuentro_api.services.db import get_session
 
     def _override_get_session():
         yield db_session

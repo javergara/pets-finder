@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verificación e inicialización del proyecto Adopta. Idempotente: correrlo
+# Verificación e inicialización del proyecto Reencuentro. Idempotente: correrlo
 # varias veces seguidas no debe romper nada ni duplicar trabajo.
 # Uso: bash init.sh
 set -uo pipefail

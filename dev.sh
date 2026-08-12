@@ -15,7 +15,7 @@ fi
 source .venv/bin/activate
 
 PYTHONPATH="$ROOT_DIR/src/api" DATABASE_URL="sqlite:///$ROOT_DIR/data/app.db" \
-  uvicorn adopta_api.main:app --port 8000 --reload &
+  uvicorn reencuentro_api.main:app --port 8000 --reload &
 API_PID=$!
 
 (cd src/web && npm run dev -- --port 5173) &
