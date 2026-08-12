@@ -2,7 +2,10 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
 import { MisReportes } from './screens/MisReportes';
+import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
+import { RedDeApoyo } from './screens/RedDeApoyo';
 import { Registro } from './screens/Registro';
+import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
 import { ReportarMascota } from './screens/ReportarMascota';
 import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
@@ -36,6 +39,9 @@ function Nav() {
       <NavLink to="/mis-reportes" className={linkClass}>
         Mis reportes
       </NavLink>
+      <NavLink to="/ayudar" className={linkClass}>
+        Ayudar
+      </NavLink>
     </nav>
   );
 }
@@ -65,6 +71,9 @@ function App() {
           <Route path="/reporte/:id" element={<ReporteDetalle />} />
           <Route path="/mapa" element={<MapaReportes />} />
           <Route path="/mis-reportes" element={<MisReportes />} />
+          <Route path="/ayudar" element={<RedDeApoyo />} />
+          <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
+          <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
         </Route>
       </Routes>
     </div>

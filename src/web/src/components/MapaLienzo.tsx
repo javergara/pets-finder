@@ -17,6 +17,9 @@ export type PinMapa = {
 const COLOR_POR_CLASE: Record<string, string> = {
   'bg-danger': '#9b3b2e',
   'bg-forest': '#1f4d3a',
+  // Red de apoyo (feature 32): acopio=ochre, tienda=ink; el fallback sigue ochre.
+  'bg-ochre': '#b57c2e',
+  'bg-ink': '#1b1a17',
 };
 
 type Props = {

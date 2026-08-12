@@ -1,4 +1,5 @@
 from .base import Base, SessionLocal, engine
+from .organizacion import Organizacion
 from .report import Report
 from .sighting import Sighting
 from .user import User
@@ -10,4 +11,5 @@ __all__ = [
     "User",
     "Report",
     "Sighting",
+    "Organizacion",
 ]

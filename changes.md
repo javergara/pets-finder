@@ -416,3 +416,12 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Detalle: pins ochre secundarios en el mini-mapa (ids desplazados +1e6) + sección "Avistamientos" con lista cronológica y formulario en la página (pin por click con default en las coords del reporte, fecha default hoy, comentario obligatorio, nombre opcional).
 - Tests: tests/api/test_avistamientos.py (7) + 3 en ReporteDetalle.test.tsx (lista+pin ochre, crear con payload, sección ausente en encontrados). bash init.sh verde: 78 API + 67 web.
 - ⚠️ Migración de prod pendiente ANTES del merge a main: CREATE TABLE sightings (aditivo). Requiere autorización del usuario.
+
+## 2026-08-12 — Feature 32: red de apoyo — centros de acopio, fundaciones y tiendas (commit: en revisión)
+
+- Plan aprobado por el usuario (2026-08-12): sección unificada "Ayudar" con el tercer actor de la emergencia.
+- Modelo `Organizacion` (tabla organizaciones: tipo centro_acopio|fundacion|tienda|veterinaria, dirección OBLIGATORIA, horario, como_donar texto libre — sin pagos, foto, zona validada + pin, autoría con cuenta liviana, estado activo|cerrado).
+- API `/api/organizaciones`: POST (404 user), GET filtros tipo/zona/estado (default activo — cerradas fuera), GET/{id}, PUT/{id} (403 no-autor; estado=cerrado cierra), DELETE (patrón feature 18).
+- Frontend: `/ayudar` (chips de tipo = filtro + leyenda de colores, selector de zona, MapaLienzo con pins por tipo — acopio=ochre, fundación=forest, tienda=ink, veterinaria=danger — y tarjetas), `/organizacion/:id` (WhatsApp con `mensajeAyudaOrganizacion`, Cómo donar, bloque Administrar solo-autor: editar/cerrar/reabrir/eliminar con confirmación), `/ayudar/registrar` (gate de cuenta con ?volver=, pin por click, FotoUpload). Link "Ayudar" en nav y CTA en la landing.
+- Tests: tests/api/test_organizaciones.py (11) + 13 en 3 archivos Vitest. bash init.sh verde: 89 API + 80 web; build de prod limpio.
+- ⚠️ Migración prod pendiente ANTES del merge: CREATE TABLE organizaciones (autorizada en el plan aprobado).

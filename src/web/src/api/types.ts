@@ -80,3 +80,42 @@ export type AvistamientoIn = {
   comentario: string;
   nombre?: string;
 };
+
+export type TipoOrganizacion = 'centro_acopio' | 'fundacion' | 'tienda' | 'veterinaria';
+
+export type Organizacion = {
+  id: number;
+  user_id: number;
+  tipo: TipoOrganizacion;
+  nombre: string;
+  descripcion: string;
+  zona: string;
+  ciudad_texto: string | null;
+  barrio: string | null;
+  direccion: string;
+  lat: number;
+  lng: number;
+  telefono_contacto: string;
+  horario: string | null;
+  como_donar: string | null;
+  foto_url: string | null;
+  estado: 'activo' | 'cerrado';
+  creado_en: string;
+};
+
+export type OrganizacionIn = {
+  user_id: number;
+  tipo: TipoOrganizacion;
+  nombre: string;
+  descripcion: string;
+  zona: string;
+  ciudad_texto?: string;
+  barrio?: string;
+  direccion: string;
+  lat: number;
+  lng: number;
+  telefono_contacto: string;
+  horario?: string;
+  como_donar?: string;
+  foto_url?: string;
+};

@@ -2,9 +2,12 @@ import {
   type Avistamiento,
   type AvistamientoIn,
   type Coincidencia,
+  type Organizacion,
+  type OrganizacionIn,
   type Reporte,
   type ReporteIn,
   type ReunidosResumen,
+  type TipoOrganizacion,
   type UserProfile,
 } from './types';
 
@@ -148,4 +151,41 @@ export function crearAvistamiento(reporteId: number, datos: AvistamientoIn): Pro
     method: 'POST',
     body: JSON.stringify(datos),
   });
+}
+
+export function listarOrganizaciones(
+  filtros: {
+    tipo?: TipoOrganizacion;
+    zona?: string;
+  } = {},
+): Promise<Organizacion[]> {
+  const params = new URLSearchParams();
+  if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.zona) params.set('zona', filtros.zona);
+  const query = params.toString();
+  return request(`/api/organizaciones${query ? `?${query}` : ''}`);
+}
+
+export function obtenerOrganizacion(organizacionId: number): Promise<Organizacion> {
+  return request(`/api/organizaciones/${organizacionId}`);
+}
+
+export function crearOrganizacion(datos: OrganizacionIn): Promise<Organizacion> {
+  return request('/api/organizaciones', { method: 'POST', body: JSON.stringify(datos) });
+}
+
+export function editarOrganizacion(
+  organizacionId: number,
+  datos: { user_id: number } & Partial<Omit<OrganizacionIn, 'user_id'>> & {
+      estado?: 'activo' | 'cerrado';
+    },
+): Promise<Organizacion> {
+  return request(`/api/organizaciones/${organizacionId}`, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
+  });
+}
+
+export function eliminarOrganizacion(organizacionId: number, userId: number): Promise<void> {
+  return request(`/api/organizaciones/${organizacionId}?user_id=${userId}`, { method: 'DELETE' });
 }

@@ -24,3 +24,8 @@ export function mensajeContacto(tipo: 'perdido' | 'encontrado', etiqueta: string
     ? `Hola, te escribo desde Pet Finder Col por tu reporte de ${etiqueta}. Creo que puedo ayudarte a encontrarla.`
     : `Hola, te escribo desde Pet Finder Col por la mascota que reportaste (${etiqueta}). Creo que puede ser la mía.`;
 }
+
+// Mensaje para escribirle a una organización de la red de apoyo (feature 32).
+export function mensajeAyudaOrganizacion(nombre: string): string {
+  return `Hola, los encontré en Pet Finder Col (${nombre}). Quiero ayudar / necesito información.`;
+}

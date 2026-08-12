@@ -50,6 +50,9 @@ export function LandingEmergencia() {
         <Link to="/mapa" className="font-medium text-forest underline-offset-4 hover:underline">
           Ver el mapa
         </Link>
+        <Link to="/ayudar" className="font-medium text-forest underline-offset-4 hover:underline">
+          ¿Quieres ayudar? Centros de acopio y fundaciones
+        </Link>
       </div>
 
       {reunidos !== null && reunidos.total > 0 && (

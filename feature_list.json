@@ -413,6 +413,33 @@
         "En /mapa un botón centra la vista en la ubicación del usuario",
         "bash init.sh en verde"
       ]
+    },
+    {
+      "id": "32-red-de-apoyo",
+      "title": "Red de apoyo: directorio y mapa de centros de acopio, fundaciones y tiendas",
+      "description": "Pedido del usuario (plan aprobado 2026-08-12): sección unificada /ayudar con el tercer actor de la emergencia — la ayuda organizada. Modelo Organizacion (tipo centro_acopio|fundacion|tienda|veterinaria, dirección obligatoria, horario, como_donar texto libre, foto, zona+pin, autoría con la cuenta liviana), CRUD /api/organizaciones con los patrones existentes (403 no-autor, DELETE feature 18, zona validada), pantalla /ayudar (mapa con pins por tipo + tarjetas + filtros), detalle /organizacion/:id con WhatsApp/llamar y Cómo donar, registro /ayudar/registrar con gate de cuenta, link Ayudar en la nav y CTA en la landing. Migración prod: CREATE TABLE organizaciones ANTES del merge, con autorización explícita.",
+      "status": "done",
+      "depends_on": ["28-avistamientos"],
+      "acceptance": [
+        "Un usuario con cuenta registra una organización (tipo, dirección, pin, teléfono, foto opcional) y aparece en /ayudar en el mapa (color por tipo) y en las tarjetas, filtrable por tipo y zona",
+        "El detalle muestra dirección, horario, Cómo donar (si existe) y botones de WhatsApp/llamar con mensaje propio de ayuda; editar/cerrar/eliminar solo para el autor (403 en API para otros)",
+        "Las organizaciones cerradas salen del listado y mapa por defecto",
+        "Zona inválida o 'Otro' sin ciudad_texto responden 422 (mismas reglas de reportes)",
+        "bash init.sh en verde; tabla organizaciones creada en prod antes del merge a main"
+      ]
+    },
+    {
+      "id": "33-necesidades-ayuda",
+      "title": "Necesidades: las organizaciones piden ayuda concreta y la marcan cubierta",
+      "description": "Segunda parte del plan aprobado: modelo Necesidad (organizacion_id, descripcion, categoria alimento|medicinas|insumos|voluntarios|hogar_de_paso|dinero|otro, estado pendiente|cubierta), endpoints anidados en /api/organizaciones/{id}/necesidades (publicar solo el autor, marcar cubierta solo el autor con 409 doble), y en el detalle: lista con chips, botón 'Quiero ayudar' con WhatsApp prefill ('vi en Pet Finder Col que necesitan X'), celebración 'Cubierta 💚', y contador de necesidades activas en las tarjetas de /ayudar. Migración prod: CREATE TABLE necesidades ANTES del merge, con autorización explícita.",
+      "status": "todo",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "El autor de una organización publica necesidades (categoría + descripción) y las marca cubiertas (409 si ya lo está); otros usuarios reciben 403",
+        "El detalle lista pendientes primero con botón Quiero ayudar (href wa.me con el prefill exacto, testeado) y las cubiertas celebradas en verde",
+        "Las tarjetas de /ayudar muestran cuántas necesidades activas tiene cada organización",
+        "bash init.sh en verde; tabla necesidades creada en prod antes del merge a main"
+      ]
     }
   ]
 }
