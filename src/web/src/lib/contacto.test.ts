@@ -31,13 +31,13 @@ describe('urlTelefono', () => {
 describe('mensajeContacto', () => {
   it('para un perdido menciona el reporte y la app', () => {
     const mensaje = mensajeContacto('perdido', 'Rocky');
-    expect(mensaje).toContain('Reencuentro');
+    expect(mensaje).toContain('Pet Finder Col');
     expect(mensaje).toContain('Rocky');
   });
 
   it('para un encontrado menciona la mascota reportada y la app', () => {
     const mensaje = mensajeContacto('encontrado', 'Perro');
-    expect(mensaje).toContain('Reencuentro');
+    expect(mensaje).toContain('Pet Finder Col');
     expect(mensaje).toContain('Perro');
   });
 });

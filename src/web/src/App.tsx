@@ -19,7 +19,7 @@ function Nav() {
   return (
     <nav className="flex items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-3 [scrollbar-width:none]">
       <NavLink to="/" className="mr-4 shrink-0 font-display text-xl text-forest">
-        Reencuentro
+        Pet Finder Col
       </NavLink>
       <NavLink to="/reportar/perdido" className={linkClass}>
         Perdí mi mascota
