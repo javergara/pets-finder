@@ -6,7 +6,7 @@
       "id": "01-pivot-fundaciones",
       "title": "Fundaciones del pivot: archivo, borrado, rename y harness",
       "description": "Rama adopta-v1 + tag como archivo permanente del trabajo de adopción. Borrado del código/tests/diseño específicos de adopción, rename del paquete adopta_api a reencuentro_api, harness actualizado (feature_list, CLAUDE.md, AGENTS.md, CHECKPOINTS, docs, ADR 0005, CHANGELOG 2.0.0 en Unreleased), API mínima (health + users) y web mínima (landing de emergencia v1 + registro) en verde.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [],
       "acceptance": [
         "git branch lista adopta-v1 y git tag lista adopta-v1.0.0, ambos apuntando al último commit de la era Adopta (cde337f)",

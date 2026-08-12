@@ -46,3 +46,23 @@ Revisión independiente sobre `develop` @ `1aaf320`. `bash init.sh` corrido de v
 Menores (no bloquean, pero aprovechar la corrección): (a) la entrada de `changes.md` del 2026-08-12 no referencia el hash del commit (`1aaf320`) como piden el checkpoint #4 y el patrón de las entradas anteriores; (b) la nav y los CTAs enlazan rutas aún no registradas (`/reportar/*`, `/reportes`, `/mapa`, `/mis-reportes`) — aceptable en la versión mínima porque está declarado en comentarios y planificado en las features 04/05/07/09, solo se deja constancia.
 
 Próximo paso: el implementador corrige 1-3, y el revisor re-corre `init.sh` + greps antes de pasar `01-pivot-fundaciones` a `done`.
+
+## Veredicto del revisor — feature 01 (2026-08-12, segunda pasada): APROBADA
+
+Re-revisión sobre `develop` @ `a728850` (`fix: atender hallazgos del revisor en la feature 01`). Los 3 hallazgos de la primera pasada quedaron corregidos y verificados por diff y por ejecución real:
+
+1. `src/web/src/lib/mapa.ts`: cabecera reescrita en términos del pivot (versión provisional de la feature 01 con bbox de Bogotá, parametrización por zona en la 04, referencia al ADR 0005 §5). Ya no menciona `14-shelter-map` ni constantes de seed inexistentes.
+2. `src/api/reencuentro_api/services/geo.py`: el docstring apunta a su consumidor real del pivot (`services/coincidencias.py`, feature 08).
+3. `tests/api/test_health.py` nuevo: `GET /health` → 200 `{"status": "ok"}` — el acceptance 3 queda cubierto por test directo.
+4. (Menor a) La entrada de `changes.md` del pivot ahora referencia el commit `1aaf320`.
+
+Evidencia de esta sesión:
+
+- `bash init.sh` corrido de verdad: **verde completo** — deps, seed, ruff/black/oxlint limpios, **10/10 tests de API** (users + geo + health) y **12/12 de web**.
+- Grep del acceptance 2 (`adopta_api|adopta|swipe|match|affinity|afinidad|apadrin|sponsor|favorit|refugio|shelter|deck|descubrir|cuestionario`, case-insensitive) sobre `src/`, `scripts/`, `tests/`: **cero coincidencias** en código vivo.
+- `git branch`/`git tag`: `adopta-v1` y `adopta-v1.0.0` intactos, ambos en `cde337f` (`git rev-parse`).
+- `python3 scripts/validate_feature_list.py feature_list.json` → exit 0, antes y después del cambio de status.
+- `feature_list.json`: `01-pivot-fundaciones` pasada a `done` con edición de texto puntual sobre la línea 9; `git diff feature_list.json` confirma que **solo** cambió esa línea (gotcha de `memory/memory.md` §2026-08-04 respetado — sin `json.dump`, sin `git checkout`).
+- Consistencia con ADRs: sin chat interno ni librerías de mapas (ADR 0005 §3/§5), sin dependencias nuevas (la única prevista, `python-multipart`, llega en la 03).
+
+Pendiente de la sesión principal: commit del cambio de status + este veredicto. Siguiente feature: `02-reportes-backend` (líder planifica aquí).
