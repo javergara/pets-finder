@@ -21,6 +21,7 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src" / "api"))
 
+from reencuentro_api.media import subir_a_supabase, supabase_configurado  # noqa: E402
 from reencuentro_api.models import Base, Report, SessionLocal, User, engine  # noqa: E402
 from reencuentro_api.services.ciudades import ZONAS  # noqa: E402
 
@@ -284,20 +285,11 @@ REPORTS = [
 ]
 
 
-def _download_or_placeholder(report_id: int, etiqueta: str, especie: str) -> str:
-    """Foto del reporte con fallback offline: jpg descargado o SVG local.
+def _obtener_foto(report_id: int, etiqueta: str, especie: str) -> tuple[str, bytes, str]:
+    """(nombre, contenido, content_type) de la foto: descarga o placeholder SVG.
 
     La especie "otro" no tiene fuente de placeholders — va directo al SVG.
     """
-    SEED_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    jpg_path = SEED_IMAGES_DIR / f"report_{report_id}.jpg"
-    svg_path = SEED_IMAGES_DIR / f"report_{report_id}.svg"
-
-    if jpg_path.exists():
-        return f"/media/seed/{jpg_path.name}"
-    if svg_path.exists():
-        return f"/media/seed/{svg_path.name}"
-
     if especie in ("perro", "gato"):
         url = (
             f"https://placedog.net/500/375?id={report_id}"
@@ -307,8 +299,7 @@ def _download_or_placeholder(report_id: int, etiqueta: str, especie: str) -> str
         try:
             response = requests.get(url, timeout=DOWNLOAD_TIMEOUT_SECONDS)
             response.raise_for_status()
-            jpg_path.write_bytes(response.content)
-            return f"/media/seed/{jpg_path.name}"
+            return f"report_{report_id}.jpg", response.content, "image/jpeg"
         except (requests.RequestException, OSError):
             pass
 
@@ -318,8 +309,28 @@ def _download_or_placeholder(report_id: int, etiqueta: str, especie: str) -> str
   <text x="50%" y="50%" font-family="sans-serif" font-size="28" fill="#3D3931"
         text-anchor="middle" dominant-baseline="middle">foto · {etiqueta}</text>
 </svg>"""
-    svg_path.write_text(svg, encoding="utf-8")
-    return f"/media/seed/{svg_path.name}"
+    return f"report_{report_id}.svg", svg.encode("utf-8"), "image/svg+xml"
+
+
+def _download_or_placeholder(report_id: int, etiqueta: str, especie: str) -> str:
+    """Foto del reporte: al bucket de Supabase si está configurado (despliegue,
+    ADR 0006), o al filesystem local con caché como siempre (dev)."""
+    if supabase_configurado():
+        nombre, contenido, content_type = _obtener_foto(report_id, etiqueta, especie)
+        return subir_a_supabase(nombre, contenido, content_type)
+
+    SEED_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+    jpg_path = SEED_IMAGES_DIR / f"report_{report_id}.jpg"
+    svg_path = SEED_IMAGES_DIR / f"report_{report_id}.svg"
+
+    if jpg_path.exists():
+        return f"/media/seed/{jpg_path.name}"
+    if svg_path.exists():
+        return f"/media/seed/{svg_path.name}"
+
+    nombre, contenido, _content_type = _obtener_foto(report_id, etiqueta, especie)
+    (SEED_IMAGES_DIR / nombre).write_bytes(contenido)
+    return f"/media/seed/{nombre}"
 
 
 def main() -> None:

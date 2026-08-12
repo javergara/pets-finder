@@ -1,9 +1,9 @@
 # Blueprint de Render para la API de Reencuentro (docs/deploy.md tiene la guía completa).
 #
-# La API necesita DISCO PERSISTENTE (ADR 0005): SQLite (data/app.db) y las fotos
-# subidas (data/media/uploads/) viven en archivos — por eso no va en serverless.
-# El disco se monta exactamente en el data/ del checkout del repo, que es donde
-# reencuentro_api/media.py y models/base.py resuelven sus rutas por defecto.
+# La API es SIN ESTADO (ADR 0006): la base de datos vive en Supabase Postgres y
+# las fotos en Supabase Storage — no se necesita disco persistente, así que el
+# servicio funciona en el free tier de Render. Los valores sync:false se piden
+# en el dashboard al crear el blueprint (vienen del proyecto de Supabase).
 services:
   - type: web
     name: reencuentro-api
@@ -15,13 +15,17 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.17
-      # El checkout de Render vive en /opt/render/project/src (la raíz del repo).
+      # Connection string del POOLER de Supabase (postgresql://...pooler.supabase.com:6543/...).
       - key: DATABASE_URL
-        value: sqlite:////opt/render/project/src/data/app.db
+        sync: false
+      # https://TU-PROYECTO.supabase.co
+      - key: SUPABASE_URL
+        sync: false
+      # service_role key (Settings → API). Solo vive en el backend, nunca en el frontend.
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: fotos
       # El dominio real de Vercel, separado por comas si hay varios.
       - key: CORS_ORIGINS
-        value: https://TU-PROYECTO.vercel.app
-    disk:
-      name: reencuentro-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+        sync: false

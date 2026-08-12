@@ -36,6 +36,6 @@ Pantallas: landing de emergencia (`/`), registro, reportar (`/reportar/perdido|e
 
 Igual que en la era Adopta: ninguna real. `localStorage` guarda el `reencuentro_active_user_id`; el backend recibe la identidad como parte del payload/query. Suficiente para el MVP de emergencia; si el proyecto crece, se decide auth real con un ADR nuevo.
 
-## 7. Despliegue (feature 11)
+## 7. Despliegue (features 11-12)
 
-Frontend estático en Vercel; API en un host con disco persistente (Render/Fly.io) porque SQLite + uploads necesitan disco. CORS configurable vía `CORS_ORIGINS`. Guía en `docs/deploy.md`.
+Frontend estático en Vercel; API **sin estado** en Render free; persistencia en **Supabase** — Postgres vía `DATABASE_URL` (en local sigue SQLite) y fotos en Storage vía `reencuentro_api/media.py::subir_a_supabase` cuando `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` están configuradas (ADR 0006). CORS configurable vía `CORS_ORIGINS`. Guía en `docs/deploy.md`.

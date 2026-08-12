@@ -147,6 +147,20 @@
         "docs/deploy.md documenta los pasos exactos y todas las variables de entorno (VITE_API_BASE_URL, CORS_ORIGINS, DATABASE_URL)",
         "La API arranca en local con CORS_ORIGINS apuntando a un dominio de prueba y responde /health"
       ]
+    },
+    {
+      "id": "12-persistencia-supabase",
+      "title": "Persistencia en Supabase: Postgres + Storage para fotos (API sin estado)",
+      "description": "Decisión del usuario tras el análisis de opciones (ADR 0006): Supabase vía Vercel Marketplace como único proveedor gratis de persistencia — Postgres (500 MB) para la DB y Storage (1 GB) para las fotos subidas. La API queda sin estado: driver psycopg2 para que DATABASE_URL acepte postgresql://, uploads y fotos del seed suben al bucket cuando SUPABASE_URL/SUPABASE_SERVICE_KEY están configuradas (con fallback al filesystem local idéntico al actual para dev), mediaUrl del frontend pasa URLs absolutas tal cual, render.yaml sin disco, y docs/deploy.md reescrito con los pasos de Supabase.",
+      "status": "in_progress",
+      "depends_on": ["11-despliegue"],
+      "acceptance": [
+        "Con Supabase configurado (mock del HTTP en tests), POST /api/uploads guarda la foto en el bucket y responde una URL pública absoluta https; sin configurar, el comportamiento local en disco es idéntico al de la feature 03 (los tests existentes siguen en verde sin cambios)",
+        "mediaUrl del frontend devuelve las URLs absolutas tal cual y sigue prefijando las relativas con la base de la API (test)",
+        "psycopg2-binary está en requirements y la API importa el driver de Postgres sin error (los modelos solo usan tipos portables: String/Float/Date/DateTime)",
+        "render.yaml queda sin disco persistente y docs/deploy.md documenta los pasos de Supabase (connection string del pooler, bucket público, service key) y todas las env vars nuevas",
+        "bash init.sh pasa en verde: el comportamiento local (SQLite + filesystem) no cambia en nada"
+      ]
     }
   ]
 }

@@ -19,4 +19,4 @@ bash dev.sh    # API :8000 + web :5173
 
 ## Deploy
 
-Frontend estático en **Vercel** (`src/web`, con `vercel.json` para el rewrite SPA) + API en **Render** con disco persistente para SQLite y las fotos (`render.yaml`). Guía paso a paso con todas las variables de entorno: [`docs/deploy.md`](docs/deploy.md).
+Frontend estático en **Vercel** (`src/web`, con `vercel.json` para el rewrite SPA) + API sin estado en **Render free** (`render.yaml`) + persistencia en **Supabase** (Postgres + Storage para las fotos, ADR 0006). Todo en tier gratuito, con auto-deploy en cada push a `main`. Guía paso a paso: [`docs/deploy.md`](docs/deploy.md).
