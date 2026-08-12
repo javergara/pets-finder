@@ -349,7 +349,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Verificación visual en 390px: landing (CTAs apilados), formulario (selects a ancho completo, características apiladas), listado (filtros envueltos) y mapa (tiles + leyenda) — todo correcto; el resto del layout ya era responsive por los breakpoints existentes.
 - Suites: 65 API + 56 web en verde (fix de solo clases CSS, sin cambios de comportamiento).
 
-## 2026-08-12 — Feature 17: registro con lista de ciudades de Colombia (commit: en revisión)
+## 2026-08-12 — Feature 17: registro con lista de ciudades de Colombia (commit: 7fe7dde)
 
 - Pedido del usuario: al entrar/crear cuenta, la ciudad se elige de una lista en vez de texto libre.
 - `src/web/src/lib/ciudades.ts`: nueva `OTRAS_CIUDADES_COLOMBIA` (34 entradas) — cubre las 32 capitales departamentales (las 6 zonas cubiertas viven aparte en `ZONAS`) más ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), orden alfabético.

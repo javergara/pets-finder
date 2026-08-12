@@ -125,3 +125,17 @@ Revisión independiente sobre `develop` @ `6d7cbcb`. Evidencia de esta sesión:
 - `feature_list.json`: `16-mobile-ui` a `done` con edición puntual sobre la línea 211; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0.
 
 El merge a `main` (deploy directo, sin migración esta vez) queda en manos de la sesión principal tras este veredicto. Menor recurrente: hash (`6d7cbcb`) en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 17 (2026-08-12): APROBADA
+
+Revisión independiente sobre `develop` @ `7fe7dde` (ya mergeado a `main` con autorización explícita del usuario y deploy verificado en vivo por la sesión principal — esta revisión cierra el `done` formal). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 65/65 tests de API + 58/58 de web** (los 2 nuevos de `Registro.test.tsx` incluidos).
+- **Acceptance 1**: test directo — el campo Ciudad es `SELECT` (aserción de `tagName`), con valor por defecto `Armenia`, y las primeras 6 opciones son exactamente las zonas en el orden de `NOMBRES_ZONAS` (Armenia, Pereira, Manizales, Cali, Quibdó, Bogotá) dentro del optgroup "Zonas con mapa propio", seguidas del optgroup "Resto de Colombia". Verificado también por lectura del JSX.
+- **Acceptance 2**: test directo — elegir "Medellín" envía `ciudad: 'Medellín'` tal cual en el payload de `registrarUsuario`; los 6 tests preexistentes del registro (incluido el flujo entrar-o-crear y `?volver=`) pasan sin cambios.
+- **Acceptance 3 — verificación programática del revisor**: la lista vive **una sola vez** en `lib/ciudades.ts` (`OTRAS_CIUDADES_COLOMBIA`, 34 entradas); script propio del revisor contra la lista real: **32/32 capitales departamentales cubiertas** (las 26 de la lista + las 6 zonas, con Bogotá D.C. por Cundinamarca), sin faltantes, **orden alfabético** correcto (ignorando tildes), **sin duplicados ni solapamiento** con las zonas; las 8 no-capitales añadidas son ciudades grandes razonables (Bello, Soacha, Soledad, Barrancabermeja, Buenaventura, Palmira, Tuluá, Dosquebradas).
+- Backend intacto verificado: el commit no toca `src/api/` — `User.ciudad` sigue `String(80)` libre, los valores históricos de producción siguen válidos y no hay migración.
+- Estado en disco consistente: entrada en `changes.md` y `progress/current.md` actualizados en el mismo commit.
+- `feature_list.json`: `17-registro-ciudades-lista` a `done` con edición puntual sobre la línea 225; `git diff` confirma que **solo** cambió esa línea; `validate_feature_list.py` → exit 0. **17/17 features en `done`.**
+
+Menor recurrente: hash (`7fe7dde`) en la entrada de `changes.md` al commitear este cierre.
