@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
+  eliminarReporte,
   listarCoincidencias,
   marcarReunido,
   mediaUrl,
@@ -34,6 +35,9 @@ export function ReporteDetalle() {
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -206,6 +210,60 @@ export function ReporteDetalle() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Borrado definitivo, solo autor, con confirmación en dos pasos dentro de
+          la página (window.confirm bloquearía y desentona con el resto de la UI). */}
+      {reporte.user_id === getActiveUserId() && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          {!confirmandoEliminar ? (
+            <button
+              type="button"
+              onClick={() => setConfirmandoEliminar(true)}
+              className="text-sm font-medium text-danger"
+            >
+              Eliminar este reporte
+            </button>
+          ) : (
+            <div>
+              <p className="mb-3 text-sm text-ink-soft">
+                ¿Seguro que quieres eliminar este reporte? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  disabled={eliminando}
+                  onClick={async () => {
+                    setErrorEliminar(null);
+                    setEliminando(true);
+                    try {
+                      await eliminarReporte(reporte.id, getActiveUserId());
+                      navigate('/reportes');
+                    } catch (err) {
+                      setErrorEliminar(
+                        err instanceof ApiError
+                          ? err.message
+                          : 'No pudimos eliminar el reporte. Intenta de nuevo.',
+                      );
+                      setEliminando(false);
+                    }
+                  }}
+                  className="rounded-full bg-danger px-5 py-2 font-medium text-bg disabled:opacity-60"
+                >
+                  {eliminando ? 'Eliminando…' : 'Sí, eliminar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoEliminar(false)}
+                  className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+                >
+                  Cancelar
+                </button>
+              </div>
+              {errorEliminar && <p className="mt-2 text-sm text-danger">{errorEliminar}</p>}
+            </div>
+          )}
         </section>
       )}
     </div>

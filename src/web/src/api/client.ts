@@ -96,6 +96,10 @@ export function editarReporte(
   });
 }
 
+export function eliminarReporte(reporteId: number, userId: number): Promise<void> {
+  return request(`/api/reports/${reporteId}?user_id=${userId}`, { method: 'DELETE' });
+}
+
 export function obtenerReunidos(): Promise<ReunidosResumen> {
   return request('/api/reports/reunidos');
 }

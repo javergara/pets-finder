@@ -158,6 +158,24 @@ def obtener_reporte(report_id: int, session: Session = Depends(get_session)) -> 
     return ReportOut.model_validate(report)
 
 
+@router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_reporte(report_id: int, user_id: int, session: Session = Depends(get_session)) -> None:
+    """Borrado definitivo, solo por el autor (misma confianza que editar/reunido).
+
+    La foto asociada (Supabase Storage o /media local) no se borra: queda
+    huérfana — aceptado en el MVP para no darle a este endpoint credenciales
+    de borrado sobre el bucket.
+    """
+    report = session.get(Report, report_id)
+    if report is None:
+        raise HTTPException(404, f"El reporte {report_id} no existe")
+    if user_id != report.user_id:
+        raise HTTPException(403, "Solo quien creó el reporte puede eliminarlo")
+
+    session.delete(report)
+    session.commit()
+
+
 @router.put("/{report_id}", response_model=ReportOut)
 def editar_reporte(
     report_id: int, payload: ReportUpdate, session: Session = Depends(get_session)

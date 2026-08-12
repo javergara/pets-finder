@@ -407,3 +407,36 @@ def test_la_ruta_literal_reunidos_no_queda_eclipsada_por_report_id(client, db_se
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {"total": 0, "recientes": []}
+
+
+# --- Eliminar reporte (feature 18) ---
+
+
+def test_eliminar_reporte_por_su_autor_devuelve_204_y_desaparece(client, db_session, usuario):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.delete(f"/api/reports/{reporte.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 204
+    assert client.get(f"/api/reports/{reporte.id}").status_code == 404
+    activos = client.get("/api/reports").json()
+    assert all(r["id"] != reporte.id for r in activos)
+
+
+def test_eliminar_reporte_ajeno_devuelve_403_en_espanol(
+    client, db_session, usuario, otro_usuario
+):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.delete(f"/api/reports/{reporte.id}?user_id={otro_usuario.id}")
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Solo quien creó el reporte puede eliminarlo"
+    # El reporte sigue existiendo intacto.
+    assert client.get(f"/api/reports/{reporte.id}").status_code == 200
+
+
+def test_eliminar_reporte_inexistente_devuelve_404(client, db_session, usuario):
+    respuesta = client.delete(f"/api/reports/999?user_id={usuario.id}")
+
+    assert respuesta.status_code == 404

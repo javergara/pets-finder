@@ -355,3 +355,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `src/web/src/lib/ciudades.ts`: nueva `OTRAS_CIUDADES_COLOMBIA` (34 entradas) — cubre las 32 capitales departamentales (las 6 zonas cubiertas viven aparte en `ZONAS`) más ciudades grandes no capitales (Bello, Soacha, Soledad, Buenaventura, Palmira, Barrancabermeja, Dosquebradas, Tuluá), orden alfabético.
 - `src/web/src/screens/Registro.tsx`: campo Ciudad ahora es `<select>` con optgroups "Zonas con mapa propio" (orden de `NOMBRES_ZONAS`, default Armenia) y "Resto de Colombia". Mismo id/label/clases; backend intacto (`User.ciudad` string libre, así los valores históricos de prod siguen válidos).
 - `src/web/src/screens/Registro.test.tsx`: +2 tests (el campo es un SELECT con las 6 zonas primero y las capitales presentes; la ciudad elegida se envía tal cual). `bash init.sh` verde: 65 API + 58 web.
+
+## 2026-08-12 — Feature 18: el autor puede eliminar su reporte (commit: en revisión)
+
+- Pedido del usuario: quien postea un reporte puede también eliminarlo.
+- `routers/reports.py`: `DELETE /api/reports/{report_id}?user_id=` — 204 autor, 403 ajeno ("Solo quien creó el reporte puede eliminarlo"), 404 inexistente. La foto en Storage/local NO se borra (huérfana aceptada: el endpoint no recibe credenciales de borrado del bucket; documentado en docstring).
+- `client.ts`: `eliminarReporte(id, userId)` — `request()` ya soportaba 204 sin body.
+- `ReporteDetalle.tsx`: sección de borrado solo-autor con confirmación en dos pasos dentro de la página (sin `window.confirm`), botón deshabilitado mientras elimina, error de API en español, y navegación a `/reportes` al confirmar.
+- Tests: +3 en `tests/api/test_reports.py` (204+desaparece del listado y del detalle, 403+sigue intacto, 404) y +2 en `ReporteDetalle.test.tsx` (dos pasos con Cancelar sin llamar al API; el botón no existe para no-autores). `bash init.sh` verde: 68 API + 60 web.

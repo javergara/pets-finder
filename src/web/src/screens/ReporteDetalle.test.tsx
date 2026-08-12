@@ -13,6 +13,7 @@ vi.mock('../api/client', async () => {
     obtenerReporte: vi.fn(),
     listarCoincidencias: vi.fn(),
     marcarReunido: vi.fn(),
+    eliminarReporte: vi.fn(),
   };
 });
 
@@ -185,5 +186,52 @@ describe('ReporteDetalle', () => {
 
     await screen.findByRole('heading', { name: 'Rocky' });
     expect(screen.queryByRole('button', { name: 'Marcar como reunida' })).not.toBeInTheDocument();
+  });
+
+  it('eliminar exige confirmar en dos pasos, llama al API y navega al listado', async () => {
+    // getActiveUserId() cae a DEMO_USER_ID=1 == user_id del reporte: es el autor.
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
+    vi.mocked(client.eliminarReporte).mockResolvedValue(undefined);
+
+    render(
+      <MemoryRouter initialEntries={['/reporte/1']}>
+        <Routes>
+          <Route path="/reporte/:id" element={<ReporteDetalle />} />
+          <Route path="/reportes" element={<div>Listado stub</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    // Primer paso: el botón no borra nada, abre la confirmación.
+    (await screen.findByRole('button', { name: 'Eliminar este reporte' })).click();
+    expect(
+      await screen.findByText(
+        '¿Seguro que quieres eliminar este reporte? Esta acción no se puede deshacer.',
+      ),
+    ).toBeInTheDocument();
+    expect(client.eliminarReporte).not.toHaveBeenCalled();
+
+    // Cancelar vuelve atrás sin llamar al API.
+    screen.getByRole('button', { name: 'Cancelar' }).click();
+    expect(
+      await screen.findByRole('button', { name: 'Eliminar este reporte' }),
+    ).toBeInTheDocument();
+    expect(client.eliminarReporte).not.toHaveBeenCalled();
+
+    // Confirmar de verdad: borra y navega al listado.
+    (await screen.findByRole('button', { name: 'Eliminar este reporte' })).click();
+    (await screen.findByRole('button', { name: 'Sí, eliminar' })).click();
+
+    await screen.findByText('Listado stub');
+    expect(client.eliminarReporte).toHaveBeenCalledWith(1, 1);
+  });
+
+  it('el botón de eliminar NO aparece para quien no es el autor', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 2 }));
+
+    renderDetalle();
+
+    await screen.findByRole('heading', { name: 'Rocky' });
+    expect(screen.queryByRole('button', { name: 'Eliminar este reporte' })).not.toBeInTheDocument();
   });
 });
