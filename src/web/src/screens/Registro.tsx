@@ -47,9 +47,10 @@ export function Registro() {
 
   return (
     <div className="mx-auto mt-8 max-w-md p-6">
-      <h1 className="mb-2 font-display text-2xl text-ink">Crea tu cuenta</h1>
+      <h1 className="mb-2 font-display text-2xl text-ink">Entra o crea tu cuenta</h1>
       <p className="mb-6 text-sm text-muted">
-        Solo necesitamos unos datos para poder ligar tus reportes a ti y que puedas marcarlos como
+        Solo tu correo: si ya tienes cuenta entras con él (aunque cambies de dispositivo), y si no,
+        la creamos al instante. Así tus reportes quedan ligados a ti y puedes marcarlos como
         reunidos cuando tu mascota vuelva a casa.
       </p>
 

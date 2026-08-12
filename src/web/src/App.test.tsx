@@ -40,6 +40,6 @@ describe('App', () => {
 
     expect(screen.getByRole('link', { name: 'Reencuentro' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mis reportes' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Crea tu cuenta' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Entra o crea tu cuenta' })).toBeInTheDocument();
   });
 });
