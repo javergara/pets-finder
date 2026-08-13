@@ -165,6 +165,34 @@ def fusion_para_manual(canonico: Reporte, sobrante: Reporte) -> dict[str, Any]:
     return cambios
 
 
+def clave_post_de(reporte: Reporte) -> str | None:
+    """El post de origen de un reporte crawleado: idempotency `<clave>#<i>`."""
+    idem = reporte.get("idempotency_id") or ""
+    return idem.rsplit("#", 1)[0] if "#" in idem else None
+
+
+def marcar_conflictos_hermanos(plan: list[dict[str, Any]], por_id: dict[int, Reporte]) -> None:
+    """Consistencia que el juzgado par-por-par no ve: dos HERMANOS del mismo
+    post son animales distintos por construcción — no pueden ser ambos 'mismo
+    caso' que un canónico. Si un grupo de hermanos reclama dos o más veces al
+    mismo canónico, el juez se confundió con ese post (típico: foto grupal
+    compartida): TODO el grupo se marca en conflicto y vuelve a revisión
+    humana; la fusión queda solo para veredictos sin conflicto."""
+    for c in plan:
+        reclamos_por_post: dict[str, list[dict]] = {}
+        for s in c["sobrantes"]:
+            veredicto = s.get("juez") or {}
+            if not veredicto.get("mismo_caso"):
+                continue
+            clave = clave_post_de(por_id.get(s["id"], {}))
+            if clave:
+                reclamos_por_post.setdefault(clave, []).append(s)
+        for hermanos in reclamos_por_post.values():
+            if len(hermanos) > 1:
+                for s in hermanos:
+                    s["juez"]["conflicto_hermanos"] = True
+
+
 def pares_fusionables(
     plan: list[dict[str, Any]],
     por_id: dict[int, Reporte],
@@ -193,6 +221,8 @@ def pares_fusionables(
         for s in c["sobrantes"]:
             veredicto = s.get("juez") or {}
             if not veredicto.get("mismo_caso") or not veredicto.get("fusion"):
+                continue
+            if veredicto.get("conflicto_hermanos"):
                 continue
             if float(veredicto.get("confianza", 0.0)) < umbral:
                 continue

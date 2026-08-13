@@ -18,7 +18,12 @@ import sys
 
 import requests
 
-from .deteccion import clusters_duplicados, pares_fusionables, plan_curacion
+from .deteccion import (
+    clusters_duplicados,
+    marcar_conflictos_hermanos,
+    pares_fusionables,
+    plan_curacion,
+)
 from .juez import juzgar_par
 
 
@@ -106,6 +111,16 @@ def main(argv: list[str] | None = None) -> int:
                     f"  juez #{c['canonico']}↔#{s['id']}: {veredicto} "
                     f"(confianza {v['confianza']:.2f}) — {v['razon']}"
                 )
+
+    if args.juez:
+        marcar_conflictos_hermanos(plan, por_id)
+        for c in plan:
+            for s in c["sobrantes"]:
+                if (s.get("juez") or {}).get("conflicto_hermanos"):
+                    print(
+                        f"  ⚠️ #{s['id']}: en conflicto con un hermano del mismo post "
+                        "(dos no pueden ser el mismo caso) — a revisión humana"
+                    )
 
     if args.json:
         with open(args.json, "w") as f:

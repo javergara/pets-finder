@@ -233,3 +233,58 @@ def test_pares_fusionables_con_manuales_usa_fusion_determinista():
     assert pares[0]["user_id_editor"] == 7  # edita como el autor del manual
     # Fusión determinista (append), no la prosa del juez.
     assert "Señas adicionales" in pares[0]["fusion"]["descripcion"]
+
+
+def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
+    from dedup.deteccion import marcar_conflictos_hermanos, pares_fusionables
+
+    por_id = {
+        37: _rep(id=37, user_id=7, tipo="encontrado"),
+        83: _rep(
+            id=83,
+            fuente="crawl",
+            user_id=49,
+            tipo="encontrado",
+            idempotency_id="drive:post-A#0",
+            descripcion="Calicó diluida.",
+        ),
+        84: _rep(
+            id=84,
+            fuente="crawl",
+            user_id=49,
+            tipo="encontrado",
+            idempotency_id="drive:post-B#1",
+            descripcion="Gris con blanco.",
+        ),
+        85: _rep(
+            id=85,
+            fuente="crawl",
+            user_id=49,
+            tipo="encontrado",
+            idempotency_id="drive:post-B#2",
+            descripcion="Gris oscuro.",
+        ),
+    }
+
+    def _sobrante(id, conf):
+        return {
+            "id": id,
+            "accion": "revisión humana",
+            "juez": {"mismo_caso": True, "confianza": conf, "fusion": {"descripcion": "x"}},
+        }
+
+    plan = [
+        {
+            "canonico": 37,
+            "sobrantes": [_sobrante(83, 0.99), _sobrante(84, 0.90), _sobrante(85, 0.82)],
+        }
+    ]
+
+    marcar_conflictos_hermanos(plan, por_id)
+
+    # 84 y 85 son hermanos (mismo post B) reclamando el mismo canónico → conflicto ambos.
+    marcas = {s["id"]: s["juez"].get("conflicto_hermanos") for s in plan[0]["sobrantes"]}
+    assert marcas == {83: None, 84: True, 85: True}
+    # La fusión solo procede para el veredicto sin conflicto (#83).
+    pares = pares_fusionables(plan, por_id, user_id_crawler=49, incluir_manuales=True)
+    assert [p["sobrante"] for p in pares] == [83]
