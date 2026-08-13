@@ -1,4 +1,4 @@
-"""Feature crawler (ADR 0009): procedencia `fuente` + `crawl_metadata`.
+"""Feature crawler (ADR 0010): procedencia `fuente` + `crawl_metadata`.
 
 Cubre el contrato nuevo del POST /api/reports:
 - fuente "manual" por defecto, con las reglas de siempre (teléfono obligatorio).
