@@ -114,4 +114,15 @@ describe('LandingEmergencia', () => {
     expect(await screen.findByText('12 mascotas perdidas')).toBeInTheDocument();
     expect(screen.getByText('5 encontradas')).toBeInTheDocument();
   });
+
+  it('la franja enlaza a la vista completa de reencuentros', async () => {
+    vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 3, recientes: [] });
+
+    renderLanding();
+
+    expect(await screen.findByRole('link', { name: 'Ver todos los reencuentros' })).toHaveAttribute(
+      'href',
+      '/reportes?estado=reunido',
+    );
+  });
 });

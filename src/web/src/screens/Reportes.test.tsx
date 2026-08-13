@@ -46,9 +46,9 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
   };
 }
 
-function renderReportes() {
+function renderReportes(entrada = '/reportes') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entrada]}>
       <Reportes />
     </MemoryRouter>,
   );
@@ -169,5 +169,28 @@ describe('Reportes', () => {
     expect((screen.getByRole('option', { name: 'Perdidas (12)' }) as HTMLOptionElement).value).toBe(
       'perdido',
     );
+  });
+
+  it('el filtro de estado pide los reunidos y las tarjetas celebran', async () => {
+    vi.mocked(client.listarReportes).mockResolvedValue([
+      crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T10:00:00' }),
+    ]);
+
+    renderReportes();
+    fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'reunido' } });
+
+    await waitFor(() =>
+      expect(client.listarReportes).toHaveBeenLastCalledWith({ estado: 'reunido' }),
+    );
+    expect(await screen.findByText('Reunida 💚')).toBeInTheDocument();
+  });
+
+  it('llegar con ?estado=reunido (link de la landing) arranca en reunidos', async () => {
+    vi.mocked(client.listarReportes).mockResolvedValue([]);
+
+    renderReportes('/reportes?estado=reunido');
+
+    await waitFor(() => expect(client.listarReportes).toHaveBeenCalledWith({ estado: 'reunido' }));
+    expect((screen.getByLabelText('Estado') as HTMLSelectElement).value).toBe('reunido');
   });
 });

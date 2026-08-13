@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -112,5 +112,20 @@ describe('MapaReportes', () => {
 
     expect(screen.getByText('Canela')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver reporte' })).toHaveAttribute('href', '/reporte/3');
+  });
+
+  it('la capa "Solo reencuentros" re-consulta con estado reunido y pinta pins forest', async () => {
+    vi.mocked(client.listarReportes).mockResolvedValue([
+      crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T10:00:00' }),
+    ]);
+
+    renderMapa();
+    fireEvent.click(await screen.findByLabelText('Solo reencuentros 💚'));
+
+    await waitFor(() =>
+      expect(client.listarReportes).toHaveBeenLastCalledWith({ estado: 'reunido' }),
+    );
+    const pin = await screen.findByRole('button', { name: 'Reporte: Rocky' });
+    expect(pin.className).toContain('bg-forest');
   });
 });

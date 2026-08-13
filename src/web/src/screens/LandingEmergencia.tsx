@@ -75,6 +75,12 @@ export function LandingEmergencia() {
             {reunidos.total === 1 ? 'reencuentro logrado' : 'reencuentros logrados'} gracias a la
             comunidad
           </p>
+          <Link
+            to="/reportes?estado=reunido"
+            className="mt-2 inline-block text-sm font-medium text-forest underline-offset-4 hover:underline"
+          >
+            Ver todos los reencuentros
+          </Link>
           <div className="mt-4 flex justify-center gap-3">
             {reunidos.recientes.slice(0, 4).map((reporte) => (
               <Link

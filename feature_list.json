@@ -353,7 +353,7 @@
       "id": "27-vista-reencuentros",
       "title": "Vista pública de reencuentros (historias de esperanza)",
       "description": "Inspirado en el filtro 'Solo reunidos' de reunemascotas.brannd.com.co. Hoy el API ya soporta estado=reunido pero la UI solo muestra el contador y los 6 recientes de la landing — los reencuentros completos no son navegables. Añadir filtro de estado 'Reunidos' en el listado (y/o página /reencuentros enlazada desde la franja de la landing), con las tarjetas en tono celebratorio (badge forest 'Reunida 💚') y el detalle ya existente. Es la métrica de esperanza convertida en contenido compartible.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "Desde la landing (franja de reencuentros) se llega a la vista completa de reunidos",

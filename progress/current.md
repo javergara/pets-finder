@@ -269,3 +269,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Nota importante ligada a la condición**: el default de `SITE_URL` es `https://petfinder-col.com`, pero la bitácora registra la app en `pets-finder-sable.vercel.app` — si el dominio custom no existe o difiere, hay que **fijar `SITE_URL` en las env vars de Vercel al dominio real** o los `og:url` (y `og:image` de fotos relativas) apuntarán a un host equivocado; la verificación del acceptance 2 lo detectará. Añadir `SITE_URL` a la tabla de env vars de `docs/deploy.md` (mismo pendiente que `SKIP_DB_CREATE_ALL` de la feature 19).
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 27 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `07b7af6` — que además cierra con evidencia post-deploy la condición de la 21, verificado en el log). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 103/103 tests de API + 93/93 de web**. Feature solo-frontend: el backend no se toca (`estado=reunido` existe desde la 09), sin migración — correcto.
+- **Acceptance 1**: test del link de la franja de la landing con href exacto `/reportes?estado=reunido`, y test de que llegar con ese query param arranca con el filtro preseleccionado (select con `value='reunido'` aseverado) y consulta reunidos de entrada (`useSearchParams`, leído).
+- **Acceptance 2**: filtro "Estado" (En búsqueda / Reunidas 💚) que añade `estado: 'reunido'` al payload del backend (test con `toHaveBeenLastCalledWith`); badge celebratorio "Reunida 💚" en `bg-forest` **reemplazando** el badge de tipo solo cuando `estado === 'reunido'` (test + lectura del condicional). Sin mezclar en la vista default: el estado inicial es `'activo'` y en ese caso no se envía `estado` — el backend sigue excluyendo reunidos por defecto (los tests previos del listado con `{}` pasan sin cambios, y verificado en vivo: 17 activos sin reunidos, 2 reunidos navegables con el filtro).
+- **Acceptance 3**: checkbox "Solo reencuentros 💚" en el mapa — test de la re-consulta con `{estado: 'reunido'}` y del pin en `bg-forest`; por lectura: el contador del header cambia a "N reencuentros", la selección se limpia al alternar la capa, y todos los pins de la capa reunidos van en forest (celebración, no danger).
+- Tono consistente: reencuentros como contenido celebrable y navegable (la métrica de esperanza del producto), 💚 coherente con la franja y el detalle.
+- `feature_list.json`: `27-vista-reencuentros` a `done` con edición puntual sobre la línea 356 (diff neto `todo`→`done` por el `in_progress` sin commitear del líder); único cambio de status; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.

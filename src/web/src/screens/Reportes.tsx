@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { type FiltrosReportes, listarReportes, obtenerConteos } from '../api/client';
 import type { Conteos, Reporte } from '../api/types';
 import { ReporteCard } from '../components/ReporteCard';
@@ -9,6 +9,11 @@ import { NOMBRES_ZONAS, ZONA_OTRO } from '../lib/ciudades';
 const TODOS = 'todos';
 
 export function Reportes() {
+  // La franja de la landing enlaza /reportes?estado=reunido (feature 27).
+  const [searchParams] = useSearchParams();
+  const [estado, setEstado] = useState(
+    searchParams.get('estado') === 'reunido' ? 'reunido' : 'activo',
+  );
   const [tipo, setTipo] = useState(TODOS);
   const [especie, setEspecie] = useState(TODOS);
   const [zona, setZona] = useState(TODOS);
@@ -30,6 +35,7 @@ export function Reportes() {
   // reunidos los decide la API, no el cliente).
   useEffect(() => {
     const filtros: FiltrosReportes = {};
+    if (estado === 'reunido') filtros.estado = 'reunido';
     if (tipo !== TODOS) filtros.tipo = tipo as FiltrosReportes['tipo'];
     if (especie !== TODOS) filtros.especie = especie as FiltrosReportes['especie'];
     if (zona !== TODOS) filtros.zona = zona;
@@ -37,7 +43,7 @@ export function Reportes() {
     if (color !== TODOS) filtros.color = color;
     if (tamano !== TODOS) filtros.tamano = tamano as FiltrosReportes['tamano'];
     listarReportes(filtros).then(setReportes);
-  }, [tipo, especie, zona, raza, color, tamano]);
+  }, [estado, tipo, especie, zona, raza, color, tamano]);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">
@@ -56,6 +62,17 @@ export function Reportes() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <label className="flex flex-col text-xs text-muted">
+            Estado
+            <select
+              value={estado}
+              onChange={(e) => setEstado(e.target.value)}
+              className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+            >
+              <option value="activo">En búsqueda</option>
+              <option value="reunido">Reunidas 💚</option>
+            </select>
+          </label>
           <label className="flex flex-col text-xs text-muted">
             Tipo
             <select

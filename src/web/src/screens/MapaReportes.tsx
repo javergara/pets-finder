@@ -13,15 +13,17 @@ const ETIQUETA_ESPECIE = { perro: 'Perro', gato: 'Gato', otro: 'Otro animal' } a
 
 export function MapaReportes() {
   const [vista, setVista] = useState(VISTA_COLOMBIA);
+  const [soloReunidos, setSoloReunidos] = useState(false);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [seleccionado, setSeleccionado] = useState<Reporte | null>(null);
 
-  // Siempre se piden todos los activos: en la vista de una zona se filtra en
-  // memoria (los "Otro" solo aparecen en la vista nacional, donde su pin cae
-  // en su coordenada real).
+  // Siempre se piden todos (activos, o solo reunidos con la capa 💚): en la
+  // vista de una zona se filtra en memoria (los "Otro" solo aparecen en la
+  // vista nacional, donde su pin cae en su coordenada real).
   useEffect(() => {
-    listarReportes().then(setReportes);
-  }, []);
+    listarReportes(soloReunidos ? { estado: 'reunido' } : {}).then(setReportes);
+    setSeleccionado(null);
+  }, [soloReunidos]);
 
   const visibles = vista === VISTA_COLOMBIA ? reportes : reportes.filter((r) => r.zona === vista);
 
@@ -29,7 +31,7 @@ export function MapaReportes() {
     id: reporte.id,
     lat: reporte.lat,
     lng: reporte.lng,
-    colorClass: reporte.tipo === 'perdido' ? 'bg-danger' : 'bg-forest',
+    colorClass: reporte.tipo === 'perdido' && !soloReunidos ? 'bg-danger' : 'bg-forest',
     etiqueta: `Reporte: ${reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie]}`,
     onClick: () => setSeleccionado(reporte),
   }));
@@ -40,9 +42,18 @@ export function MapaReportes() {
         <div>
           <h1 className="font-display text-3xl text-ink">Mapa de reportes</h1>
           <p className="mt-1 text-sm text-muted">
-            {visibles.length} reportes activos en{' '}
+            {visibles.length} {soloReunidos ? 'reencuentros' : 'reportes activos'} en{' '}
             {vista === VISTA_COLOMBIA ? 'todo Colombia' : vista}.
           </p>
+          <label className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
+            <input
+              type="checkbox"
+              checked={soloReunidos}
+              onChange={(e) => setSoloReunidos(e.target.checked)}
+              className="accent-forest"
+            />
+            Solo reencuentros 💚
+          </label>
         </div>
         <label className="flex flex-col text-xs text-muted">
           Zona

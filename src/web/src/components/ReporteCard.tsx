@@ -42,11 +42,18 @@ export function ReporteCard({ reporte }: { reporte: Reporte }) {
           />
         )}
         <div className="relative flex items-start p-3">
-          <span
-            className={`rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg ${tipo.color}`}
-          >
-            {tipo.texto}
-          </span>
+          {/* Un reencuentro se celebra por encima del tipo (feature 27). */}
+          {reporte.estado === 'reunido' ? (
+            <span className="rounded-md bg-forest px-3 py-1 font-mono text-xs tracking-wide text-bg">
+              Reunida 💚
+            </span>
+          ) : (
+            <span
+              className={`rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg ${tipo.color}`}
+            >
+              {tipo.texto}
+            </span>
+          )}
         </div>
       </div>
 
