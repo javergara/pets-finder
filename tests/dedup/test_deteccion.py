@@ -131,3 +131,51 @@ def test_cluster_posible_nunca_es_eliminable():
     plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=49)
     assert plan[0]["nivel"] == "posible"
     assert all(s["accion"] == "revisión humana" for s in plan[0]["sobrantes"])
+
+
+def test_pares_fusionables_exige_juez_confiado_y_par_crawl_propio():
+    from dedup.deteccion import pares_fusionables
+
+    por_id = {
+        10: _rep(id=10, fuente="crawl", user_id=49, tipo="encontrado"),
+        11: _rep(id=11, fuente="crawl", user_id=49, tipo="encontrado"),
+        26: _rep(id=26),  # manual
+    }
+    fusion = {"descripcion": "Señas combinadas.", "nombre_mascota": "Rex"}
+    plan = [
+        {  # par crawl-crawl con juez confiado → fusionable (y sin nombre: es encontrado)
+            "canonico": 10,
+            "sobrantes": [
+                {
+                    "id": 11,
+                    "accion": "revisión humana",
+                    "juez": {"mismo_caso": True, "confianza": 0.9, "fusion": fusion},
+                }
+            ],
+        },
+        {  # canónico manual → nunca se aplica, queda como sugerencia
+            "canonico": 26,
+            "sobrantes": [
+                {
+                    "id": 11,
+                    "accion": "revisión humana",
+                    "juez": {"mismo_caso": True, "confianza": 0.95, "fusion": fusion},
+                }
+            ],
+        },
+        {  # confianza baja → fuera
+            "canonico": 10,
+            "sobrantes": [
+                {
+                    "id": 11,
+                    "accion": "revisión humana",
+                    "juez": {"mismo_caso": True, "confianza": 0.5, "fusion": fusion},
+                }
+            ],
+        },
+    ]
+    pares = pares_fusionables(plan, por_id, user_id_crawler=49)
+    assert len(pares) == 1
+    assert pares[0]["canonico"] == 10
+    assert "nombre_mascota" not in pares[0]["fusion"]  # encontrado no lleva nombre
+    assert pares[0]["fusion"]["descripcion"] == "Señas combinadas."

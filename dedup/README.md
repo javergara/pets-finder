@@ -31,8 +31,21 @@ PETFINDER_API_URL=... CRAWLER_USER_ID=... python -m dedup.cli --aplicar
   crawler — lo único que sus herramientas de autor alcanzan. Los duplicados
   manuales y todos los "posibles" quedan en revisión humana siempre.
 
+## Juez LLM (pares ambiguos)
+
+Para los sobrantes en revisión humana, `--juez` pide la opinión de un modelo
+pequeño y rápido (default **GPT-5.6 Luna**, configurable con
+`DEDUP_JUEZ_MODELO`; requiere `OPENAI_API_KEY`): compara señas y fotos del par
+y responde si es el mismo animal o dos animales de la misma persona. El
+veredicto **anota y ordena** la cola de revisión en el informe — no borra nada.
+
+```bash
+PETFINDER_API_URL=... OPENAI_API_KEY=... python -m dedup.cli --juez --json informe.json
+```
+
 ## Mapa
 
 - `deteccion.py` — núcleo puro (candidatos, clusters, plan de curación).
-- `cli.py` — auditoría + informe + curación acotada.
+- `cli.py` — auditoría + informe + juez opcional + curación acotada.
+- `juez.py` — veredicto LLM por par (señas + fotos), sin SDK: REST directo.
 - Tests en `tests/dedup/` (suite normal, sin red).
