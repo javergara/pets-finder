@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..media import borrar_foto
@@ -41,6 +41,7 @@ def crear_reporte(payload: ReportIn, session: Session = Depends(get_session)) ->
 
 @router.get("", response_model=list[ReportOut])
 def listar_reportes(
+    response: Response,
     tipo: str | None = None,
     especie: str | None = None,
     zona: str | None = None,
@@ -49,6 +50,9 @@ def listar_reportes(
     tamano: str | None = None,
     user_id: int | None = None,
     estado: str = "activo",
+    q: str | None = None,
+    limit: int | None = Query(default=None, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     session: Session = Depends(get_session),
 ) -> list[ReportOut]:
     """Listado con filtros opcionales, más reciente primero.
@@ -57,6 +61,12 @@ def listar_reportes(
     activas (listado y mapa) — se piden explícitamente con `estado=reunido`, o
     todos con `estado=todos`. `user_id` filtra "mis reportes" (feature 09), donde
     normalmente se combina con `estado=todos` para ver también los reunidos.
+
+    Búsqueda y paginación (feature 30): `q` busca texto libre (case-insensitive)
+    en nombre, descripción, barrio y ciudad_texto; `limit`/`offset` paginan con
+    orden estable (fecha_evento desc, id desc) y el total de la consulta viaja
+    SIEMPRE en el header `X-Total-Count` — sin `limit`, la respuesta sigue
+    siendo la lista completa (compatibilidad con mapa y mis-reportes).
     """
     query = select(Report)
     if estado != "todos":
@@ -75,7 +85,23 @@ def listar_reportes(
         query = query.where(Report.tamano == tamano)
     if user_id is not None:
         query = query.where(Report.user_id == user_id)
+    if q is not None and q.strip():
+        termino = f"%{q.strip()}%"
+        query = query.where(
+            or_(
+                Report.nombre_mascota.ilike(termino),
+                Report.descripcion.ilike(termino),
+                Report.barrio.ilike(termino),
+                Report.ciudad_texto.ilike(termino),
+            )
+        )
+
+    total = session.execute(select(func.count()).select_from(query.subquery())).scalar_one()
+    response.headers["X-Total-Count"] = str(total)
+
     query = query.order_by(Report.fecha_evento.desc(), Report.id.desc())
+    if limit is not None:
+        query = query.offset(offset).limit(limit)
 
     reports = session.execute(query).scalars().all()
     return [ReportOut.model_validate(r) for r in reports]

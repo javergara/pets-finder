@@ -234,3 +234,34 @@ export function cubrirNecesidad(
 export function obtenerConteos(): Promise<Conteos> {
   return request('/api/reports/conteos');
 }
+
+/** Variante paginada del listado (feature 30): expone el total del header
+ * X-Total-Count, que `request()` no puede leer. */
+export async function listarReportesPaginado(
+  filtros: FiltrosReportes & { q?: string } = {},
+  limit = 12,
+  offset = 0,
+): Promise<{ items: Reporte[]; total: number }> {
+  const params = new URLSearchParams();
+  if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.especie) params.set('especie', filtros.especie);
+  if (filtros.zona) params.set('zona', filtros.zona);
+  if (filtros.raza) params.set('raza', filtros.raza);
+  if (filtros.color) params.set('color', filtros.color);
+  if (filtros.tamano) params.set('tamano', filtros.tamano);
+  if (filtros.estado) params.set('estado', filtros.estado);
+  if (filtros.q) params.set('q', filtros.q);
+  params.set('limit', String(limit));
+  params.set('offset', String(offset));
+
+  const respuesta = await fetch(`${API_BASE_URL}/api/reports?${params.toString()}`, {
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
+  }
+  const items = (await respuesta.json()) as Reporte[];
+  const total = Number(respuesta.headers.get('X-Total-Count') ?? items.length);
+  return { items, total };
+}

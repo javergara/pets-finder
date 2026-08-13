@@ -478,3 +478,10 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `ReportUpdate` ampliado: raza/color/tamano (Literal), lat/lng — se suman a los ya editables (nombre, descripción, foto_url, barrio, teléfono, fecha). Zona y especie NO editables (cambiarían encuadre/coincidencias; documentado en el schema y la UI).
 - Pantalla nueva `/reporte/:id/editar` (EditarReporte.tsx): precargada con los valores actuales, foto actual visible + re-subida con FotoUpload (comprime), pin corregible por click, selects de características por especie; solo-autor (no-autor → redirect al detalle). Botón "Editar reporte" en la zona de administración del detalle.
 - Tests: +2 API (persistencia de todos los campos nuevos + intactos los no enviados; tamano inválido 422) y +4 web (precarga, payload del guardado, redirect no-autor, validación de obligatorios). bash init.sh verde: 111 API + 97 web; build limpio. Sin cambio de esquema.
+
+## 2026-08-12 — Feature 30: búsqueda por texto y paginación del listado (commit: en revisión)
+
+- GET /api/reports: `q` (ILIKE case-insensitive en nombre_mascota/descripcion/barrio/ciudad_texto, combinable con todos los filtros), `limit` (1-100)/`offset` con orden estable (fecha_evento desc, id desc), y el total de la consulta SIEMPRE en el header `X-Total-Count`. Sin `limit` la respuesta sigue siendo la lista completa — mapa y mis-reportes intactos.
+- `client.ts`: `listarReportesPaginado(filtros+q, limit=12, offset)` lee el header (fetch propio; request() no expone headers).
+- Listado: campo "Buscar" (nombre, señas, barrio…), primera página de 12 al cambiar cualquier filtro/búsqueda, botón "Cargar más (N restantes)" que acumula conservando filtros, y el "N con estos filtros" ahora sale del total del backend (mejora sobre la 34).
+- Tests: +4 API (q en los 4 campos y combinable, paginación con orden estable entre páginas + header, sin limit completa+total, 422 limit/offset inválidos) y tests del listado migrados al cliente paginado +2 nuevos (q conserva filtros; Cargar más pide offset y acumula). bash init.sh verde: 115 API + 99 web; build limpio. Sin cambio de esquema.

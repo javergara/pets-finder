@@ -508,3 +508,46 @@ def test_editar_tamano_invalido_devuelve_422(client, db_session, usuario):
     )
 
     assert respuesta.status_code == 422
+
+
+# --- Búsqueda y paginación (feature 30) ---
+
+
+def test_busqueda_q_en_nombre_descripcion_barrio_y_ciudad(client, db_session, usuario):
+    _sembrar_variedad(db_session, usuario)
+
+    # Nombre, case-insensitive.
+    assert [r["nombre_mascota"] for r in client.get("/api/reports?q=rOcKy").json()] == ["Rocky"]
+    # Descripción (todas las del seed de variedad dicen "d") + combinable con tipo.
+    assert len(client.get("/api/reports?q=d&tipo=encontrado").json()) == 1
+    # Sin coincidencias.
+    assert client.get("/api/reports?q=inexistente").json() == []
+
+
+def test_paginacion_con_orden_estable_y_total_en_header(client, db_session, usuario):
+    _sembrar_variedad(db_session, usuario)
+
+    pagina1 = client.get("/api/reports?limit=2&offset=0")
+    pagina2 = client.get("/api/reports?limit=2&offset=2")
+
+    assert pagina1.headers["X-Total-Count"] == "3"
+    assert len(pagina1.json()) == 2
+    ids_paginados = [r["id"] for r in pagina1.json()] + [r["id"] for r in pagina2.json()]
+    # Mismo orden que el listado completo: sin duplicados ni huecos entre páginas.
+    completo = [r["id"] for r in client.get("/api/reports").json()]
+    assert ids_paginados == completo
+
+
+def test_sin_limit_la_respuesta_sigue_completa_con_total(client, db_session, usuario):
+    _sembrar_variedad(db_session, usuario)
+
+    respuesta = client.get("/api/reports")
+
+    assert len(respuesta.json()) == 3
+    assert respuesta.headers["X-Total-Count"] == "3"
+
+
+def test_limit_invalido_devuelve_422(client, db_session):
+    assert client.get("/api/reports?limit=0").status_code == 422
+    assert client.get("/api/reports?limit=101").status_code == 422
+    assert client.get("/api/reports?offset=-1").status_code == 422

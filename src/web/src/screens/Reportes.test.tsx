@@ -7,11 +7,11 @@ import { Reportes } from './Reportes';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarReportes: vi.fn(), obtenerConteos: vi.fn() };
+  return { ...actual, listarReportesPaginado: vi.fn(), obtenerConteos: vi.fn() };
 });
 
 beforeEach(() => {
-  vi.mocked(client.listarReportes).mockResolvedValue([]);
+  vi.mocked(client.listarReportesPaginado).mockResolvedValue({ items: [], total: 0 });
   vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 0, encontrados: 0 });
 });
 
@@ -56,18 +56,21 @@ function renderReportes(entrada = '/reportes') {
 
 describe('Reportes', () => {
   it('muestra los reportes con tipo, especie, zona y fecha', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([
-      crearReporte(),
-      crearReporte({
-        id: 2,
-        tipo: 'encontrado',
-        especie: 'gato',
-        nombre_mascota: null,
-        situacion: 'conmigo',
-        zona: 'Pereira',
-        fecha_evento: '2026-08-11',
-      }),
-    ]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [
+        crearReporte(),
+        crearReporte({
+          id: 2,
+          tipo: 'encontrado',
+          especie: 'gato',
+          nombre_mascota: null,
+          situacion: 'conmigo',
+          zona: 'Pereira',
+          fecha_evento: '2026-08-11',
+        }),
+      ],
+      total: 2,
+    });
 
     renderReportes();
 
@@ -85,28 +88,38 @@ describe('Reportes', () => {
     // El encontrado sin nombre usa la especie como título.
     expect(screen.getByRole('heading', { name: 'Gato' })).toBeInTheDocument();
     // El listado inicial se pide sin filtros: orden y exclusión de reunidos los decide la API.
-    expect(client.listarReportes).toHaveBeenCalledWith({});
+    expect(client.listarReportesPaginado).toHaveBeenCalledWith({}, 12, 0);
   });
 
   it('cambiar un filtro re-consulta al backend con ese filtro', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte()],
+      total: 1,
+    });
 
     renderReportes();
     await screen.findByText('Rocky');
 
     fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'perdido' } });
     await waitFor(() =>
-      expect(client.listarReportes).toHaveBeenLastCalledWith({ tipo: 'perdido' }),
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith({ tipo: 'perdido' }, 12, 0),
     );
 
     fireEvent.change(screen.getByLabelText('Zona'), { target: { value: 'Cali' } });
     await waitFor(() =>
-      expect(client.listarReportes).toHaveBeenLastCalledWith({ tipo: 'perdido', zona: 'Cali' }),
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith(
+        { tipo: 'perdido', zona: 'Cali' },
+        12,
+        0,
+      ),
     );
   });
 
   it('los filtros de características re-consultan, y la raza solo aparece con especie', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte()],
+      total: 1,
+    });
 
     renderReportes();
     await screen.findByText('Rocky');
@@ -115,27 +128,35 @@ describe('Reportes', () => {
     expect(screen.queryByLabelText('Raza')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Color'), { target: { value: 'Negro' } });
-    await waitFor(() => expect(client.listarReportes).toHaveBeenLastCalledWith({ color: 'Negro' }));
+    await waitFor(() =>
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith({ color: 'Negro' }, 12, 0),
+    );
 
     fireEvent.change(screen.getByLabelText('Tamaño'), { target: { value: 'grande' } });
     await waitFor(() =>
-      expect(client.listarReportes).toHaveBeenLastCalledWith({ color: 'Negro', tamano: 'grande' }),
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith(
+        { color: 'Negro', tamano: 'grande' },
+        12,
+        0,
+      ),
     );
 
     fireEvent.change(screen.getByLabelText('Especie'), { target: { value: 'perro' } });
     fireEvent.change(await screen.findByLabelText('Raza'), { target: { value: 'Labrador' } });
     await waitFor(() =>
-      expect(client.listarReportes).toHaveBeenLastCalledWith({
-        especie: 'perro',
-        raza: 'Labrador',
-        color: 'Negro',
-        tamano: 'grande',
-      }),
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith(
+        { especie: 'perro', raza: 'Labrador', color: 'Negro', tamano: 'grande' },
+        12,
+        0,
+      ),
     );
   });
 
   it('cada tarjeta navega a /reporte/:id', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte({ id: 7 })]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte({ id: 7 })],
+      total: 1,
+    });
 
     renderReportes();
 
@@ -144,7 +165,7 @@ describe('Reportes', () => {
   });
 
   it('sin resultados muestra el estado vacío con una acción', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({ items: [], total: 0 });
 
     renderReportes();
 
@@ -159,7 +180,10 @@ describe('Reportes', () => {
 
   it('muestra los conteos por tipo del backend en el resumen y en el filtro', async () => {
     vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 12, encontrados: 5 });
-    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte()],
+      total: 1,
+    });
 
     renderReportes();
 
@@ -172,25 +196,68 @@ describe('Reportes', () => {
   });
 
   it('el filtro de estado pide los reunidos y las tarjetas celebran', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([
-      crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T10:00:00' }),
-    ]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T10:00:00' })],
+      total: 1,
+    });
 
     renderReportes();
     fireEvent.change(screen.getByLabelText('Estado'), { target: { value: 'reunido' } });
 
     await waitFor(() =>
-      expect(client.listarReportes).toHaveBeenLastCalledWith({ estado: 'reunido' }),
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith({ estado: 'reunido' }, 12, 0),
     );
     expect(await screen.findByText('Reunida 💚')).toBeInTheDocument();
   });
 
   it('llegar con ?estado=reunido (link de la landing) arranca en reunidos', async () => {
-    vi.mocked(client.listarReportes).mockResolvedValue([]);
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({ items: [], total: 0 });
 
     renderReportes('/reportes?estado=reunido');
 
-    await waitFor(() => expect(client.listarReportes).toHaveBeenCalledWith({ estado: 'reunido' }));
+    await waitFor(() =>
+      expect(client.listarReportesPaginado).toHaveBeenCalledWith({ estado: 'reunido' }, 12, 0),
+    );
     expect((screen.getByLabelText('Estado') as HTMLSelectElement).value).toBe('reunido');
+  });
+
+  it('escribir en Buscar re-consulta con q y conserva los filtros', async () => {
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte()],
+      total: 1,
+    });
+
+    renderReportes();
+    await screen.findByText('Rocky');
+
+    fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'perdido' } });
+    fireEvent.change(screen.getByLabelText('Buscar'), { target: { value: 'collar rojo' } });
+
+    await waitFor(() =>
+      expect(client.listarReportesPaginado).toHaveBeenLastCalledWith(
+        { tipo: 'perdido', q: 'collar rojo' },
+        12,
+        0,
+      ),
+    );
+  });
+
+  it('Cargar más pide la página siguiente con offset y acumula sin perder filtros', async () => {
+    const pagina1 = Array.from({ length: 12 }, (_, i) => crearReporte({ id: i + 1 }));
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({ items: pagina1, total: 15 });
+
+    renderReportes();
+    const boton = await screen.findByRole('button', { name: 'Cargar más (3 restantes)' });
+
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte({ id: 13, nombre_mascota: 'Extra' })],
+      total: 15,
+    });
+    fireEvent.click(boton);
+
+    expect(await screen.findByText('Extra')).toBeInTheDocument();
+    expect(client.listarReportesPaginado).toHaveBeenLastCalledWith({}, 12, 12);
+    // Los 12 de la primera página siguen renderizados (acumula, no reemplaza).
+    expect(screen.getAllByText('Rocky').length).toBe(12);
   });
 });

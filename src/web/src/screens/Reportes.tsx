@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { type FiltrosReportes, listarReportes, obtenerConteos } from '../api/client';
+import { type FiltrosReportes, listarReportesPaginado, obtenerConteos } from '../api/client';
 import type { Conteos, Reporte } from '../api/types';
 import { ReporteCard } from '../components/ReporteCard';
 import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
 import { NOMBRES_ZONAS, ZONA_OTRO } from '../lib/ciudades';
 
 const TODOS = 'todos';
+const POR_PAGINA = 12;
 
 export function Reportes() {
   // La franja de la landing enlaza /reportes?estado=reunido (feature 27).
@@ -20,7 +21,10 @@ export function Reportes() {
   const [raza, setRaza] = useState(TODOS);
   const [color, setColor] = useState(TODOS);
   const [tamano, setTamano] = useState(TODOS);
+  const [q, setQ] = useState('');
   const [reportes, setReportes] = useState<Reporte[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [cargandoMas, setCargandoMas] = useState(false);
   const [conteos, setConteos] = useState<Conteos | null>(null);
 
   // Prueba social (feature 34): cuántos activos hay por tipo, del backend.
@@ -31,10 +35,8 @@ export function Reportes() {
   // La raza depende de la especie elegida: solo se ofrece con perro o gato.
   const razasDisponibles = especie === TODOS ? [] : razasPorEspecie(especie);
 
-  // Cada cambio de filtro re-consulta al backend (el orden y la exclusión de
-  // reunidos los decide la API, no el cliente).
-  useEffect(() => {
-    const filtros: FiltrosReportes = {};
+  function filtrosActuales(): FiltrosReportes & { q?: string } {
+    const filtros: FiltrosReportes & { q?: string } = {};
     if (estado === 'reunido') filtros.estado = 'reunido';
     if (tipo !== TODOS) filtros.tipo = tipo as FiltrosReportes['tipo'];
     if (especie !== TODOS) filtros.especie = especie as FiltrosReportes['especie'];
@@ -42,8 +44,35 @@ export function Reportes() {
     if (raza !== TODOS) filtros.raza = raza;
     if (color !== TODOS) filtros.color = color;
     if (tamano !== TODOS) filtros.tamano = tamano as FiltrosReportes['tamano'];
-    listarReportes(filtros).then(setReportes);
-  }, [estado, tipo, especie, zona, raza, color, tamano]);
+    if (q.trim()) filtros.q = q.trim();
+    return filtros;
+  }
+
+  // Cada cambio de filtro o búsqueda re-consulta la primera página (feature 30:
+  // el orden, la exclusión de reunidos y el total los decide la API).
+  useEffect(() => {
+    listarReportesPaginado(filtrosActuales(), POR_PAGINA, 0).then(({ items, total: t }) => {
+      setReportes(items);
+      setTotal(t);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado, tipo, especie, zona, raza, color, tamano, q]);
+
+  async function cargarMas() {
+    if (!reportes) return;
+    setCargandoMas(true);
+    try {
+      const { items, total: t } = await listarReportesPaginado(
+        filtrosActuales(),
+        POR_PAGINA,
+        reportes.length,
+      );
+      setReportes([...reportes, ...items]);
+      setTotal(t);
+    } finally {
+      setCargandoMas(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">
@@ -56,12 +85,22 @@ export function Reportes() {
               <span className="mt-0.5 block">
                 Ahora mismo: <strong className="text-danger">{conteos.perdidos} perdidas</strong> ·{' '}
                 <strong className="text-forest">{conteos.encontrados} encontradas</strong>
-                {reportes && ` · ${reportes.length} con estos filtros`}
+                {reportes && ` · ${total} con estos filtros`}
               </span>
             )}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
+          <label className="flex flex-col text-xs text-muted">
+            Buscar
+            <input
+              type="search"
+              placeholder="Nombre, señas, barrio…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+            />
+          </label>
           <label className="flex flex-col text-xs text-muted">
             Estado
             <select
@@ -189,11 +228,25 @@ export function Reportes() {
           </Link>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {reportes.map((reporte) => (
-            <ReporteCard key={reporte.id} reporte={reporte} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {reportes.map((reporte) => (
+              <ReporteCard key={reporte.id} reporte={reporte} />
+            ))}
+          </div>
+          {reportes.length < total && (
+            <div className="text-center">
+              <button
+                type="button"
+                disabled={cargandoMas}
+                onClick={cargarMas}
+                className="rounded-full border border-line px-6 py-3 font-medium text-ink-soft disabled:opacity-60"
+              >
+                {cargandoMas ? 'Cargando…' : `Cargar más (${total - reportes.length} restantes)`}
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

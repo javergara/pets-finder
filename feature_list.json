@@ -392,7 +392,7 @@
       "id": "30-busqueda-y-paginacion",
       "title": "Búsqueda por texto y paginación del listado",
       "description": "Mejora de escalabilidad de lo actual: GET /api/reports devuelve TODO y el listado lo pinta completo — con cientos de reportes reales será lento y difícil de escanear. Añadir búsqueda por texto libre (nombre_mascota, descripción, barrio, ciudad_texto — ILIKE en Postgres/SQLite) combinable con los filtros existentes, y paginación (limit/offset con total en el response, botón 'Cargar más' en la UI conservando filtros).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "GET /api/reports acepta q= (busca en nombre/descripcion/barrio/ciudad_texto, case-insensitive) combinable con los filtros existentes (tests)",
