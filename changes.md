@@ -493,3 +493,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `MapaLienzo`: prop `centro` nueva — setView(15) al cambiar (no-op en tests, mapa no montado en jsdom). El formulario también centra el mapa al mover el pin.
 - `/mapa`: botón "📍 Centrar en mi ubicación" con el mismo patrón de fallbacks.
 - Tests: +3 en ReportarMascota.test (coords dentro de zona van al payload; fuera → sugerencia y cambio a Medellín; denegado → aviso y el submit manual sigue) y +1 en MapaReportes.test (el botón invoca la geolocalización). bash init.sh verde: 115 API + 103 web; build limpio. Sin cambio de esquema.
+
+## 2026-08-12 — Stack del crawler integrado (PRs #1-#3 de Javtor, ADR 0010)
+
+- Evaluación completa de los 3 PRs (suite verificada en worktree aislado, seguridad revisada: XSS-guard en url_post, idempotencia por índice único con manejo de carrera, dry-run por defecto). Correcciones aplicadas sobre las ramas antes del merge: ADR renumerado 0009→0010 (colisión con og-tags) y 14 teléfonos reales anonimizados en crawler/ejemplos/ (repo público).
+- Migración de prod ejecutada con autorización explícita ANTES del merge: reports.fuente ('manual' default), crawl_metadata (JSON), idempotency_id (+índice único), telefono_contacto nullable — 29 reportes reales intactos.
+- Mergeado en cadena (3→2→1→develop→main). El crawler (crawler/) NO corre contra prod todavía: pendiente crear el usuario sistema y la primera corrida real (crawler/features.json C3/C4), solo con autorización del dueño.
