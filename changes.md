@@ -486,7 +486,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Listado: campo "Buscar" (nombre, señas, barrio…), primera página de 12 al cambiar cualquier filtro/búsqueda, botón "Cargar más (N restantes)" que acumula conservando filtros, y el "N con estos filtros" ahora sale del total del backend (mejora sobre la 34).
 - Tests: +4 API (q en los 4 campos y combinable, paginación con orden estable entre páginas + header, sin limit completa+total, 422 limit/offset inválidos) y tests del listado migrados al cliente paginado +2 nuevos (q conserva filtros; Cargar más pide offset y acumula). bash init.sh verde: 115 API + 99 web; build limpio. Sin cambio de esquema.
 
-## 2026-08-12 — Feature 31: usar mi ubicación para el pin y el mapa (commit: en revisión)
+## 2026-08-12 — Feature 31: usar mi ubicación para el pin y el mapa (commit: 9a8ef38)
 
 - `lib/ciudades.ts`: `coordsEnZona()` y `zonaQueContiene()` (bounding boxes existentes).
 - Reportar: botón "📍 Usar mi ubicación" — dentro de la zona elegida pone el pin en las coords reales (redondeadas a 4 decimales); sin zona elegida y coords dentro de una zona conocida, la zona se autoselecciona; fuera de la zona elegida ofrece la corrección ("Cambiar a {zona real} y usar mi ubicación" / "Otro lugar de Colombia" / Ignorar). Permiso denegado o sin soporte → aviso y flujo manual intacto.
