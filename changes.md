@@ -466,7 +466,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Mapa: checkbox "Solo reencuentros 💚" — re-consulta con estado=reunido, pins forest, contador del header dice "N reencuentros".
 - Sin cambios de backend (estado=reunido existía desde la feature 09). Tests: +2 listado (filtro + entrada por URL), +1 landing (href del link), +1 mapa (capa). bash init.sh verde: 103 API + 93 web.
 
-## 2026-08-12 — Feature 20: borrar la foto del bucket al eliminar (commit: en revisión)
+## 2026-08-12 — Feature 20: borrar la foto del bucket al eliminar (commit: a49011c)
 
 - `media.py`: `borrar_foto(foto_url)` — tolerante por diseño (NUNCA lanza; log y el registro se elimina igual). URL del bucket propio → DELETE REST con la service key; /media/uploads/ local → unlink(missing_ok); /media/seed/ y hosts ajenos → intocables con log.
 - Conectada en `eliminar_reporte` y `eliminar_organizacion` (antes del delete de la fila). Docstrings de la limitación aceptada actualizados: la deuda de las features 18/32 queda saldada.
