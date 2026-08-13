@@ -13,7 +13,7 @@ Fuente = Literal["manual", "crawl"]
 
 
 class _CrawlMetadataBase(BaseModel):
-    """Procedencia de un reporte creado por el crawler de redes (ADR 0009).
+    """Procedencia de un reporte creado por el crawler de redes (ADR 0010).
 
     Campos comunes a toda plataforma; cada una aporta los suyos en su variante
     de la unión discriminada por `plataforma` (lo que da Instagram no es lo que
@@ -122,13 +122,13 @@ class ReportIn(BaseModel):
     telefono_contacto: str | None = None
     fuente: Fuente = "manual"
     crawl_metadata: CrawlMetadata | None = None
-    # Clave de idempotencia opcional (ADR 0009): mismo valor → mismo reporte,
+    # Clave de idempotencia opcional (ADR 0010): mismo valor → mismo reporte,
     # nunca un duplicado. La usa el crawler para que sus retries sean seguros.
     idempotency_id: str | None = Field(default=None, max_length=300)
 
     @model_validator(mode="after")
     def validar_condicionales(self) -> "ReportIn":
-        """Reglas que dependen del `tipo` (ADR 0005 §2) y de la `fuente` (ADR 0009).
+        """Reglas que dependen del `tipo` (ADR 0005 §2) y de la `fuente` (ADR 0010).
 
         - `situacion` es obligatoria en "encontrado" y no aplica en "perdido".
         - `nombre_mascota` solo aplica en "perdido" (quien encuentra no lo conoce).
