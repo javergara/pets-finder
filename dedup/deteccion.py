@@ -141,3 +141,42 @@ def plan_curacion(clusters: list[dict[str, Any]], user_id_crawler: int | None) -
             acciones.append({"id": s["id"], "accion": accion})
         plan.append({**c, "canonico": canonico["id"], "sobrantes": acciones})
     return plan
+
+
+def pares_fusionables(
+    plan: list[dict[str, Any]],
+    por_id: dict[int, Reporte],
+    user_id_crawler: int | None,
+    umbral: float = 0.8,
+) -> list[dict[str, Any]]:
+    """Pares donde la fusión se puede APLICAR, no solo sugerir.
+
+    Requiere las tres cosas a la vez: veredicto del juez 'mismo caso' con
+    confianza >= umbral y fusión propuesta; y que canónico Y sobrante sean
+    copias crawl del usuario del crawler — lo único que sus herramientas de
+    autor pueden editar/eliminar. Con canónico manual, la fusión queda como
+    sugerencia en el informe (editarlo es de su autor o de moderación)."""
+
+    def _crawl_propio(reporte: Reporte) -> bool:
+        return reporte.get("fuente") == "crawl" and reporte.get("user_id") == user_id_crawler
+
+    pares = []
+    for c in plan:
+        canonico = por_id.get(c["canonico"])
+        for s in c["sobrantes"]:
+            veredicto = s.get("juez") or {}
+            if not veredicto.get("mismo_caso") or not veredicto.get("fusion"):
+                continue
+            if float(veredicto.get("confianza", 0.0)) < umbral:
+                continue
+            sobrante = por_id.get(s["id"])
+            if not canonico or not sobrante:
+                continue
+            if not (_crawl_propio(canonico) and _crawl_propio(sobrante)):
+                continue
+            fusion = dict(veredicto["fusion"])
+            # nombre_mascota solo aplica a perdidos (regla del schema de la API).
+            if canonico.get("tipo") == "encontrado":
+                fusion.pop("nombre_mascota", None)
+            pares.append({"canonico": c["canonico"], "sobrante": s["id"], "fusion": fusion})
+    return pares

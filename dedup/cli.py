@@ -18,7 +18,8 @@ import sys
 
 import requests
 
-from .deteccion import clusters_duplicados, plan_curacion
+from .deteccion import clusters_duplicados, pares_fusionables, plan_curacion
+from .juez import juzgar_par
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -29,6 +30,16 @@ def main(argv: list[str] | None = None) -> int:
         type=str,
         default="respaldo_dedup.json",
         help="Archivo donde se respalda el JSON completo de cada reporte antes de borrarlo",
+    )
+    parser.add_argument(
+        "--juez",
+        action="store_true",
+        help="Anota los pares ambiguos con el veredicto de un modelo (requiere OPENAI_API_KEY)",
+    )
+    parser.add_argument(
+        "--fusionar",
+        action="store_true",
+        help="Aplica la fusión del juez en pares crawl propios (requiere --juez y CRAWLER_USER_ID)",
     )
     parser.add_argument(
         "--aplicar",
@@ -65,10 +76,59 @@ def main(argv: list[str] | None = None) -> int:
         f"{len(revision)} para revisión humana"
     )
 
+    por_id = {r["id"]: r for r in reportes}
+
+    if args.juez:
+        if not os.environ.get("OPENAI_API_KEY"):
+            print("--juez requiere OPENAI_API_KEY en el entorno", file=sys.stderr)
+            return 2
+        for c in plan:
+            for s in c["sobrantes"]:
+                if not s["accion"].startswith("revisión"):
+                    continue
+                try:
+                    s["juez"] = juzgar_par(por_id[c["canonico"]], por_id[s["id"]])
+                except Exception as exc:  # noqa: BLE001 — un par fallido no tumba el informe
+                    s["juez"] = {"error": str(exc)}
+                    print(f"  juez #{c['canonico']}↔#{s['id']}: ERROR — {exc}", file=sys.stderr)
+                    continue
+                v = s["juez"]
+                veredicto = "MISMO caso" if v["mismo_caso"] else "casos distintos"
+                print(
+                    f"  juez #{c['canonico']}↔#{s['id']}: {veredicto} "
+                    f"(confianza {v['confianza']:.2f}) — {v['razon']}"
+                )
+
     if args.json:
         with open(args.json, "w") as f:
             json.dump(plan, f, indent=2, ensure_ascii=False)
         print(f"informe completo en {args.json}")
+
+    if args.fusionar:
+        if not args.juez or user_id_crawler is None:
+            print("--fusionar requiere --juez y CRAWLER_USER_ID", file=sys.stderr)
+            return 2
+        respaldo_fusion = []
+        for par in pares_fusionables(plan, por_id, user_id_crawler):
+            respaldo_fusion.append(por_id[par["sobrante"]])
+            with open(args.respaldo, "w") as f:
+                json.dump(respaldo_fusion, f, indent=2, ensure_ascii=False)
+            r = requests.put(
+                f"{api_url}/api/reports/{par['canonico']}",
+                json={"user_id": user_id_crawler, **par["fusion"]},
+                timeout=30,
+            )
+            r.raise_for_status()
+            r = requests.delete(
+                f"{api_url}/api/reports/{par['sobrante']}",
+                params={"user_id": user_id_crawler},
+                timeout=30,
+            )
+            r.raise_for_status()
+            print(
+                f"fusionado #{par['sobrante']} → #{par['canonico']} "
+                f"(señas combinadas aplicadas; respaldo en {args.respaldo})"
+            )
 
     if not args.aplicar:
         return 0
@@ -76,7 +136,6 @@ def main(argv: list[str] | None = None) -> int:
     if user_id_crawler is None:
         print("--aplicar requiere CRAWLER_USER_ID en el entorno", file=sys.stderr)
         return 2
-    por_id = {r["id"]: r for r in reportes}
     respaldo = []
     borrados = 0
     for sobrante in eliminables:
