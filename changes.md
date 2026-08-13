@@ -459,7 +459,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Tests: tests/api/test_paginas.py (4: og tags exactos con escape, sin foto omite og:image, foto absoluta tal cual, 404) + 2 en ReporteDetalle.test.tsx (share con payload exacto; fallback clipboard). bash init.sh verde: 103 API + 89 web; build limpio. Sin cambio de esquema.
 - ✅ Verificación manual post-deploy EJECUTADA (2026-08-12, condición del revisor cumplida): contra el reporte real 27 de producción, `curl -A "WhatsApp/2.23.20" https://petfinder-col.com/reporte/27` respondió los og tags correctos (og:title "Perro — Encontrada en Cali", og:description "Pequeña con pañoleta de colores", og:url https://petfinder-col.com/reporte/27, og:site_name Pet Finder Col); la misma URL con user-agent de navegador (Mozilla/5.0) respondió la SPA (<title>petfinder-col</title>). El rewrite por user-agent discrimina exactamente como diseña el ADR 0009.
 
-## 2026-08-12 — Feature 27: vista pública de reencuentros (commit: en revisión)
+## 2026-08-12 — Feature 27: vista pública de reencuentros (commit: ee2caff)
 
 - Listado: filtro "Estado" nuevo (En búsqueda / Reunidas 💚) que pide estado=reunido al backend; llega preseleccionado con /reportes?estado=reunido (useSearchParams). Tarjetas de reunidos con badge celebratorio "Reunida 💚" (bg-forest) en vez del badge de tipo.
 - Landing: la franja de reencuentros enlaza "Ver todos los reencuentros" → /reportes?estado=reunido.
