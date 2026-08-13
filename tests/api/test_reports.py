@@ -440,3 +440,26 @@ def test_eliminar_reporte_inexistente_devuelve_404(client, db_session, usuario):
     respuesta = client.delete(f"/api/reports/999?user_id={usuario.id}")
 
     assert respuesta.status_code == 404
+
+
+# --- Conteos por tipo (feature 34) ---
+
+
+def test_conteos_cuenta_solo_activos_por_tipo(client, db_session, usuario):
+    _sembrar_variedad(db_session, usuario)
+
+    respuesta = client.get("/api/reports/conteos")
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    # El seed de variedad: 2 perdidos + 1 encontrado activos; el perdido reunido
+    # (Firulais) NO cuenta.
+    assert cuerpo == {"perdidos": 2, "encontrados": 1}
+
+
+def test_conteos_ruta_literal_no_eclipsada(client, db_session):
+    """Nunca 422 por parsearse "conteos" como report_id (regla de orden)."""
+    respuesta = client.get("/api/reports/conteos")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"perdidos": 0, "encontrados": 0}

@@ -14,6 +14,7 @@ import type { Avistamiento, Coincidencia, Reporte } from '../api/types';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { getActiveUserId } from '../lib/session';
+import { tiempoRelativo } from '../lib/tiempo';
 
 const ETIQUETA_TIPO = {
   perdido: { texto: 'Se perdió', color: 'bg-danger' },
@@ -91,6 +92,8 @@ export function ReporteDetalle() {
           <p className="mt-1 text-sm text-muted">
             {ETIQUETA_ESPECIE[reporte.especie]} · {lugar}
             {reporte.barrio ? ` · ${reporte.barrio}` : ''} · {formatearFecha(reporte.fecha_evento)}
+            {' · '}
+            Publicado {tiempoRelativo(reporte.creado_en)}
           </p>
         </div>
         <span

@@ -1,13 +1,18 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Reporte } from '../api/types';
 import { Reportes } from './Reportes';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarReportes: vi.fn() };
+  return { ...actual, listarReportes: vi.fn(), obtenerConteos: vi.fn() };
+});
+
+beforeEach(() => {
+  vi.mocked(client.listarReportes).mockResolvedValue([]);
+  vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 0, encontrados: 0 });
 });
 
 afterEach(() => {
@@ -73,7 +78,8 @@ describe('Reportes', () => {
     // la aserción se limita al pie de cada tarjeta.
     const tarjetaRocky = screen.getByRole('link', { name: /Rocky/ });
     expect(within(tarjetaRocky).getByText('Armenia')).toBeInTheDocument();
-    expect(within(tarjetaRocky).getByText('10/08/2026')).toBeInTheDocument();
+    // El pie une fecha del evento + recencia (feature 34): "10/08/2026 · hace …".
+    expect(within(tarjetaRocky).getByText(/10\/08\/2026 · hace/)).toBeInTheDocument();
     const tarjetaGato = screen.getByRole('link', { name: /Gato/ });
     expect(within(tarjetaGato).getByText('Pereira')).toBeInTheDocument();
     // El encontrado sin nombre usa la especie como título.
@@ -148,6 +154,20 @@ describe('Reportes', () => {
     expect(screen.getByRole('link', { name: 'Crear el primer reporte' })).toHaveAttribute(
       'href',
       '/reportar/perdido',
+    );
+  });
+
+  it('muestra los conteos por tipo del backend en el resumen y en el filtro', async () => {
+    vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 12, encontrados: 5 });
+    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+
+    renderReportes();
+
+    expect(await screen.findByText('12 perdidas')).toBeInTheDocument();
+    expect(screen.getByText('5 encontradas')).toBeInTheDocument();
+    expect(screen.getByText(/1 con estos filtros/)).toBeInTheDocument();
+    expect((screen.getByRole('option', { name: 'Perdidas (12)' }) as HTMLOptionElement).value).toBe(
+      'perdido',
     );
   });
 });

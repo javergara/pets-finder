@@ -6,11 +6,12 @@ import { LandingEmergencia } from './LandingEmergencia';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, obtenerReunidos: vi.fn() };
+  return { ...actual, obtenerReunidos: vi.fn(), obtenerConteos: vi.fn() };
 });
 
 beforeEach(() => {
   vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 0, recientes: [] });
+  vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 0, encontrados: 0 });
 });
 
 afterEach(() => {
@@ -103,5 +104,14 @@ describe('LandingEmergencia', () => {
     // Los CTAs están de inmediato; la franja nunca aparece con total 0.
     expect(screen.getByRole('link', { name: 'Perdí a mi mascota' })).toBeInTheDocument();
     expect(screen.queryByText(/reencuentros logrados/)).not.toBeInTheDocument();
+  });
+
+  it('muestra la dimensión del problema con los conteos del backend', async () => {
+    vi.mocked(client.obtenerConteos).mockResolvedValue({ perdidos: 12, encontrados: 5 });
+
+    renderLanding();
+
+    expect(await screen.findByText('12 mascotas perdidas')).toBeInTheDocument();
+    expect(screen.getByText('5 encontradas')).toBeInTheDocument();
   });
 });

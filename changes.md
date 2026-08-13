@@ -443,3 +443,10 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-12 — Benchmark de Encuentra tu Peludo → feature 34 al backlog
 
 - Evaluado <https://encuentratupeludo.vercel.app/> (docs/product-research.md §8). Ya cubrimos igual o mejor casi todo (foto comprimida, WhatsApp, filtros, ayuda por ciudad — la nuestra con mapa y necesidades). Adoptables: contadores por tipo en el feed + recencia relativa → `34-contadores-y-recencia` en todo. Su compartir-por-reporte refuerza la prioridad de la 21. Dato de mercado: 204 perdidos vs 9 rescatados en su feed.
+
+## 2026-08-12 — Feature 34: contadores por tipo y recencia relativa (commit: en revisión)
+
+- Benchmark de Encuentra tu Peludo (§8 product-research). GET /api/reports/conteos (ruta literal ANTES de las dinámicas, query agregada por tipo sobre activos) + ConteosOut.
+- Listado: "Ahora mismo: X perdidas · Y encontradas · N con estos filtros" y opciones del filtro de tipo con conteos. Landing: línea de dimensión del problema bajo los CTAs (no bloqueante, con catch).
+- `lib/tiempo.ts`: `tiempoRelativo()` pura (min/horas/ayer/días/semanas; ancla los timestamps sin zona del backend a UTC). En el pie de ReporteCard ("fecha · hace X") y en el meta del detalle ("Publicado hace X").
+- Tests: +2 API (conteos solo activos; ruta no eclipsada) y +4 web (tiempo.test.ts con ahora fijo, conteos en listado y landing, pie de tarjeta con recencia). bash init.sh verde: 99 API + 87 web. Sin cambio de esquema.

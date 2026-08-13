@@ -1,18 +1,22 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { mediaUrl, obtenerReunidos } from '../api/client';
-import type { ReunidosResumen } from '../api/types';
+import { mediaUrl, obtenerConteos, obtenerReunidos } from '../api/client';
+import type { Conteos, ReunidosResumen } from '../api/types';
 
 // Landing de emergencia: dos caminos gigantes, decididos en dos segundos,
 // y la franja de reencuentros como métrica de esperanza.
 export function LandingEmergencia() {
   const [reunidos, setReunidos] = useState<ReunidosResumen | null>(null);
+  const [conteos, setConteos] = useState<Conteos | null>(null);
 
   useEffect(() => {
-    // La landing nunca se bloquea por esta llamada: sin datos, la franja no aparece.
+    // La landing nunca se bloquea por estas llamadas: sin datos, no aparecen.
     obtenerReunidos()
       .then(setReunidos)
       .catch(() => setReunidos(null));
+    obtenerConteos()
+      .then(setConteos)
+      .catch(() => setConteos(null));
   }, []);
 
   return (
@@ -42,6 +46,15 @@ export function LandingEmergencia() {
           Encontré una mascota
         </Link>
       </div>
+
+      {/* La dimensión del problema en vivo (feature 34): prueba social y urgencia. */}
+      {conteos && conteos.perdidos + conteos.encontrados > 0 && (
+        <p className="text-sm text-muted">
+          Ahora mismo la comunidad busca a{' '}
+          <strong className="text-danger">{conteos.perdidos} mascotas perdidas</strong> y cuida{' '}
+          <strong className="text-forest">{conteos.encontrados} encontradas</strong>.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
         <Link to="/reportes" className="font-medium text-forest underline-offset-4 hover:underline">

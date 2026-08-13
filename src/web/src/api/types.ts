@@ -140,3 +140,8 @@ export type Necesidad = {
   creado_en: string;
   cubierta_en: string | null;
 };
+
+export type Conteos = {
+  perdidos: number;
+  encontrados: number;
+};

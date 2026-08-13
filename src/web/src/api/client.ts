@@ -3,6 +3,7 @@ import {
   type AvistamientoIn,
   type CategoriaNecesidad,
   type Coincidencia,
+  type Conteos,
   type Necesidad,
   type Organizacion,
   type OrganizacionIn,
@@ -215,4 +216,8 @@ export function cubrirNecesidad(
     method: 'POST',
     body: JSON.stringify({ user_id: userId }),
   });
+}
+
+export function obtenerConteos(): Promise<Conteos> {
+  return request('/api/reports/conteos');
 }

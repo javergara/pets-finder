@@ -147,3 +147,10 @@ class SightingOut(BaseModel):
     comentario: str
     nombre: str | None
     creado_en: datetime
+
+
+class ConteosOut(BaseModel):
+    """Reportes activos por tipo (feature 34): la dimensión del problema, en vivo."""
+
+    perdidos: int
+    encontrados: int

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { mediaUrl } from '../api/client';
 import type { Reporte } from '../api/types';
+import { tiempoRelativo } from '../lib/tiempo';
 
 const ETIQUETA_TIPO = {
   perdido: { texto: 'Se perdió', color: 'bg-danger' },
@@ -84,7 +85,9 @@ export function ReporteCard({ reporte }: { reporte: Reporte }) {
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-line-soft pt-3 text-xs text-muted">
           <span>{lugar}</span>
-          <span>{formatearFecha(reporte.fecha_evento)}</span>
+          <span>
+            {formatearFecha(reporte.fecha_evento)} · {tiempoRelativo(reporte.creado_en)}
+          </span>
         </div>
       </div>
     </Link>

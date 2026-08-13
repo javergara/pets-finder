@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { type FiltrosReportes, listarReportes } from '../api/client';
-import type { Reporte } from '../api/types';
+import { type FiltrosReportes, listarReportes, obtenerConteos } from '../api/client';
+import type { Conteos, Reporte } from '../api/types';
 import { ReporteCard } from '../components/ReporteCard';
 import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
 import { NOMBRES_ZONAS, ZONA_OTRO } from '../lib/ciudades';
@@ -16,6 +16,12 @@ export function Reportes() {
   const [color, setColor] = useState(TODOS);
   const [tamano, setTamano] = useState(TODOS);
   const [reportes, setReportes] = useState<Reporte[] | null>(null);
+  const [conteos, setConteos] = useState<Conteos | null>(null);
+
+  // Prueba social (feature 34): cuántos activos hay por tipo, del backend.
+  useEffect(() => {
+    obtenerConteos().then(setConteos);
+  }, []);
 
   // La raza depende de la especie elegida: solo se ofrece con perro o gato.
   const razasDisponibles = especie === TODOS ? [] : razasPorEspecie(especie);
@@ -40,6 +46,13 @@ export function Reportes() {
           <h1 className="font-display text-3xl text-ink">Reportes</h1>
           <p className="mt-1 text-sm text-muted">
             Mascotas perdidas y encontradas, las más recientes primero.
+            {conteos && (
+              <span className="mt-0.5 block">
+                Ahora mismo: <strong className="text-danger">{conteos.perdidos} perdidas</strong> ·{' '}
+                <strong className="text-forest">{conteos.encontrados} encontradas</strong>
+                {reportes && ` · ${reportes.length} con estos filtros`}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -51,8 +64,12 @@ export function Reportes() {
               className="mt-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
             >
               <option value={TODOS}>Todos</option>
-              <option value="perdido">Perdidas</option>
-              <option value="encontrado">Encontradas</option>
+              <option value="perdido">
+                {conteos ? `Perdidas (${conteos.perdidos})` : 'Perdidas'}
+              </option>
+              <option value="encontrado">
+                {conteos ? `Encontradas (${conteos.encontrados})` : 'Encontradas'}
+              </option>
             </select>
           </label>
           <label className="flex flex-col text-xs text-muted">

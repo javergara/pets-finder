@@ -240,3 +240,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Condición explícita (patrón 15/28/32)**: tabla nueva `necesidades` — el merge/push a `main` exige ejecutar ANTES el `CREATE TABLE` aditivo en Supabase Postgres (ya autorizado explícitamente por el usuario en esta sesión, "Sí, ambas"). Con `SKIP_DB_CREATE_ALL=1` en prod la tabla no se crea sola en el deploy.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 34 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `89094ea`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 99/99 tests de API + 87/87 de web** (17 suites).
+- **Acceptance 1**: tests del listado — "12 perdidas · 5 encontradas" en el resumen, el total filtrado ("1 con estos filtros") y la opción del select con conteo (`Perdidas (12)` con `value="perdido"` aseverado); en la landing, línea de dimensión del problema con los conteos del backend, no bloqueante (catch → no aparece) y oculta con 0+0 (mock default en beforeEach).
+- **Acceptance 2**: `lib/tiempo.ts::tiempoRelativo` es pura (con `ahora` inyectable) y sus tests cubren **todos** los rangos con un AHORA fijo (momento/min/1 hora/horas/ayer/días/1 semana/semanas) más la equivalencia con/sin sufijo Z — el anclaje a UTC de los timestamps sin zona del backend es exactamente el gotcha correcto. Usada en el pie de la tarjeta (test con regex `10/08/2026 · hace`) y en el meta del detalle ("Publicado hace X"), complementando la fecha del evento sin reemplazarla.
+- **Acceptance 3**: `GET /api/reports/conteos` con **una sola query agregada** (`group_by(tipo)` sobre activos, verificado por lectura) — los contadores por tipo nunca se calculan contando arrays en el cliente. Interpretación anotada: el "N con estos filtros" sí es el `length` del resultado ya traído — correcto, porque ese array es exactamente el resultado filtrado y una query extra sería redundante; el criterio apunta a los contadores por tipo, que vienen del backend. **Verificación en vivo del revisor**: conteos idénticos al SQL directo sobre el seed ({perdidos: 9, encontrados: 8}), y tras marcar a Rocky reunido bajan a 8/8 — solo activos cuentan. Seed reseteado.
+- Regla de rutas respetada: `/conteos` declarada antes que las dinámicas (leído en `routers/reports.py`, comentario incluido) con test de regresión propio (200 con DB vacía, nunca 422). Sin cambio de esquema → sin migración de prod, correcto.
+- `feature_list.json`: `34-contadores-y-recencia` a `done` — nota de proceso: el primer `sed` del revisor apuntó a la línea 449 (una línea abajo del status) y **no cambió nada** (verificado por `git diff`); se corrigió con la edición puntual sobre la línea 448 real. Diff neto `todo`→`done` (el `in_progress` del líder estaba sin commitear); único cambio de status; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
