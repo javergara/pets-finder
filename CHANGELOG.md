@@ -4,7 +4,20 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Unreleased]
 
-Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes`.
+Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
+
+## [2.3.0] - 2026-08-13
+
+Jornada del benchmark encontradogs.co (product-research §9) — 5 features nuevas revisadas y desplegadas, más la primera ingesta masiva del crawler.
+
+### Added
+- **`35-marca-recorte-y-visibilidad`**: logos oficiales de `design/logo/` (favicon isotipo, wordmark en nav y landing, apple-touch-icon), recorte de foto al subir (react-easy-crop + `recortarImagen`, proporciones Original/Cuadrada/Horizontal), accesos "Ver reportes"/"Ver mapa" como botones en la landing y pestaña "Centros de ayuda".
+- **`36-titulo-descriptivo`**: los reportes sin nombre se titulan con sus atributos ("Perro mediano café") en tarjetas, detalle, mapa y og tags.
+- **`37-coincidencias-explicables`**: cada coincidencia dice por qué ("mismo perro", "misma zona", "a 0.6 km", "mismo color") sin cambiar el motor de orden.
+- **`38-busqueda-por-descripcion`**: pantalla /buscar — describe a tu mascota y la app rankea por parecido explicable sin AI (pesos por zona/color/tamaño + solapamiento de señas; el porcentaje es relativo a los criterios dados).
+- **`39-alertas-por-reporte`** (ADR 0011): "🔔 Avísame si hay novedades" — suscripción por correo a un reporte (tabla `suscripciones`), aviso en avistamientos y reencuentros vía Resend (no-op sin credenciales) y baja en un click.
+- **SEO/compartir**: og tags + imagen social 1200x630 + robots.txt del sitio raíz (el link ya no sale pelado en WhatsApp/Instagram).
+- **Ingesta Cali**: 204 reportes reales importados del Drive comunitario "ANIMALES PERDIDOS - CALI" vía el pipeline del crawler (solo extraviados/encontrados con foto, 5 duplicados detectados y saltados).
 
 ## [2.2.0] - 2026-08-12
 
