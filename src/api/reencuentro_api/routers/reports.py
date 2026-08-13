@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..media import borrar_foto
 from ..models.report import Report
 from ..models.sighting import Sighting
 from ..models.user import User
@@ -228,9 +229,8 @@ def obtener_reporte(report_id: int, session: Session = Depends(get_session)) -> 
 def eliminar_reporte(report_id: int, user_id: int, session: Session = Depends(get_session)) -> None:
     """Borrado definitivo, solo por el autor (misma confianza que editar/reunido).
 
-    La foto asociada (Supabase Storage o /media local) no se borra: queda
-    huérfana — aceptado en el MVP para no darle a este endpoint credenciales
-    de borrado sobre el bucket.
+    La foto asociada se borra también (feature 20) con `borrar_foto`, que es
+    tolerante: si el bucket falla, el reporte se elimina igual y queda un log.
     """
     report = session.get(Report, report_id)
     if report is None:
@@ -238,6 +238,7 @@ def eliminar_reporte(report_id: int, user_id: int, session: Session = Depends(ge
     if user_id != report.user_id:
         raise HTTPException(403, "Solo quien creó el reporte puede eliminarlo")
 
+    borrar_foto(report.foto_url)
     session.delete(report)
     session.commit()
 

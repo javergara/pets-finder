@@ -80,3 +80,44 @@ def subir_a_supabase(nombre: str, contenido: bytes, content_type: str) -> str:
         raise SupabaseError(f"Supabase Storage respondió {respuesta.status_code} al subir {nombre}")
 
     return f"{url}/storage/v1/object/public/{bucket}/{nombre}"
+
+
+def borrar_foto(foto_url: str | None) -> None:
+    """Borra la foto asociada a un registro eliminado (feature 20) — tolerante.
+
+    NUNCA lanza: si el borrado falla (bucket caído, archivo ya inexistente,
+    URL de otro host), se loguea y la eliminación del registro sigue — una foto
+    huérfana es aceptable, un 500 al eliminar no. Las fotos del seed
+    (/media/seed/) no se tocan: son regenerables y compartidas.
+    """
+    import logging
+
+    logger = logging.getLogger("reencuentro")
+    if not foto_url:
+        return
+
+    try:
+        config = _config_supabase()
+        if foto_url.startswith("http"):
+            if config is None:
+                logger.warning("No se borra %s: Supabase sin configurar", foto_url)
+                return
+            url, key, bucket = config
+            prefijo = f"{url}/storage/v1/object/public/{bucket}/"
+            if not foto_url.startswith(prefijo):
+                logger.warning("No se borra %s: no es del bucket propio", foto_url)
+                return
+            nombre = foto_url[len(prefijo) :]
+            respuesta = requests.delete(
+                f"{url}/storage/v1/object/{bucket}/{nombre}",
+                headers={"Authorization": f"Bearer {key}"},
+                timeout=_SUPABASE_TIMEOUT_SECONDS,
+            )
+            if respuesta.status_code not in (200, 204):
+                logger.warning("Supabase respondió %s al borrar %s", respuesta.status_code, nombre)
+        elif foto_url.startswith("/media/uploads/"):
+            archivo = UPLOADS_DIR / Path(foto_url).name
+            archivo.unlink(missing_ok=True)
+        # /media/seed/ y cualquier otra ruta: intocables a propósito.
+    except Exception:  # noqa: BLE001 — tolerancia total por diseño (ver docstring)
+        logger.exception("Fallo borrando la foto %s; el registro se elimina igual", foto_url)

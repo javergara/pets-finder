@@ -262,7 +262,7 @@
       "id": "20-fotos-huerfanas-storage",
       "title": "Borrar la foto del bucket al eliminar un reporte",
       "description": "Limitación aceptada de la feature 18: al eliminar un reporte, su foto queda huérfana en Supabase Storage (o en data/media/uploads en local). Implementar el borrado del objeto del bucket en el DELETE (vía la REST API de Storage con la service key, mismo patrón de subir_a_supabase) con tolerancia a fallo (si el borrado de la foto falla, el reporte se borra igual y se loguea), y el equivalente local. Considerar también las fotos huérfanas ya existentes (limpieza puntual documentada).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["18-eliminar-reporte"],
       "acceptance": [
         "Eliminar un reporte con foto en Supabase borra también el objeto del bucket (test con mock del endpoint de Storage)",

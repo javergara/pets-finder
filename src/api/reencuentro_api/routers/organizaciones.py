@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..media import borrar_foto
 from ..models.necesidad import Necesidad
 from ..models.organizacion import Organizacion
 from ..models.user import User
@@ -199,8 +200,7 @@ def eliminar_organizacion(
 ) -> None:
     """Borrado definitivo solo por el autor (patrón de la feature 18).
 
-    La foto queda huérfana en Storage — misma decisión documentada que en los
-    reportes (feature 20 del backlog la resolverá para ambos).
+    La foto se borra también (feature 20, `borrar_foto` tolerante a fallos).
     """
     organizacion = session.get(Organizacion, organizacion_id)
     if organizacion is None:
@@ -208,5 +208,6 @@ def eliminar_organizacion(
     if user_id != organizacion.user_id:
         raise HTTPException(403, "Solo quien registró la organización puede eliminarla")
 
+    borrar_foto(organizacion.foto_url)
     session.delete(organizacion)
     session.commit()

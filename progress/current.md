@@ -282,3 +282,18 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `27-vista-reencuentros` a `done` con edición puntual sobre la línea 356 (diff neto `todo`→`done` por el `in_progress` sin commitear del líder); único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 20 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `e68a6d1`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 109/109 tests de API + 93/93 de web**.
+- **Acceptance 1**: test con mock del endpoint de Storage aseverando la llamada **exacta** (`DELETE https://abc123.supabase.co/storage/v1/object/fotos/mifoto.jpg` con `Authorization: Bearer <service key>`) al eliminar un reporte cuya foto vive en el bucket propio. La misma `borrar_foto` está conectada también en `eliminar_organizacion` (deuda de la 32 saldada), antes del delete de la fila.
+- **Acceptance 2**: test del bucket caído (`ConnectionError`) → **204**, el reporte desaparece (404) y queda el log "se elimina igual" (aseverado con `caplog`). Por lectura: `try/except Exception` total con `logger.exception`, documentado en el docstring con su porqué ("una foto huérfana es aceptable, un 500 al eliminar no") — el `noqa: BLE001` está justificado ahí mismo.
+- **Acceptance 3**: test del archivo local borrado del disco real (`tmp_path`) **+ E2E en vivo del revisor sin mocks**: subir foto → crear reporte con ella → `DELETE` → **el archivo desaparece de `data/media/uploads/`** junto con el reporte (204); las 20 fotos del seed intactas. Seed reseteado.
+- Bordes bien cubiertos: foto de **otro host** intocable (el mock lanza `AssertionError` si se llamara al delete — test por construcción), `/media/seed/` intocable (test con archivo real), `foto_url=None` no-op, Supabase sin configurar con URL absoluta → log sin tocar nada. Detalle de seguridad correcto: `Path(foto_url).name` (basename) impide traversal fuera de `UPLOADS_DIR`.
+- **Limpieza de huérfanas pre-existentes**: la descripción pedía "limpieza puntual documentada" — cumplida como documentación en `changes.md` (listar objetos del bucket vs `foto_url` referenciados en reports+organizaciones; ejecutar contra prod solo con autorización explícita). Razonable no ejecutarla ahora (volumen mínimo y requiere autorización).
+- Consistencia: sin credenciales nuevas (reusa la service key de `subir_a_supabase` con la config leída al llamar y los `.strip()`), docstrings de las features 18/32 actualizados — sin discrepancia doc/código. Sin cambio de esquema → sin migración.
+- `feature_list.json`: `20-fotos-huerfanas-storage` a `done` con edición puntual sobre la línea 265 (diff neto `todo`→`done` por el `in_progress` sin commitear del líder); único cambio de status; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
