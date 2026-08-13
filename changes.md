@@ -479,7 +479,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Pantalla nueva `/reporte/:id/editar` (EditarReporte.tsx): precargada con los valores actuales, foto actual visible + re-subida con FotoUpload (comprime), pin corregible por click, selects de características por especie; solo-autor (no-autor → redirect al detalle). Botón "Editar reporte" en la zona de administración del detalle.
 - Tests: +2 API (persistencia de todos los campos nuevos + intactos los no enviados; tamano inválido 422) y +4 web (precarga, payload del guardado, redirect no-autor, validación de obligatorios). bash init.sh verde: 111 API + 97 web; build limpio. Sin cambio de esquema.
 
-## 2026-08-12 — Feature 30: búsqueda por texto y paginación del listado (commit: en revisión)
+## 2026-08-12 — Feature 30: búsqueda por texto y paginación del listado (commit: 05a8b41)
 
 - GET /api/reports: `q` (ILIKE case-insensitive en nombre_mascota/descripcion/barrio/ciudad_texto, combinable con todos los filtros), `limit` (1-100)/`offset` con orden estable (fecha_evento desc, id desc), y el total de la consulta SIEMPRE en el header `X-Total-Count`. Sin `limit` la respuesta sigue siendo la lista completa — mapa y mis-reportes intactos.
 - `client.ts`: `listarReportesPaginado(filtros+q, limit=12, offset)` lee el header (fetch propio; request() no expone headers).
