@@ -6,6 +6,7 @@ import {
   eliminarReporte,
   listarAvistamientos,
   listarCoincidencias,
+  suscribirseANovedades,
   marcarReunido,
   mediaUrl,
   obtenerReporte,
@@ -64,6 +65,10 @@ export function ReporteDetalle() {
   const [comentarioAvistamiento, setComentarioAvistamiento] = useState('');
   const [nombreAvistamiento, setNombreAvistamiento] = useState('');
   const [enviandoAvistamiento, setEnviandoAvistamiento] = useState(false);
+  const [emailNovedades, setEmailNovedades] = useState('');
+  const [estadoNovedades, setEstadoNovedades] = useState<'idle' | 'enviando' | 'ok' | 'error'>(
+    'idle',
+  );
   const [errorAvistamiento, setErrorAvistamiento] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -422,6 +427,62 @@ export function ReporteDetalle() {
                 : ''}
               . La información fue extraída automáticamente: verifícala en la publicación.
             </p>
+          )}
+        </section>
+      )}
+
+      {/* Avísame si hay novedades (feature 39, ADR 0011): correo sin cuenta,
+          baja en un click desde el propio email. */}
+      {reporte.estado === 'activo' && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-1 font-display text-lg text-ink">🔔 Avísame si hay novedades</h2>
+          <p className="mb-3 text-sm text-muted">
+            Te escribimos cuando alguien la vea o cuando vuelva a casa. Sin cuentas: solo tu correo,
+            y te das de baja con un click.
+          </p>
+          {estadoNovedades === 'ok' ? (
+            <p className="text-sm font-medium text-forest">
+              Listo: te avisaremos a {emailNovedades}.
+            </p>
+          ) : (
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setEstadoNovedades('enviando');
+                try {
+                  await suscribirseANovedades(reporte.id, emailNovedades);
+                  setEstadoNovedades('ok');
+                } catch {
+                  setEstadoNovedades('error');
+                }
+              }}
+            >
+              <label htmlFor="email-novedades" className="sr-only">
+                Tu correo
+              </label>
+              <input
+                id="email-novedades"
+                type="email"
+                required
+                value={emailNovedades}
+                onChange={(e) => setEmailNovedades(e.target.value)}
+                placeholder="tucorreo@ejemplo.com"
+                className="min-w-0 flex-1 rounded-xl border border-line bg-surface px-3 py-2 text-sm text-ink"
+              />
+              <button
+                type="submit"
+                disabled={estadoNovedades === 'enviando'}
+                className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg disabled:opacity-60"
+              >
+                {estadoNovedades === 'enviando' ? 'Guardando…' : 'Avísame'}
+              </button>
+              {estadoNovedades === 'error' && (
+                <p className="w-full text-sm text-danger">
+                  No pudimos guardar tu correo. Revísalo e intenta de nuevo.
+                </p>
+              )}
+            </form>
           )}
         </section>
       )}

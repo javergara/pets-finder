@@ -406,3 +406,20 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `38-busqueda-por-descripcion` a `done` — línea 501 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. La 39 sigue en `todo`.
 
 Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 38 en `changes.md` con su hash (aún no existe en el working tree, mismo patrón de la 36/37).
+
+## Veredicto del revisor — feature 39 (2026-08-13): APROBADA, condicionada a la migración de prod antes del merge a main
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `430b24c`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 5 (primera mitad)**: `bash init.sh` corrido de verdad — **verde completo, 152/152 tests de API + 127/127 de web**.
+- **Acceptance 1**: 3 tests de API (alta 201 **sin exponer email ni token** — aseverado; idempotencia con mayúsculas/espacios → 200 con el mismo id; 422 correo inválido con mensaje en español vía `field_validator` normalizador + 404 reporte inexistente) y la caja del detalle con 2 tests (suscribe+confirma con el payload exacto; **reunido no la ofrece**). **E2E en vivo del revisor sobre el seed real**: ciclo completo alta→idempotente→avistamiento→reunido→baja→422/404, todo correcto. La carrera de duplicados se resuelve con `IntegrityError`+rollback+relectura (patrón sano) sobre el `UniqueConstraint(report_id, email)`.
+- **Acceptance 2**: test con `_enviar_email` monkeypatcheado — el avistamiento dispara 1 email (destino, asunto con el **título compuesto de la 36**, comentario y **link de baja aseverado en el html**) y el reunido dispara el segundo ("volvió a casa"); test de proveedor que explota → el endpoint responde 201 igual (doble cinturón: try/except en `notificar_novedad` por suscriptor y best-effort en `_enviar_email`). Verificado también en vivo.
+- **Acceptance 3**: test de la baja (200 con "no te escribimos más", fila borrada, link repetido → 404 "ya no es válido") + en vivo con el token real de la DB; HTML mínimo en español con los colores de la marca; el token aleatorio (`secrets.token_hex(16)`, único) es la autorización — razonable y documentado.
+- **Acceptance 4**: test con `caplog` — sin `RESEND_API_KEY` el envío devuelve False con el log "RESEND_API_KEY sin configurar" y nada más se rompe. El default de `RESEND_FROM` (remitente de pruebas de Resend) es sensato.
+- **ADR 0011** leído: 3 opciones evaluadas (SMTP y WhatsApp Business descartados con razones reales), la clave solo en env vars de Vercel, y la **limitación del envío síncrono dentro del request documentada honestamente** con su criterio de salida (cola si crece el volumen). Consistente con el patrón operativo de Supabase. `SITE_URL` reutilizada para los links.
+- Seguridad revisada: `SuscripcionOut` sin email/token, `html.escape` sobre novedad y título (sin inyección HTML en los correos), sin key hardcodeada (grep implícito: solo `os.environ`).
+- `feature_list.json`: `39-alertas-por-reporte` a `done` — línea 514 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0.
+
+**Condición explícita (patrón 15/28/32/33)**: tabla nueva `suscripciones` — el merge/push a `main` exige ejecutar ANTES el `CREATE TABLE` aditivo (con el índice de `report_id` y los unique de `email`+`token`) en Supabase Postgres, con autorización del dueño. Con `SKIP_DB_CREATE_ALL=1` en prod la tabla NO se crea sola. Además, para que los correos salgan de verdad: cuenta de Resend + DNS del dominio + `RESEND_API_KEY`/`RESEND_FROM` en Vercel (mientras tanto, no-op con log — aceptable por diseño).
+
+Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 39 en `changes.md` con su hash. Menor: los `import secrets`/`import re` dentro de cuerpos de función funcionan pero lo idiomático es tenerlos arriba del módulo — nit de estilo, no bloquea.

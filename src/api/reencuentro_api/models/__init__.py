@@ -3,6 +3,7 @@ from .necesidad import Necesidad
 from .organizacion import Organizacion
 from .report import Report
 from .sighting import Sighting
+from .suscripcion import Suscripcion
 from .user import User
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "Sighting",
     "Organizacion",
     "Necesidad",
+    "Suscripcion",
 ]

@@ -16,6 +16,7 @@ vi.mock('../api/client', async () => {
     eliminarReporte: vi.fn(),
     listarAvistamientos: vi.fn(),
     crearAvistamiento: vi.fn(),
+    suscribirseANovedades: vi.fn(),
   };
 });
 
@@ -120,6 +121,33 @@ describe('ReporteDetalle', () => {
     expect(await screen.findByRole('heading', { name: 'Gato' })).toBeInTheDocument();
     expect(screen.getByText('Encontrada')).toBeInTheDocument();
     expect(screen.getByText('La tiene resguardada quien la reportó')).toBeInTheDocument();
+  });
+
+  it('la caja de novedades suscribe el correo y confirma (feature 39)', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    vi.mocked(client.suscribirseANovedades).mockResolvedValue({});
+
+    renderDetalle();
+    await screen.findByText('🔔 Avísame si hay novedades');
+
+    fireEvent.change(screen.getByLabelText('Tu correo'), {
+      target: { value: 'vecina@example.co' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Avísame' }));
+
+    await waitFor(() =>
+      expect(client.suscribirseANovedades).toHaveBeenCalledWith(1, 'vecina@example.co'),
+    );
+    expect(await screen.findByText(/Listo: te avisaremos a vecina@example.co/)).toBeInTheDocument();
+  });
+
+  it('un reporte reunido no ofrece la caja de novedades', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ estado: 'reunido' }));
+
+    renderDetalle();
+    await screen.findByText('Rocky');
+
+    expect(screen.queryByText('🔔 Avísame si hay novedades')).not.toBeInTheDocument();
   });
 
   it('muestra las posibles coincidencias con su distancia y link al detalle', async () => {

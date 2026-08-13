@@ -511,7 +511,7 @@
       "id": "39-alertas-por-reporte",
       "title": "Avísame si hay novedades: suscripción por correo a un reporte",
       "description": "Benchmark encontradogs.co, recorte shippeable de la 22: cualquiera deja su correo en un reporte y recibe un email cuando hay novedades (nuevo avistamiento o reencuentro). Modelo Suscripcion (report_id, email único por reporte, token de baja), POST /api/reports/{id}/suscripciones, baja en un click vía GET /api/suscripciones/baja/{token} (HTML mínimo), envío en services/notificaciones.py vía Resend (HTTP API) detrás de RESEND_API_KEY/RESEND_FROM — sin credenciales queda en no-op con log, la app funciona igual (ADR nuevo). Caja de suscripción en el detalle del reporte. Migración prod: CREATE TABLE suscripciones ANTES del merge, con autorización explícita.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["28-avistamientos"],
       "acceptance": [
         "POST /api/reports/{id}/suscripciones guarda el correo (422 si es inválido, 404 si el reporte no existe, idempotente si ya estaba) y el detalle tiene la caja 'Avísame si hay novedades'",

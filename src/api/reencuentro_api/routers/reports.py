@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from ..media import borrar_foto
 from ..models.report import Report
 from ..models.sighting import Sighting
+from ..models.suscripcion import Suscripcion
 from ..models.user import User
 from ..schemas.report import (
     BusquedaResultadoOut,
@@ -20,10 +21,14 @@ from ..schemas.report import (
     ReunidosResumenOut,
     SightingIn,
     SightingOut,
+    SuscripcionIn,
+    SuscripcionOut,
 )
 from ..services.busqueda import ConsultaBusqueda, buscar_parecidos
 from ..services.coincidencias import ordenar_coincidencias, razones_coincidencia
 from ..services.db import get_session
+from ..services.notificaciones import notificar_novedad
+from ..services.titulos import titulo_reporte
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -227,6 +232,8 @@ def marcar_reunido(
     report.estado = "reunido"
     report.resuelto_en = datetime.now(timezone.utc)
     session.commit()
+
+    _avisar_suscritos(session, report, f"💚 {titulo_reporte(report)} volvió a casa.")
     session.refresh(report)
 
     return ReportOut.model_validate(report)
@@ -282,7 +289,70 @@ def crear_avistamiento(
     session.commit()
     session.refresh(sighting)
 
+    _avisar_suscritos(
+        session,
+        report,
+        f"Alguien reportó que vio a {titulo_reporte(report)}: “{payload.comentario}”.",
+    )
+
     return SightingOut.model_validate(sighting)
+
+
+@router.post(
+    "/{report_id}/suscripciones",
+    response_model=SuscripcionOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def suscribirse(
+    report_id: int,
+    payload: SuscripcionIn,
+    response: Response,
+    session: Session = Depends(get_session),
+) -> SuscripcionOut:
+    """ "Avísame si hay novedades" (feature 39): correo sin cuenta.
+
+    Idempotente por (reporte, correo): repetir el POST devuelve 200 con la
+    suscripción existente en vez de duplicarla o fallar."""
+    import secrets
+
+    report = session.get(Report, report_id)
+    if report is None:
+        raise HTTPException(404, f"El reporte {report_id} no existe")
+
+    correo = payload.email.strip().lower()
+    existente = session.scalar(
+        select(Suscripcion).where(Suscripcion.report_id == report_id, Suscripcion.email == correo)
+    )
+    if existente is not None:
+        response.status_code = status.HTTP_200_OK
+        return SuscripcionOut.model_validate(existente)
+
+    suscripcion = Suscripcion(report_id=report_id, email=correo, token=secrets.token_hex(16))
+    session.add(suscripcion)
+    try:
+        session.commit()
+    except IntegrityError:
+        # Carrera: el mismo correo llegó dos veces a la vez.
+        session.rollback()
+        existente = session.scalar(
+            select(Suscripcion).where(
+                Suscripcion.report_id == report_id, Suscripcion.email == correo
+            )
+        )
+        if existente is not None:
+            response.status_code = status.HTTP_200_OK
+            return SuscripcionOut.model_validate(existente)
+        raise
+    session.refresh(suscripcion)
+    return SuscripcionOut.model_validate(suscripcion)
+
+
+def _avisar_suscritos(session: Session, report: Report, novedad: str) -> None:
+    """Dispara los correos tras el commit; un fallo jamás rompe el endpoint."""
+    suscripciones = list(
+        session.execute(select(Suscripcion).where(Suscripcion.report_id == report.id)).scalars()
+    )
+    notificar_novedad(report, suscripciones, novedad)
 
 
 @router.get("/{report_id}/avistamientos", response_model=list[SightingOut])

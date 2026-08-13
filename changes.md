@@ -552,3 +552,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - `services/busqueda.py` (pura): pesos zona 25 / color 20 / tamaño 15 / señas 40 (solapamiento de palabras normalizadas sin tildes, stopwords fuera, contra descripción+nombre+raza+barrio); el parecido (0-100) es RELATIVO a los criterios dados — lo en blanco no se compara. GET /api/reports/busqueda (especie exacta, tipo perdido|encontrado con pattern, solo activos, tope 20, ruta estática antes de /{report_id}).
 - Pantalla /buscar: modo "Perdí la mía"/"Encontré una", catálogos reutilizados, resultados como ReporteCard con badge "Se parece en un N%" + chips de razones; botón de acceso en la landing. +7 tests API, +3 web. Aprobada por el revisor (145 API + 125 web).
+
+## 2026-08-13 — Feature 39: avísame si hay novedades (alertas por reporte, ADR 0011)
+
+- Tabla nueva `suscripciones` (report_id FK, email, token único de baja, unique(report_id,email)). POST /api/reports/{id}/suscripciones (idempotente por correo normalizado, 422/404 en español, sin exponer email/token), GET /api/suscripciones/baja/{token} (HTML en español, 404 si ya no existe). Triggers: avistamiento nuevo y reencuentro avisan a los suscritos (asunto con el título de la 36, link de baja siempre en el correo).
+- Envío vía Resend (ADR 0011) detrás de RESEND_API_KEY/RESEND_FROM: sin key es no-op con log; el fallo del proveedor jamás rompe el endpoint. Caja "🔔 Avísame si hay novedades" en el detalle (solo reportes activos). +7 tests API, +2 web. Aprobada por el revisor (152 API + 127 web), condicionada a CREATE TABLE en prod antes del merge.

@@ -286,3 +286,32 @@ class ConteosOut(BaseModel):
 
     perdidos: int
     encontrados: int
+
+
+class SuscripcionIn(BaseModel):
+    """Alta de "avísame si hay novedades" (feature 39): solo el correo.
+
+    Se normaliza (trim + minúsculas) ANTES de validar: es también la clave de
+    idempotencia (reporte, correo) y "Ana@x.co" y "ana@x.co " son la misma."""
+
+    email: str = Field(max_length=120)
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalizar_y_validar(cls, v: object) -> str:
+        import re
+
+        correo = str(v).strip().lower()
+        if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", correo):
+            raise ValueError("Escribe un correo válido (como tucorreo@ejemplo.com)")
+        return correo
+
+
+class SuscripcionOut(BaseModel):
+    """Confirmación de la suscripción — sin token ni correo de terceros."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    report_id: int
+    creado_en: datetime

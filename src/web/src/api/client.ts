@@ -180,6 +180,13 @@ export function crearAvistamiento(reporteId: number, datos: AvistamientoIn): Pro
   });
 }
 
+export function suscribirseANovedades(reporteId: number, email: string): Promise<unknown> {
+  return request(`/api/reports/${reporteId}/suscripciones`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
 export function listarOrganizaciones(
   filtros: {
     tipo?: TipoOrganizacion;
