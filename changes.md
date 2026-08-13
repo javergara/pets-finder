@@ -534,3 +534,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `public/og-image.png` (1200x630, 57 KB): wordmark claro sobre fondo forest + tagline y ciudades, compuesto por SVG desde `design/logo/petfinder-col-logo-claro.svg` y rasterizado con sips.
 - `public/robots.txt` (allow all).
 - Nota operativa: WhatsApp/Facebook cachean la vista previa por URL ~7 días; para refrescarla al instante usar https://developers.facebook.com/tools/debug/ con la URL del sitio.
+
+## 2026-08-13 — Benchmark: encontradogs.co (docs/product-research.md §9)
+
+- Análisis en navegador real del competidor directo (Velttora, ecosistema encontrados.co + Help Network): ficha-mascota con timeline de reportes, matching difuso con score visible ("Se parece en un 57%") y búsqueda por descripción, contacto mediado sin publicar teléfonos, alertas por ficha. Sin mapa, sin zonas, sin filtros, ~15 fichas vs >250 nuestras en Cali. Cuatro ideas candidatas anotadas para decisión del dueño (búsqueda por descripción sin AI, score explicable, título auto-compuesto, alertas por reporte).

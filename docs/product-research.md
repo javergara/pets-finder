@@ -68,3 +68,23 @@ Evaluación de <https://encuentratupeludo.vercel.app/> (también post-terremoto,
 - **Contadores visibles por tipo** en el feed (su "Perdidos 204" da urgencia y prueba social; nosotros no mostramos números en el listado) → feature `34`.
 - **Recencia** ("hace 2 horas") en tarjetas — en emergencia, lo reciente vale más que la fecha absoluta → feature `34`.
 - **Compartir por reporte**: ellos lo tienen por tarjeta; refuerza la prioridad de nuestra `21-compartir-reporte` (ya en backlog).
+
+## 9. Benchmark: encontradogs.co (2026-08-13)
+
+Evaluación de <https://www.encontradogs.co/> — competidor directo nacido del mismo terremoto ("Mascotas perdidas por el terremoto"), hecho por **Velttora**, que opera un ecosistema de emergencia: `encontrados.co` (personas desaparecidas) y "Help Network" (puntos de ayuda). Volumen observado: ~15 fichas (1 reunido), casi todo Cali/Palmira — nuestra zona Cali sola tiene >250 reportes activos tras la ingesta del Drive.
+
+**Su modelo, distinto al nuestro en tres decisiones de fondo**:
+
+1. **Ficha = mascota, no reporte**. Cada mascota tiene una ficha con atributos estructurados (especie/tamaño/color/raza/sexo/señas/dónde) y una **línea de tiempo de reportes** sobre ella (badge ENCONTRADA + fecha + fuente, "Último reporte: …"). Equivale a nuestro reporte + avistamientos (28), pero su tarjeta compone un **título automático con los atributos** cuando no hay nombre ("Perro mediano Blanco con manchas negras") — mucho más reconocible que nuestro genérico "Perro".
+2. **Matching difuso como mecánica central, con score visible**. Dos caras del mismo motor: "**Busca a tu mascota**" (describes especie/color/señas/dónde en texto libre → te rankea los reportes más parecidos; su copy: "las señas particulares son lo que nadie más podría inventar — es lo que más pesa al comparar") y "**¿Es alguna de estas?**" en cada ficha con **porcentaje explícito** ("Se parece en un 57%") ordenando perdidos↔encontrados. Nuestras coincidencias (08) son deterministas (especie+zona+distancia+fecha) y sin score visible; ellos comparan también color/señas en texto libre.
+3. **Contacto mediado, no directo**: teléfono y correo "**no se publican**" — quien ve la mascota deja un mensaje con su contacto y ellos lo reenvían al dueño. Verificación liviana por magic link al correo. Es lo opuesto a nuestro WhatsApp directo (ADR 0005): protege datos personales pero mete a un intermediario en el momento más urgente. Nuestro dato de contexto: el archivo comunitario del Drive publica teléfonos abiertamente — la norma cultural de la emergencia es el contacto directo.
+
+**También tienen**: alertas por ficha ("Avísame si hay novedades" con correo — variante concreta de nuestra `22`), 1-3 fotos obligatorias al reportar, páginas `/ideas` y `/bug` para feedback, y un CTA para que albergues/fundaciones "publiquen en lote o integren su sistema" (nosotros ya lo hicimos con el crawler + Drive de Cali).
+
+**Les falta lo que más usamos**: no hay mapa ni zonas (ubicación = texto libre "Caney (por surtifamiliar)"), no hay contacto inmediato, no hay red de apoyo propia (delegan a Help Network), varias fichas sin foto visible, y el feed no tiene filtros.
+
+**Ideas aprovechables (candidatas a backlog, decisión del dueño)**:
+- **Búsqueda por descripción** ("busca a tu mascota"): formulario del lado del dueño que rankea reportes por parecido. Se puede hacer **sin AI** con un score de atributos (especie exacta, color del catálogo, tamaño, zona, similitud de texto simple en señas) — sería la evolución natural de la 08 y un puente hacia la 24 (AI).
+- **Score visible y explicable en coincidencias** ("coincide en especie, zona y color") — confianza sin cambiar el motor.
+- **Título auto-compuesto en tarjetas sin nombre** ("Perro mediano café con blanco") — quick win puro de UI.
+- **Alertas por reporte** (correo "avísame si hay novedades de este reporte") — recorta el alcance de la 22 a algo shippeable sin decidir aún el mecanismo por zona.
