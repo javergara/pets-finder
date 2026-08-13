@@ -143,19 +143,46 @@ def plan_curacion(clusters: list[dict[str, Any]], user_id_crawler: int | None) -
     return plan
 
 
+def fusion_para_manual(canonico: Reporte, sobrante: Reporte) -> dict[str, Any]:
+    """Fusión determinista para canónicos MANUALES: respeto de autoría.
+
+    Lo que la familia escribió no se reescribe (y menos con prosa de un LLM):
+    la descripción del duplicado se APPENDEA marcada como señas adicionales,
+    y solo se llenan campos que estaban vacíos. El juez solo aporta el
+    veredicto de mismo caso; el texto es el que ya existía."""
+    cambios: dict[str, Any] = {}
+    for campo in ("raza", "color", "tamano", "barrio", "nombre_mascota"):
+        if sobrante.get(campo) and not canonico.get(campo):
+            cambios[campo] = sobrante[campo]
+    if canonico.get("tipo") == "encontrado":
+        cambios.pop("nombre_mascota", None)
+    extra = (sobrante.get("descripcion") or "").strip()
+    base = (canonico.get("descripcion") or "").strip()
+    if extra and extra not in base:
+        # String(2000) en la API: el append nunca debe reventar la columna.
+        combinada = f"{base}\n\nSeñas adicionales (reporte duplicado en redes): {extra}"
+        cambios["descripcion"] = combinada[:2000]
+    return cambios
+
+
 def pares_fusionables(
     plan: list[dict[str, Any]],
     por_id: dict[int, Reporte],
     user_id_crawler: int | None,
     umbral: float = 0.8,
+    incluir_manuales: bool = False,
 ) -> list[dict[str, Any]]:
     """Pares donde la fusión se puede APLICAR, no solo sugerir.
 
-    Requiere las tres cosas a la vez: veredicto del juez 'mismo caso' con
-    confianza >= umbral y fusión propuesta; y que canónico Y sobrante sean
-    copias crawl del usuario del crawler — lo único que sus herramientas de
-    autor pueden editar/eliminar. Con canónico manual, la fusión queda como
-    sugerencia en el informe (editarlo es de su autor o de moderación)."""
+    Siempre exige: veredicto del juez 'mismo caso' con confianza >= umbral,
+    y sobrante que sea copia crawl del usuario del crawler (lo único que sus
+    herramientas de autor pueden eliminar). Sobre el canónico:
+
+    - crawl propio → se aplica la fusión redactada por el juez.
+    - manual → SOLO con incluir_manuales=True (edita el reporte de otra
+      persona vía su user_id — el modelo de confianza del MVP lo permite,
+      pero es decisión del dueño de la plataforma): fusión determinista de
+      fusion_para_manual, nunca prosa del LLM."""
 
     def _crawl_propio(reporte: Reporte) -> bool:
         return reporte.get("fuente") == "crawl" and reporte.get("user_id") == user_id_crawler
@@ -172,11 +199,31 @@ def pares_fusionables(
             sobrante = por_id.get(s["id"])
             if not canonico or not sobrante:
                 continue
-            if not (_crawl_propio(canonico) and _crawl_propio(sobrante)):
+            if not _crawl_propio(sobrante):
                 continue
-            fusion = dict(veredicto["fusion"])
-            # nombre_mascota solo aplica a perdidos (regla del schema de la API).
-            if canonico.get("tipo") == "encontrado":
-                fusion.pop("nombre_mascota", None)
-            pares.append({"canonico": c["canonico"], "sobrante": s["id"], "fusion": fusion})
+            if _crawl_propio(canonico):
+                fusion = dict(veredicto["fusion"])
+                # nombre_mascota solo aplica a perdidos (regla del schema de la API).
+                if canonico.get("tipo") == "encontrado":
+                    fusion.pop("nombre_mascota", None)
+                pares.append(
+                    {
+                        "canonico": c["canonico"],
+                        "sobrante": s["id"],
+                        "fusion": fusion,
+                        "user_id_editor": user_id_crawler,
+                    }
+                )
+            elif incluir_manuales and canonico.get("fuente") == "manual":
+                fusion = fusion_para_manual(canonico, sobrante)
+                if not fusion:
+                    continue  # nada que aportar: el par queda para --aplicar normal
+                pares.append(
+                    {
+                        "canonico": c["canonico"],
+                        "sobrante": s["id"],
+                        "fusion": fusion,
+                        "user_id_editor": canonico.get("user_id"),
+                    }
+                )
     return pares

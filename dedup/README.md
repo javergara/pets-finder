@@ -43,6 +43,19 @@ veredicto **anota y ordena** la cola de revisión en el informe — no borra nad
 PETFINDER_API_URL=... OPENAI_API_KEY=... python -m dedup.cli --juez --json informe.json
 ```
 
+## Fusión (merge)
+
+Cuando el juez dicta "mismo caso" con confianza ≥ 0.8, `--fusionar` aplica el
+merge y elimina el duplicado (con respaldo del JSON completo):
+
+- **Canónico crawl propio** → se aplica la versión combinada que redactó el
+  juez (descripción con todas las señas, campos completados).
+- **Canónico manual** → solo con `--incluir-manuales`: fusión **determinista**
+  — lo que escribió la familia queda intacto y la descripción del duplicado se
+  añade marcada como "señas adicionales"; solo se llenan campos vacíos. Nunca
+  prosa del LLM en un reporte ajeno. Editar como el autor usa el modelo de
+  confianza del MVP: correrlo contra prod solo con el ok del dueño.
+
 ## Mapa
 
 - `deteccion.py` — núcleo puro (candidatos, clusters, plan de curación).
