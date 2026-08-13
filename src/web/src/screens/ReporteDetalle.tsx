@@ -414,7 +414,13 @@ export function ReporteDetalle() {
       {/* Borrado definitivo, solo autor, con confirmación en dos pasos dentro de
           la página (window.confirm bloquearía y desentona con el resto de la UI). */}
       {reporte.user_id === getActiveUserId() && (
-        <section className="rounded-2xl border border-line bg-surface p-6">
+        <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-surface p-6">
+          <Link
+            to={`/reporte/${reporte.id}/editar`}
+            className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+          >
+            Editar reporte
+          </Link>
           {!confirmandoEliminar ? (
             <button
               type="button"

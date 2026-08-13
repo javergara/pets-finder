@@ -379,7 +379,7 @@
       "id": "29-editar-reporte-completo",
       "title": "Edición completa del reporte por su autor",
       "description": "Mejora de lo actual: PUT /api/reports/{id} y la edición en /mis-reportes solo cubren descripción y teléfono. El autor debería poder corregir también foto (re-subir), características (raza/color/tamaño), barrio, fecha y ubicación del pin — errores de dedo al reportar con afán son la norma en una emergencia. Ampliar ReportUpdate (campos opcionales, misma validación condicional del ReportIn), y una pantalla/modo de edición reutilizando el formulario de ReportarMascota precargado.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "El autor edita foto, características, barrio, fecha y pin desde la UI y los cambios persisten (tests de API para cada campo)",

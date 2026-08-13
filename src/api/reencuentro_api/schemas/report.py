@@ -75,6 +75,14 @@ class ReportUpdate(BaseModel):
     barrio: str | None = None
     telefono_contacto: str | None = None
     fecha_evento: date | None = None
+    # Edición completa (feature 29): características y ubicación del pin.
+    # La zona NO se edita (cambiaría el encuadre del mapa y las coincidencias;
+    # para eso: eliminar y re-crear el reporte).
+    raza: str | None = None
+    color: str | None = None
+    tamano: Tamano | None = None
+    lat: float | None = None
+    lng: float | None = None
 
 
 class ReportOut(BaseModel):

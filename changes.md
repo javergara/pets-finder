@@ -472,3 +472,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Conectada en `eliminar_reporte` y `eliminar_organizacion` (antes del delete de la fila). Docstrings de la limitación aceptada actualizados: la deuda de las features 18/32 queda saldada.
 - Fotos huérfanas pre-existentes: limpieza puntual documentada — listar objetos del bucket (GET /storage/v1/object/list/fotos con la service key) y comparar contra los foto_url referenciados en reports+organizaciones; borrar los no referenciados. Se ejecutará contra prod solo con autorización explícita si el usuario lo pide (hoy el volumen es mínimo).
 - Tests: tests/api/test_borrado_fotos.py (6: DELETE exacto al bucket con auth, fallo del bucket → 204 + log, host ajeno intocable, local se borra del disco, seed intocable, sin foto no-op). bash init.sh verde: 109 API + 93 web. Sin cambio de esquema.
+
+## 2026-08-12 — Feature 29: edición completa del reporte (commit: en revisión)
+
+- `ReportUpdate` ampliado: raza/color/tamano (Literal), lat/lng — se suman a los ya editables (nombre, descripción, foto_url, barrio, teléfono, fecha). Zona y especie NO editables (cambiarían encuadre/coincidencias; documentado en el schema y la UI).
+- Pantalla nueva `/reporte/:id/editar` (EditarReporte.tsx): precargada con los valores actuales, foto actual visible + re-subida con FotoUpload (comprime), pin corregible por click, selects de características por especie; solo-autor (no-autor → redirect al detalle). Botón "Editar reporte" en la zona de administración del detalle.
+- Tests: +2 API (persistencia de todos los campos nuevos + intactos los no enviados; tamano inválido 422) y +4 web (precarga, payload del guardado, redirect no-autor, validación de obligatorios). bash init.sh verde: 111 API + 97 web; build limpio. Sin cambio de esquema.

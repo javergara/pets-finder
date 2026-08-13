@@ -297,3 +297,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `20-fotos-huerfanas-storage` a `done` con edición puntual sobre la línea 265 (diff neto `todo`→`done` por el `in_progress` sin commitear del líder); único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 29 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `653a08f`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 111/111 tests de API + 97/97 de web** (18 suites); `npm run build` corrido por el revisor — limpio (132.53 kB js gzip).
+- **Acceptance 1**: test de API que edita **todos** los campos nuevos en una pasada (raza/color/tamano/barrio/fecha_evento/lat/lng/foto_url — cada uno aseverado) **+ E2E en vivo del revisor** sobre el reporte 1 del seed: los 8 campos persisten; `tamano` inválido → 422 (Literal, test + vivo). En la UI: pantalla `/reporte/:id/editar` con pin corregible por click sobre `MapaLienzo`, foto actual visible + re-subida vía `FotoUpload` (que ya comprime), características por especie con el catálogo compartido.
+- **Acceptance 2**: 403 para no-autor intacto (test previo sin cambios + verificado en vivo); campos no enviados intactos (test asevera nombre y zona; en vivo además tipo/especie); **bonus verificado en vivo**: enviar `zona`/`especie` en el PUT se ignora (no están en `ReportUpdate` — no editables por diseño, con el porqué comentado en el schema y explicado en la UI: "no se puede cambiar — elimina y créalo de nuevo"). El redirect client-side del no-autor (replace al detalle, sin render del form) tiene test propio; la barrera real sigue siendo el 403 del API.
+- **Acceptance 3**: test de precarga campo a campo (descripción, raza `Labrador`, color, tamaño, barrio, fecha, teléfono, y la zona visible como no-editable) + validación de obligatorios idéntica a la de creación (descripción/teléfono con trim, test de que no llama al API); el payload del guardado conserva las coords actuales sin click (test con `objectContaining`).
+- Diseño consistente: el router `editar_reporte` no cambió (el `exclude_none` + `setattr` existente cubre los campos nuevos — mínima superficie), MisReportes conserva su edición inline corta, sin cambio de esquema → sin migración.
+- `feature_list.json`: `29-editar-reporte-completo` a `done` — **nota de proceso**: segundo off-by-one del mismo tipo que en la 34 (el primer `sed` apuntó a la línea 383 en vez de la 382 y no cambió nada, detectado por `git diff` y corregido con la edición puntual correcta); diff neto `todo`→`done`, único cambio de status, `validate_feature_list.py` → exit 0.
+
+Menores (no bloquean): (a) recurrente — hash del commit en la entrada de `changes.md`; (b) limitación heredada del `exclude_none`: una característica ya guardada no puede "limpiarse" de vuelta a "Sin especificar" desde la edición (el `''` del select se convierte en `undefined` y el campo no viaja — el valor viejo queda). Mismo comportamiento pre-existente de `barrio`; si algún día molesta, la vía es un sentinel explícito o `exclude_unset`, no un parche rápido.

@@ -96,7 +96,20 @@ export function marcarReunido(reporteId: number, userId: number): Promise<Report
 
 export function editarReporte(
   reporteId: number,
-  datos: { user_id: number; descripcion?: string; telefono_contacto?: string },
+  datos: {
+    user_id: number;
+    nombre_mascota?: string;
+    descripcion?: string;
+    telefono_contacto?: string;
+    foto_url?: string;
+    barrio?: string;
+    fecha_evento?: string;
+    raza?: string;
+    color?: string;
+    tamano?: 'pequeño' | 'mediano' | 'grande';
+    lat?: number;
+    lng?: number;
+  },
 ): Promise<Reporte> {
   return request(`/api/reports/${reporteId}`, {
     method: 'PUT',

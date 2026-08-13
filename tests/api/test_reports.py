@@ -463,3 +463,48 @@ def test_conteos_ruta_literal_no_eclipsada(client, db_session):
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {"perdidos": 0, "encontrados": 0}
+
+
+# --- Edición completa (feature 29) ---
+
+
+def test_editar_caracteristicas_fecha_y_pin(client, db_session, usuario):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.put(
+        f"/api/reports/{reporte.id}",
+        json={
+            "user_id": usuario.id,
+            "raza": "Labrador",
+            "color": "Negro",
+            "tamano": "grande",
+            "barrio": "Corregido",
+            "fecha_evento": "2026-08-09",
+            "lat": 4.55,
+            "lng": -75.7,
+            "foto_url": "/media/uploads/nueva.jpg",
+        },
+    )
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["raza"] == "Labrador"
+    assert cuerpo["color"] == "Negro"
+    assert cuerpo["tamano"] == "grande"
+    assert cuerpo["barrio"] == "Corregido"
+    assert cuerpo["fecha_evento"] == "2026-08-09"
+    assert cuerpo["lat"] == 4.55 and cuerpo["lng"] == -75.7
+    assert cuerpo["foto_url"] == "/media/uploads/nueva.jpg"
+    # Lo no enviado queda intacto.
+    assert cuerpo["nombre_mascota"] == "Rocky"
+    assert cuerpo["zona"] == "Armenia"
+
+
+def test_editar_tamano_invalido_devuelve_422(client, db_session, usuario):
+    reporte = _sembrar_variedad(db_session, usuario)[0]
+
+    respuesta = client.put(
+        f"/api/reports/{reporte.id}", json={"user_id": usuario.id, "tamano": "gigante"}
+    )
+
+    assert respuesta.status_code == 422
