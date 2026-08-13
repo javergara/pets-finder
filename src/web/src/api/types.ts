@@ -1,4 +1,4 @@
-// Procedencia de un reporte creado por el crawler de redes (ADR 0009). Un post
+// Procedencia de un reporte creado por el crawler de redes (ADR 0010). Un post
 // con varias mascotas produce varios reportes que comparten url_post y se
 // distinguen por indice_mascota. Unión discriminada por `plataforma` (espejo
 // del schema de la API): cada plataforma aporta sus campos propios sobre la
