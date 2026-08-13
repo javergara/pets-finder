@@ -101,26 +101,43 @@ def _orden_canonico(reporte: Reporte) -> tuple:
     return (0 if reporte.get("fuente") == "manual" else 1, reporte.get("id") or 0)
 
 
+def aporta_informacion(canonico: Reporte, sobrante: Reporte) -> list[str]:
+    """Qué tiene el sobrante que el canónico no — borrar sería perderlo.
+
+    Borrar un duplicado no es gratis: la copia crawleada suele traer la
+    descripción del post (señas que la familia no escribió), y puede tener
+    foto o características que al canónico le faltan. La fusión real es una
+    feature de producto (enlazar, no borrar); mientras no exista, cualquier
+    aporte degrada el sobrante a revisión humana."""
+    razones = [
+        campo
+        for campo in ("foto_url", "raza", "color", "tamano", "barrio")
+        if sobrante.get(campo) and not canonico.get(campo)
+    ]
+    if len(sobrante.get("descripcion") or "") > 1.5 * len(canonico.get("descripcion") or ""):
+        razones.append("descripción más completa")
+    return razones
+
+
 def plan_curacion(clusters: list[dict[str, Any]], user_id_crawler: int | None) -> list[dict]:
-    """Sugerencia conservadora por cluster: conservar el canónico; los sobrantes
-    solo son auto-curables si son copias crawl del usuario del crawler (las
-    únicas que sus herramientas de autor pueden eliminar). Los duplicados
-    manuales requieren a su autor o una feature de moderación de la app."""
+    """Sugerencia conservadora por cluster: conservar el canónico; un sobrante
+    solo es auto-curable si es copia crawl del usuario del crawler (lo único
+    que sus herramientas de autor pueden eliminar), el nivel es 'casi seguro'
+    Y no aporta información que el canónico no tenga. Los duplicados manuales
+    requieren a su autor o una feature de moderación de la app."""
     plan = []
     for c in clusters:
         canonico, *sobrantes = c["reportes"]
         acciones = []
         for s in sobrantes:
             es_crawl_propio = s.get("fuente") == "crawl" and s.get("user_id") == user_id_crawler
-            acciones.append(
-                {
-                    "id": s["id"],
-                    "accion": (
-                        "eliminable (copia crawl propia)"
-                        if es_crawl_propio and c["nivel"] == "casi seguro"
-                        else "revisión humana"
-                    ),
-                }
-            )
+            aporte = aporta_informacion(canonico, s)
+            if es_crawl_propio and c["nivel"] == "casi seguro" and not aporte:
+                accion = "eliminable (copia crawl propia)"
+            elif aporte:
+                accion = f"revisión humana (aporta: {', '.join(aporte)})"
+            else:
+                accion = "revisión humana"
+            acciones.append({"id": s["id"], "accion": accion})
         plan.append({**c, "canonico": canonico["id"], "sobrantes": acciones})
     return plan
