@@ -444,7 +444,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Evaluado <https://encuentratupeludo.vercel.app/> (docs/product-research.md §8). Ya cubrimos igual o mejor casi todo (foto comprimida, WhatsApp, filtros, ayuda por ciudad — la nuestra con mapa y necesidades). Adoptables: contadores por tipo en el feed + recencia relativa → `34-contadores-y-recencia` en todo. Su compartir-por-reporte refuerza la prioridad de la 21. Dato de mercado: 204 perdidos vs 9 rescatados en su feed.
 
-## 2026-08-12 — Feature 34: contadores por tipo y recencia relativa (commit: en revisión)
+## 2026-08-12 — Feature 34: contadores por tipo y recencia relativa (commit: 3901e22)
 
 - Benchmark de Encuentra tu Peludo (§8 product-research). GET /api/reports/conteos (ruta literal ANTES de las dinámicas, query agregada por tipo sobre activos) + ConteosOut.
 - Listado: "Ahora mismo: X perdidas · Y encontradas · N con estos filtros" y opciones del filtro de tipo con conteos. Landing: línea de dimensión del problema bajo los CTAs (no bloqueante, con catch).
