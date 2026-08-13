@@ -10,6 +10,7 @@ from ..models.report import Report
 from ..models.sighting import Sighting
 from ..models.user import User
 from ..schemas.report import (
+    BusquedaResultadoOut,
     CoincidenciaOut,
     ConteosOut,
     ReportIn,
@@ -20,6 +21,7 @@ from ..schemas.report import (
     SightingIn,
     SightingOut,
 )
+from ..services.busqueda import ConsultaBusqueda, buscar_parecidos
 from ..services.coincidencias import ordenar_coincidencias, razones_coincidencia
 from ..services.db import get_session
 
@@ -61,6 +63,39 @@ def crear_reporte(
     session.refresh(report)
 
     return ReportOut.model_validate(report)
+
+
+@router.get("/busqueda", response_model=list[BusquedaResultadoOut])
+def buscar_por_descripcion(
+    especie: str,
+    tipo: str = Query(pattern="^(perdido|encontrado)$"),
+    zona: str | None = None,
+    color: str | None = None,
+    tamano: str | None = None,
+    senas: str | None = None,
+    session: Session = Depends(get_session),
+) -> list[BusquedaResultadoOut]:
+    """Busca a tu mascota (feature 38): descríbela y rankeamos por parecido.
+
+    `tipo` es el tipo de reportes donde buscar (perdí la mía → "encontrado";
+    encontré una → "perdido"). Solo reportes activos; la especie filtra exacto
+    y el resto de criterios puntúa (services/busqueda.py, sin AI). Ruta estática
+    declarada antes de las dinámicas /{report_id}.
+    """
+    candidatos = (
+        session.execute(select(Report).where(Report.estado == "activo", Report.tipo == tipo))
+        .scalars()
+        .all()
+    )
+    consulta = ConsultaBusqueda(especie=especie, zona=zona, color=color, tamano=tamano, senas=senas)
+    resultado = buscar_parecidos(consulta, list(candidatos))
+
+    return [
+        BusquedaResultadoOut(
+            parecido=parecido, razones=razones, **ReportOut.model_validate(r).model_dump()
+        )
+        for r, parecido, razones in resultado[:20]
+    ]
 
 
 @router.get("", response_model=list[ReportOut])

@@ -547,3 +547,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-13 — Feature 37: coincidencias con razones visibles
 
 - `razones_coincidencia()` nueva en services/coincidencias.py (función pura, el orden de `ordenar_coincidencias` quedó intacto): "mismo perro", "misma zona (X)", "a N km", "el mismo día"/"N días de diferencia", y "mismo color"/"mismo tamaño" solo si ambos lo declaran igual (color "Otro" no afirma). `CoincidenciaOut.razones`, chips en el detalle (el "a X km" ahora vive en los chips). +4 tests API, test del detalle ampliado. Aprobada por el revisor (138 API + 122 web).
+
+## 2026-08-13 — Feature 38: busca a tu mascota (parecido explicable, sin AI)
+
+- `services/busqueda.py` (pura): pesos zona 25 / color 20 / tamaño 15 / señas 40 (solapamiento de palabras normalizadas sin tildes, stopwords fuera, contra descripción+nombre+raza+barrio); el parecido (0-100) es RELATIVO a los criterios dados — lo en blanco no se compara. GET /api/reports/busqueda (especie exacta, tipo perdido|encontrado con pattern, solo activos, tope 20, ruta estática antes de /{report_id}).
+- Pantalla /buscar: modo "Perdí la mía"/"Encontré una", catálogos reutilizados, resultados como ReporteCard con badge "Se parece en un N%" + chips de razones; botón de acceso en la landing. +7 tests API, +3 web. Aprobada por el revisor (145 API + 125 web).

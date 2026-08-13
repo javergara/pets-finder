@@ -109,9 +109,7 @@ def test_listado_filtra_por_tipo_y_zona_y_excluye_cerradas(client, usuario):
         "/api/organizaciones",
         json=_payload(usuario, tipo="centro_acopio", nombre="Acopio Pereira", zona="Pereira"),
     )
-    cerrada = client.post(
-        "/api/organizaciones", json=_payload(usuario, nombre="Cerrada")
-    ).json()
+    cerrada = client.post("/api/organizaciones", json=_payload(usuario, nombre="Cerrada")).json()
     client.put(
         f"/api/organizaciones/{cerrada['id']}",
         json={"user_id": usuario.id, "estado": "cerrado"},

@@ -50,6 +50,17 @@ export type Reporte = {
 
 export type Coincidencia = Reporte & { distancia_km: number; razones: string[] };
 
+export type ResultadoBusqueda = Reporte & { parecido: number; razones: string[] };
+
+export type ConsultaBusqueda = {
+  tipo: 'perdido' | 'encontrado';
+  especie: 'perro' | 'gato' | 'otro';
+  zona?: string;
+  color?: string;
+  tamano?: string;
+  senas?: string;
+};
+
 export type ReunidosResumen = {
   total: number;
   recientes: Reporte[];

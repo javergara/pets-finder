@@ -64,9 +64,7 @@ def test_crear_avistamiento_en_perdido_activo_devuelve_201(client, db_session, u
 def test_avistamiento_sin_nombre_es_valido(client, db_session, usuario):
     reporte = _crear_reporte(db_session, usuario)
 
-    respuesta = client.post(
-        f"/api/reports/{reporte.id}/avistamientos", json=_payload(nombre=None)
-    )
+    respuesta = client.post(f"/api/reports/{reporte.id}/avistamientos", json=_payload(nombre=None))
 
     assert respuesta.status_code == 201
     assert respuesta.json()["nombre"] is None
@@ -78,9 +76,7 @@ def test_listado_ordena_por_fecha_del_avistamiento_descendente(client, db_sessio
     client.post(f"/api/reports/{reporte.id}/avistamientos", json=_payload(fecha="2026-08-13"))
     client.post(f"/api/reports/{reporte.id}/avistamientos", json=_payload(fecha="2026-08-12"))
 
-    fechas = [
-        a["fecha"] for a in client.get(f"/api/reports/{reporte.id}/avistamientos").json()
-    ]
+    fechas = [a["fecha"] for a in client.get(f"/api/reports/{reporte.id}/avistamientos").json()]
 
     assert fechas == ["2026-08-13", "2026-08-12", "2026-08-11"]
 

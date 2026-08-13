@@ -50,6 +50,14 @@ describe('LandingEmergencia', () => {
     expect(screen.getByRole('link', { name: 'Ver el mapa' })).toHaveAttribute('href', '/mapa');
   });
 
+  it('da acceso a la búsqueda por descripción (feature 38)', () => {
+    renderLanding();
+
+    expect(
+      screen.getByRole('link', { name: '🔎 Busca a tu mascota por descripción' }),
+    ).toHaveAttribute('href', '/buscar');
+  });
+
   it('muestra el logo oficial y el acceso a los centros de ayuda', () => {
     renderLanding();
 

@@ -498,7 +498,7 @@
       "id": "38-busqueda-por-descripcion",
       "title": "Busca a tu mascota: búsqueda por descripción con parecido",
       "description": "Benchmark encontradogs.co: el dueño describe a su mascota (especie obligatoria, tamaño, color del catálogo, zona, señas en texto libre) y la app rankea los reportes del tipo relevante por parecido, SIN AI: puntaje explicable por atributos (zona/color/tamaño) + solapamiento de palabras entre las señas y la descripción del reporte (normalizando tildes/mayúsculas). Endpoint GET /api/reports/busqueda con parecido (0-100) y razones por resultado (función pura services/busqueda.py), pantalla /buscar con el formulario y resultados con badge de parecido, y acceso desde la landing y el listado.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["37-coincidencias-explicables"],
       "acceptance": [
         "La búsqueda filtra por especie exacta y el tipo elegido (perdí la mía → encontrados; encontré una → perdidos) y ordena por parecido descendente",

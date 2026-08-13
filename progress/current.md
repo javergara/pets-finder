@@ -392,3 +392,17 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `37-coincidencias-explicables` a `done` — línea 488 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. Las 38-39 siguen en `todo`, sin tocar.
 
 Pendiente obligatorio al commitear (checkpoint #4): añadir la entrada de la feature 37 a `changes.md` con su hash — igual que en la 36, la entrada aún no existe en el working tree.
+
+## Veredicto del revisor — feature 38 (2026-08-13): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `7fb80aa`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 145/145 tests de API + 125/125 de web** (20 suites). Los toques a tests preexistentes (`test_avistamientos`/`test_organizaciones`/`test_reports`) son solo el reformateo de black del tropiezo reportado — cero cambios semánticos, verificado por diff.
+- **Acceptance 2 (función pura con tests)**: `services/busqueda.py` — pura de verdad (candidatos por parámetro, dataclass frozen). Tests unitarios: **parecido relativo a los criterios dados** (1 criterio cumplido → 100, no 25), pesos con no-cumplidos que bajan (75 = 45/60 exacto), señas insensibles a tildes/mayúsculas (3 de 4 palabras → 75), sin criterios → 0, y filtro+orden con la aritmética verificada por el revisor (100 > 56=25/45 > 44=20/45, gato fuera). Diseño sólido: stopwords y tokens <3 fuera, color "Otro" no puntúa (consistente con la 36/37), señas contra descripción+nombre+raza+barrio, muestra de palabras comunes en la razón.
+- **Acceptance 1**: endpoint con test (solo el tipo pedido y solo activos; 422 con `tipo=reunido` vía pattern) **+ en vivo sobre el seed real**: búsqueda "Luna" entre encontrados → 4 resultados, todos encontrado/activo/perro, **orden por parecido desc** verificado; ruta estática `/busqueda` declarada antes de las dinámicas (regla comentada) y no eclipsada (200 en vivo); tope 20 resultados por lectura.
+- **Hallazgo positivo verificado en vivo**: a diferencia del `q` de la feature 30 (limitado por el LIKE ASCII de SQLite), las señas usan normalización unicode **propia en Python** (`unicodedata` NFD) — "PAÑOLETA VERDE" matchea la pañoleta de Simón al **100%** también en dev local. La comparación es idéntica en SQLite y Postgres: sin sorpresas entre entornos.
+- **Acceptance 3**: tests de `/buscar` (submit con params por defecto al tipo "encontrado", modo "Encontré una" → busca perdidos, resultado con "Se parece en un 85%" + razones) y de la landing (link "🔎 Busca a tu mascota por descripción" → `/buscar`). Reutiliza los catálogos existentes (caracteristicas/ciudades) sin duplicar datos.
+- Sin cambio de esquema → sin migración (parecido/razones son calculados del response). Sin AI, explicable — consistente con `docs/product-research.md`.
+- `feature_list.json`: `38-busqueda-por-descripcion` a `done` — línea 501 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. La 39 sigue en `todo`.
+
+Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 38 en `changes.md` con su hash (aún no existe en el working tree, mismo patrón de la 36/37).

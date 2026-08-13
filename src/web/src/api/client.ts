@@ -3,6 +3,8 @@ import {
   type AvistamientoIn,
   type CategoriaNecesidad,
   type Coincidencia,
+  type ConsultaBusqueda,
+  type ResultadoBusqueda,
   type Conteos,
   type Necesidad,
   type Organizacion,
@@ -85,6 +87,15 @@ export function listarReportes(filtros: FiltrosReportes = {}): Promise<Reporte[]
   if (filtros.estado) params.set('estado', filtros.estado);
   const query = params.toString();
   return request(`/api/reports${query ? `?${query}` : ''}`);
+}
+
+export function buscarParecidos(consulta: ConsultaBusqueda): Promise<ResultadoBusqueda[]> {
+  const params = new URLSearchParams({ tipo: consulta.tipo, especie: consulta.especie });
+  if (consulta.zona) params.set('zona', consulta.zona);
+  if (consulta.color) params.set('color', consulta.color);
+  if (consulta.tamano) params.set('tamano', consulta.tamano);
+  if (consulta.senas?.trim()) params.set('senas', consulta.senas.trim());
+  return request(`/api/reports/busqueda?${params}`);
 }
 
 export function marcarReunido(reporteId: number, userId: number): Promise<Reporte> {

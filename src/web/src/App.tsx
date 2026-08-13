@@ -1,4 +1,5 @@
 import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
+import { BuscarMascota } from './screens/BuscarMascota';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
@@ -69,6 +70,7 @@ function App() {
           {/* Un componente, dos rutas: el tipo fija los campos condicionales. */}
           <Route path="/reportar/perdido" element={<ReportarMascota tipo="perdido" />} />
           <Route path="/reportar/encontrado" element={<ReportarMascota tipo="encontrado" />} />
+          <Route path="/buscar" element={<BuscarMascota />} />
           <Route path="/reportes" element={<Reportes />} />
           <Route path="/reporte/:id" element={<ReporteDetalle />} />
           <Route path="/reporte/:id/editar" element={<EditarReporte />} />

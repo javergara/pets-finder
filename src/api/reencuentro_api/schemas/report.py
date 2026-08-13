@@ -233,6 +233,14 @@ class CoincidenciaOut(ReportOut):
     razones: list[str]
 
 
+class BusquedaResultadoOut(ReportOut):
+    """Resultado de "busca a tu mascota" (feature 38): el reporte con su
+    parecido (0-100, relativo a los criterios dados) y las razones."""
+
+    parecido: int
+    razones: list[str]
+
+
 class ReunidoIn(BaseModel):
     """Quien pide marcar el reencuentro — debe ser el autor del reporte."""
 

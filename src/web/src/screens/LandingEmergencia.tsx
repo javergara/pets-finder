@@ -60,6 +60,12 @@ export function LandingEmergencia() {
       {/* Accesos secundarios: botones con borde, visibles a primera vista pero
           sin competir con los dos CTAs llenos de arriba. */}
       <div className="flex w-full max-w-2xl flex-col items-center gap-3">
+        <Link
+          to="/buscar"
+          className="w-full rounded-xl border-2 border-forest px-6 py-3 text-base font-medium text-forest"
+        >
+          🔎 Busca a tu mascota por descripción
+        </Link>
         <div className="flex w-full flex-col gap-3 sm:flex-row">
           <Link
             to="/reportes"
