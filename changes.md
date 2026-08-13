@@ -509,3 +509,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-13 — Auto-deploy de Vercel restaurado
 
 - El usuario desconectó/reconectó el repo (Vercel → Settings → Git). Push de prueba 9f36d9a → deployment de Production creado automáticamente y Ready. Incidente cerrado; gotcha actualizado en memory/memory.md.
+
+## 2026-08-13 — Primera corrida real del crawler: archivo comunitario de Cali (204 reportes importados)
+
+- Fuente: Drive público "ANIMALES PERDIDOS - CALI" (organizado por zonas → especie → estado). Reglas del dueño: SOLO carpetas EXTRAVIADOS/ENCONTRADOS (nunca CON SU FAMILIA ni FALLECIDOS) y solo ítems con foto. Inventario: 194 elegibles, 193 imágenes descargadas y normalizadas (sips → JPEG máx 1600px).
+- Extracción hecha por Claude Code con visión (sin LlamaCloud: el dueño no tiene cuenta) — un JSON `PostExtraido` por imagen, validado por el MISMO pipeline del repo (`crawler.publicador.convertir` + `crawler.dedup`), con overrides confiables desde la estructura del Drive (tipo/especie de carpetas, nombre/barrio del filename). `modelo_extraccion: claude-fable-5` en `crawl_metadata`.
+- 5 duplicados internos del archivo detectados leyendo las fotos y saltados (078=091, 093=059, 115=109, 190=068, 192=031 — mismo flyer en dos carpetas). 3 posts con metadatos parciales (Centro de Bienestar Animal) corregidos tras un bug del override (`especie=None` de carpetas sin subcarpeta de especie pisaba la especie extraída).
+- Publicación como usuario sistema id 49 "Rescate Animal Cali (importado)", `fuente=crawl`, `url_post` al archivo original del Drive, idempotente por `drive:<fileid>#<indice>`. Resultado verificado en prod: **204 reportes (107 perdidos + 97 encontrados; 127 perros + 77 gatos), 204 con foto, 170 con teléfono directo**; fecha del sismo (2026-08-10) como fallback salvo 17 posts con fecha propia.
+- Gotcha operativo: el WAF de Vercel devolvía 403 en `POST /api/uploads` para CIERTAS imágenes (patrón de bytes del JPEG, no rate-limit ni user-agent) — recomprimir la foto (sips calidad 80, máx 1200px) cambia los bytes y pasa. El script de ingesta quedó con ese fallback automático (documentado también en memory/memory.md).

@@ -53,3 +53,9 @@ Registro de decisiones de proceso, comandos clave, aprendizajes y gotchas. No es
 - Consecuencia operativa: tras cada merge funcional a main, VERIFICAR que aparezca el deployment (poll del bundle o dashboard) — no asumir que el push desplegó.
 
 - **Resolución (2026-08-13)**: el usuario desconectó y reconectó el repo en Vercel → Settings → Git; el siguiente push a main (9f36d9a) auto-desplegó normal. Causa raíz probable: la instalación de la GitHub App quedó a medias tras el diluvio de deploys del día del lanzamiento. Si reaparece: mismo remedio.
+
+## 2026-08-13 — El WAF de Vercel bloquea uploads por CONTENIDO de la imagen (403 en /api/uploads)
+
+- Durante la ingesta masiva de Cali, `POST /api/uploads` empezó a devolver 403 Forbidden de forma persistente (ni backoff de 5 min ni cambiar el User-Agent lo arreglaron). No era rate-limit: la MISMA imagen fallaba con curl y con requests, mientras otras imágenes pasaban en el mismo segundo. Es el firewall de Vercel filtrando por patrón de bytes dentro del multipart.
+- **Remedio verificado**: recomprimir el JPEG (`sips -s format jpeg -s formatOptions 80 -Z 1200`) cambia los bytes y la subida pasa (201). Cualquier ingesta futura debe recomprimir-y-reintentar ante un 403 de uploads en vez de esperar o abortar. (El upload normal desde la web no sufre esto: `comprimirImagen()` del navegador ya re-codifica cada foto.)
+- Dedup del crawler funcionó como se diseñó: 3 corridas interrumpidas se reanudaron sin duplicar ni un reporte (88+0+100 posts, idempotencia por `drive:<fileid>#<indice>`).
