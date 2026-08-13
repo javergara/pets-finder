@@ -179,3 +179,57 @@ def test_pares_fusionables_exige_juez_confiado_y_par_crawl_propio():
     assert pares[0]["canonico"] == 10
     assert "nombre_mascota" not in pares[0]["fusion"]  # encontrado no lleva nombre
     assert pares[0]["fusion"]["descripcion"] == "Señas combinadas."
+
+
+def test_fusion_para_manual_appendea_y_solo_llena_vacios():
+    from dedup.deteccion import fusion_para_manual
+
+    canonico = _rep(id=24, nombre="Whiskey", descripcion="Mancha en la cara. Collar naranja.")
+    sobrante = _rep(
+        id=136,
+        nombre="Whiskey",
+        fuente="crawl",
+        user_id=49,
+        color="Bicolor (manchas)",
+        descripcion="Gato blanco, mancha negra sobre el ojo izquierdo.",
+    )
+    cambios = fusion_para_manual(canonico, sobrante)
+    # Lo escrito por la familia queda primero, intacto; lo del duplicado, marcado.
+    assert cambios["descripcion"].startswith("Mancha en la cara. Collar naranja.")
+    assert "Señas adicionales (reporte duplicado en redes): Gato blanco" in cambios["descripcion"]
+    assert cambios["color"] == "Bicolor (manchas)"  # estaba vacío en el canónico
+    assert "nombre_mascota" not in cambios  # ya lo tenía
+
+
+def test_pares_fusionables_con_manuales_usa_fusion_determinista():
+    from dedup.deteccion import pares_fusionables
+
+    por_id = {
+        24: _rep(id=24, user_id=7, nombre="Whiskey", descripcion="Corta."),
+        136: _rep(
+            id=136,
+            fuente="crawl",
+            user_id=49,
+            nombre="Whiskey",
+            descripcion="Descripción del post con más señas.",
+        ),
+    }
+    plan = [
+        {
+            "canonico": 24,
+            "sobrantes": [
+                {
+                    "id": 136,
+                    "accion": "revisión humana",
+                    "juez": {"mismo_caso": True, "confianza": 0.9, "fusion": {"descripcion": "x"}},
+                }
+            ],
+        }
+    ]
+    # Sin la bandera: nada (el canónico es manual).
+    assert pares_fusionables(plan, por_id, user_id_crawler=49) == []
+    pares = pares_fusionables(plan, por_id, user_id_crawler=49, incluir_manuales=True)
+    assert len(pares) == 1
+    assert pares[0]["user_id_editor"] == 7  # edita como el autor del manual
+    # Fusión determinista (append), no la prosa del juez.
+    assert "Señas adicionales" in pares[0]["fusion"]["descripcion"]

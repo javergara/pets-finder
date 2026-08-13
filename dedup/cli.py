@@ -42,6 +42,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Aplica la fusión del juez en pares crawl propios (requiere --juez y CRAWLER_USER_ID)",
     )
     parser.add_argument(
+        "--incluir-manuales",
+        action="store_true",
+        help=(
+            "Permite fusionar sobre canónicos manuales (edita el reporte de su autor "
+            "vía su user_id — usar solo con el ok del dueño de la plataforma)"
+        ),
+    )
+    parser.add_argument(
         "--aplicar",
         action="store_true",
         help="Elimina las copias crawl propias marcadas 'casi seguro' (requiere CRAWLER_USER_ID)",
@@ -109,13 +117,16 @@ def main(argv: list[str] | None = None) -> int:
             print("--fusionar requiere --juez y CRAWLER_USER_ID", file=sys.stderr)
             return 2
         respaldo_fusion = []
-        for par in pares_fusionables(plan, por_id, user_id_crawler):
+        pares = pares_fusionables(
+            plan, por_id, user_id_crawler, incluir_manuales=args.incluir_manuales
+        )
+        for par in pares:
             respaldo_fusion.append(por_id[par["sobrante"]])
             with open(args.respaldo, "w") as f:
                 json.dump(respaldo_fusion, f, indent=2, ensure_ascii=False)
             r = requests.put(
                 f"{api_url}/api/reports/{par['canonico']}",
-                json={"user_id": user_id_crawler, **par["fusion"]},
+                json={"user_id": par["user_id_editor"], **par["fusion"]},
                 timeout=30,
             )
             r.raise_for_status()
