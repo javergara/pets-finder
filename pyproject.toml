@@ -40,4 +40,4 @@ target-version = ["py310"]
 [tool.pytest.ini_options]
 # tests/crawler no necesita dependencias extra: el extractor importa
 # llama-cloud-services de forma perezosa y los tests no lo ejercitan en red.
-testpaths = ["tests/api", "tests/crawler"]
+testpaths = ["tests/api", "tests/crawler", "tests/dedup"]

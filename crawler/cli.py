@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import requests
+from dedup.deteccion import posibles_duplicados
 from pydantic import ValidationError
 
 from . import dedup, extractor, publicador
@@ -145,8 +146,8 @@ def procesar_imagen(
     # compara contra la API destino y contra lo ya visto en esta corrida.
     duplicados = []
     if existentes is not None:
-        for payload in payloads:
-            for dup in publicador.posibles_duplicados(payload, existentes):
+        for payload_json in publicador.a_json(payloads):
+            for dup in posibles_duplicados(payload_json, existentes):
                 ref = f"#{dup['id']}" if dup["id"] is not None else "otro post de esta corrida"
                 print(f"[{imagen.name}] ⚠️ {dup['nivel']} duplicado de {ref}: {dup['razon']}")
                 duplicados.append(dup)

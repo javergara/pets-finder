@@ -52,11 +52,10 @@ python -m crawler.cli pantallazos/ --publicar
   de duplicarlos.
 - **Dedup por teléfono (v0)**: antes de publicar, cada payload se compara
   contra los reportes ya existentes en la API destino (y contra los de la
-  misma corrida). Mismo teléfono + tipo + especie + nombre → "casi seguro";
-  sin nombre para distinguir → "posible". Nada se descarta solo — el teléfono
-  identifica a la persona, no al caso (una familia pierde varias mascotas, un
-  rescatista encuentra muchas): con `--publicar` los marcados se omiten y se
-  re-corren con `--incluir-duplicados` tras revisarlos.
+  misma corrida). La lógica vive en el sistema aparte [`dedup/`](../dedup/README.md)
+  — los duplicados son un problema de la plataforma, no solo del crawler. Con
+  `--publicar` los marcados se omiten; `--incluir-duplicados` los publica tras
+  revisarlos.
 - `--ciudad` es el fallback de zona cuando los posts no la dicen (quien
   recolecta pantallazos de un grupo local sabe de qué ciudad son).
 - `--foto-url` adjunta una URL pública de foto al reporte (subirla antes con el
