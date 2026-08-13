@@ -25,6 +25,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Detecta duplicados en los reportes publicados")
     parser.add_argument("--json", type=str, default=None, help="Ruta para el informe JSON completo")
     parser.add_argument(
+        "--respaldo",
+        type=str,
+        default="respaldo_dedup.json",
+        help="Archivo donde se respalda el JSON completo de cada reporte antes de borrarlo",
+    )
+    parser.add_argument(
         "--aplicar",
         action="store_true",
         help="Elimina las copias crawl propias marcadas 'casi seguro' (requiere CRAWLER_USER_ID)",
@@ -44,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     plan = plan_curacion(clusters, user_id_crawler)
 
     eliminables = [s for c in plan for s in c["sobrantes"] if s["accion"].startswith("eliminable")]
-    revision = [s for c in plan for s in c["sobrantes"] if s["accion"] == "revisión humana"]
+    revision = [s for c in plan for s in c["sobrantes"] if s["accion"].startswith("revisión")]
 
     print(f"{len(reportes)} reportes en {api_url} → {len(plan)} clusters de posibles duplicados")
     for c in plan:
@@ -70,15 +76,27 @@ def main(argv: list[str] | None = None) -> int:
     if user_id_crawler is None:
         print("--aplicar requiere CRAWLER_USER_ID en el entorno", file=sys.stderr)
         return 2
+    por_id = {r["id"]: r for r in reportes}
+    respaldo = []
+    borrados = 0
     for sobrante in eliminables:
+        # Un duplicado con avistamientos lleva pistas colgadas: no se borra.
+        avs = requests.get(f"{api_url}/api/reports/{sobrante['id']}/avistamientos", timeout=30)
+        if avs.ok and avs.json():
+            print(f"#{sobrante['id']} omitido: tiene {len(avs.json())} avistamiento(s)")
+            continue
+        respaldo.append(por_id[sobrante["id"]])
+        with open(args.respaldo, "w") as f:
+            json.dump(respaldo, f, indent=2, ensure_ascii=False)
         r = requests.delete(
             f"{api_url}/api/reports/{sobrante['id']}",
             params={"user_id": user_id_crawler},
             timeout=30,
         )
         r.raise_for_status()
-        print(f"eliminado #{sobrante['id']} (copia crawl duplicada)")
-    print(f"curación aplicada: {len(eliminables)} copias eliminadas")
+        borrados += 1
+        print(f"eliminado #{sobrante['id']} (copia crawl duplicada; respaldo en {args.respaldo})")
+    print(f"curación aplicada: {borrados} copias eliminadas")
     return 0
 
 

@@ -1,6 +1,12 @@
 """Detección de duplicados: llave por teléfono (persona), discriminación por nombre."""
 
-from dedup.deteccion import clave_telefono, clusters_duplicados, plan_curacion, posibles_duplicados
+from dedup.deteccion import (
+    aporta_informacion,
+    clave_telefono,
+    clusters_duplicados,
+    plan_curacion,
+    posibles_duplicados,
+)
 
 
 def _rep(id=1, telefono="3001234567", tipo="perdido", especie="gato", nombre=None, **extra):
@@ -66,11 +72,42 @@ def test_clusters_agrupa_por_caso_y_exige_dos_o_mas():
     assert clusters[0]["nivel"] == "casi seguro"
 
 
-def test_plan_canonico_prefiere_manual_y_solo_cura_copias_crawl_propias():
+def test_aporta_informacion_detecta_perdidas():
+    canonico = _rep(id=1, descripcion="Mancha en la cara. Collar naranja", foto_url="a.jpg")
+    sobrante = _rep(
+        id=2,
+        color="Bicolor (manchas)",
+        descripcion="Gato blanco con manchas negras: mancha sobre el ojo izquierdo y frente.",
+        foto_url="b.jpg",
+    )
+    assert aporta_informacion(canonico, sobrante) == ["color", "descripción más completa"]
+    # Sin aporte (todo lo del sobrante ya está en el canónico) → lista vacía.
+    assert aporta_informacion(sobrante, canonico) == []
+
+
+def test_sobrante_que_aporta_nunca_es_eliminable():
+    """El caso real de prod: la copia crawl describe mejor a la mascota."""
     reportes = [
-        _rep(id=194, nombre="Mila", fuente="crawl", user_id=49),
-        _rep(id=26, nombre="Mila"),  # manual → canónico aunque tenga id mayor que otro crawl
-        _rep(id=61, nombre="Mila"),  # manual duplicado → revisión humana, nunca auto
+        _rep(id=24, nombre="Whiskey", descripcion="Mancha en la cara.", foto_url="a.jpg"),
+        _rep(
+            id=136,
+            nombre="Whiskey",
+            fuente="crawl",
+            user_id=49,
+            foto_url="b.jpg",
+            descripcion="Gato blanco, mancha negra sobre el ojo izquierdo y la frente.",
+        ),
+    ]
+    plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=49)
+    assert plan[0]["sobrantes"][0]["accion"] == "revisión humana (aporta: descripción más completa)"
+
+
+def test_plan_canonico_prefiere_manual_y_solo_cura_copias_crawl_propias():
+    desc = "Descripción equivalente en todos."
+    reportes = [
+        _rep(id=194, nombre="Mila", fuente="crawl", user_id=49, descripcion=desc),
+        _rep(id=26, nombre="Mila", descripcion=desc),  # manual → canónico
+        _rep(id=61, nombre="Mila", descripcion=desc),  # manual duplicado → revisión, nunca auto
     ]
     plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=49)
     assert plan[0]["canonico"] == 26
