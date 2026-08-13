@@ -20,11 +20,12 @@ import requests
 
 from .deteccion import (
     clusters_duplicados,
+    fusiones_por_canonico,
     marcar_conflictos_hermanos,
-    pares_fusionables,
     plan_curacion,
+    relleno_determinista,
 )
-from .juez import juzgar_par
+from .juez import juzgar_par, redactar_combinada
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -127,33 +128,47 @@ def main(argv: list[str] | None = None) -> int:
             json.dump(plan, f, indent=2, ensure_ascii=False)
         print(f"informe completo en {args.json}")
 
+    # Respaldo único para toda la corrida: fusionar y aplicar escriben en la
+    # misma lista (dos archivos separados se pisarían con el mismo --respaldo).
+    respaldo_total: list[dict] = []
+
     if args.fusionar:
         if not args.juez or user_id_crawler is None:
             print("--fusionar requiere --juez y CRAWLER_USER_ID", file=sys.stderr)
             return 2
-        respaldo_fusion = []
-        pares = pares_fusionables(
+        grupos = fusiones_por_canonico(
             plan, por_id, user_id_crawler, incluir_manuales=args.incluir_manuales
         )
-        for par in pares:
-            respaldo_fusion.append(por_id[par["sobrante"]])
+        for grupo in grupos:
+            canonico = grupo["canonico"]
+            # Un solo PUT por canónico: campos deterministas + descripción
+            # sintetizada sobre TODOS los sobrantes a la vez (par por par se
+            # pisaría el append y apilaría bloques repetidos).
+            cambios = relleno_determinista(canonico, grupo["sobrantes"])
+            combinada = redactar_combinada(canonico, grupo["sobrantes"])
+            if combinada:
+                cambios["descripcion"] = combinada[:2000]
+            respaldo_total.extend(grupo["sobrantes"])
             with open(args.respaldo, "w") as f:
-                json.dump(respaldo_fusion, f, indent=2, ensure_ascii=False)
-            r = requests.put(
-                f"{api_url}/api/reports/{par['canonico']}",
-                json={"user_id": par["user_id_editor"], **par["fusion"]},
-                timeout=30,
-            )
-            r.raise_for_status()
-            r = requests.delete(
-                f"{api_url}/api/reports/{par['sobrante']}",
-                params={"user_id": user_id_crawler},
-                timeout=30,
-            )
-            r.raise_for_status()
+                json.dump(respaldo_total, f, indent=2, ensure_ascii=False)
+            if cambios:
+                r = requests.put(
+                    f"{api_url}/api/reports/{canonico['id']}",
+                    json={"user_id": grupo["user_id_editor"], **cambios},
+                    timeout=30,
+                )
+                r.raise_for_status()
+            for sobrante in grupo["sobrantes"]:
+                r = requests.delete(
+                    f"{api_url}/api/reports/{sobrante['id']}",
+                    params={"user_id": sobrante["user_id"]},
+                    timeout=30,
+                )
+                r.raise_for_status()
+            ids = ", ".join(f"#{s['id']}" for s in grupo["sobrantes"])
             print(
-                f"fusionado #{par['sobrante']} → #{par['canonico']} "
-                f"(señas combinadas aplicadas; respaldo en {args.respaldo})"
+                f"fusionado {ids} → #{canonico['id']} "
+                f"(descripción combinada; respaldo en {args.respaldo})"
             )
 
     if not args.aplicar:
@@ -162,7 +177,6 @@ def main(argv: list[str] | None = None) -> int:
     if user_id_crawler is None:
         print("--aplicar requiere CRAWLER_USER_ID en el entorno", file=sys.stderr)
         return 2
-    respaldo = []
     borrados = 0
     for sobrante in eliminables:
         # Un duplicado con avistamientos lleva pistas colgadas: no se borra.
@@ -170,9 +184,9 @@ def main(argv: list[str] | None = None) -> int:
         if avs.ok and avs.json():
             print(f"#{sobrante['id']} omitido: tiene {len(avs.json())} avistamiento(s)")
             continue
-        respaldo.append(por_id[sobrante["id"]])
+        respaldo_total.append(por_id[sobrante["id"]])
         with open(args.respaldo, "w") as f:
-            json.dump(respaldo, f, indent=2, ensure_ascii=False)
+            json.dump(respaldo_total, f, indent=2, ensure_ascii=False)
         r = requests.delete(
             f"{api_url}/api/reports/{sobrante['id']}",
             params={"user_id": user_id_crawler},

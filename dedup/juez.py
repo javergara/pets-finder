@@ -71,6 +71,46 @@ def construir_mensaje(a: Reporte, b: Reporte) -> list[dict[str, Any]]:
     return contenido
 
 
+_INSTRUCCION_REESCRITURA = (
+    "Descripción BASE de un reporte de mascota y las descripciones de N "
+    "reportes duplicados del MISMO animal. Redacta UNA sola descripción "
+    "combinada en español con TODAS las señas útiles de todas las versiones, "
+    "sin inventar nada y sin repetir. Máximo 1800 caracteres. "
+    'Responde SOLO JSON: {"descripcion": "..."}'
+)
+
+
+def _llamar(instruccion: str, datos: dict[str, Any], timeout: int) -> dict[str, Any]:
+    respuesta = requests.post(
+        _URL,
+        headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},
+        json={
+            "model": os.environ.get("DEDUP_JUEZ_MODELO", MODELO_DEFAULT),
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"{instruccion}\n{json.dumps(datos, ensure_ascii=False)}",
+                }
+            ],
+            "response_format": {"type": "json_object"},
+        },
+        timeout=timeout,
+    )
+    respuesta.raise_for_status()
+    return json.loads(respuesta.json()["choices"][0]["message"]["content"])
+
+
+def redactar_combinada(canonico: Reporte, sobrantes: list[Reporte], timeout: int = 60) -> str:
+    """Descripción única con todas las señas del cluster (reescritura completa
+    para cualquier canónico — decisión del operador: mejor una descripción
+    coherente que N bloques apilados)."""
+    datos = {
+        "base": canonico.get("descripcion"),
+        "duplicados": [s.get("descripcion") for s in sobrantes],
+    }
+    return str(_llamar(_INSTRUCCION_REESCRITURA, datos, timeout).get("descripcion", "")).strip()
+
+
 def juzgar_par(a: Reporte, b: Reporte, timeout: int = 60) -> dict[str, Any]:
     """Veredicto del juez para un par: {'mismo_caso', 'confianza', 'razon'}."""
     respuesta = requests.post(

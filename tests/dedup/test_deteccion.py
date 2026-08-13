@@ -4,8 +4,11 @@ from dedup.deteccion import (
     aporta_informacion,
     clave_telefono,
     clusters_duplicados,
+    fusiones_por_canonico,
+    marcar_conflictos_hermanos,
     plan_curacion,
     posibles_duplicados,
+    relleno_determinista,
 )
 
 
@@ -72,6 +75,17 @@ def test_clusters_agrupa_por_caso_y_exige_dos_o_mas():
     assert clusters[0]["nivel"] == "casi seguro"
 
 
+def test_canonico_es_el_primero_creado_sin_importar_origen():
+    """Regla del operador: cronología sobre procedencia — un crawl creado
+    antes que el manual es el canónico."""
+    reportes = [
+        _rep(id=200, nombre="Mila", fuente="crawl", user_id=49, creado_en="2026-08-11T08:00:00"),
+        _rep(id=26, nombre="Mila", creado_en="2026-08-12T10:00:00"),
+    ]
+    clusters = clusters_duplicados(reportes)
+    assert [r["id"] for r in clusters[0]["reportes"]] == [200, 26]
+
+
 def test_aporta_informacion_detecta_perdidas():
     canonico = _rep(id=1, descripcion="Mancha en la cara. Collar naranja", foto_url="a.jpg")
     sobrante = _rep(
@@ -102,11 +116,11 @@ def test_sobrante_que_aporta_nunca_es_eliminable():
     assert plan[0]["sobrantes"][0]["accion"] == "revisión humana (aporta: descripción más completa)"
 
 
-def test_plan_canonico_prefiere_manual_y_solo_cura_copias_crawl_propias():
+def test_plan_canonico_y_solo_cura_copias_crawl_propias():
     desc = "Descripción equivalente en todos."
     reportes = [
         _rep(id=194, nombre="Mila", fuente="crawl", user_id=49, descripcion=desc),
-        _rep(id=26, nombre="Mila", descripcion=desc),  # manual → canónico
+        _rep(id=26, nombre="Mila", descripcion=desc),  # más antiguo (id menor) → canónico
         _rep(id=61, nombre="Mila", descripcion=desc),  # manual duplicado → revisión, nunca auto
     ]
     plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=49)
@@ -119,7 +133,7 @@ def test_plan_canonico_prefiere_manual_y_solo_cura_copias_crawl_propias():
 def test_plan_sin_usuario_crawler_todo_es_revision():
     reportes = [_rep(id=1, nombre="Mila"), _rep(id=2, nombre="Mila", fuente="crawl", user_id=49)]
     plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=None)
-    assert all(s["accion"] == "revisión humana" for s in plan[0]["sobrantes"])
+    assert all(s["accion"].startswith("revisión") for s in plan[0]["sobrantes"])
 
 
 def test_cluster_posible_nunca_es_eliminable():
@@ -130,114 +144,66 @@ def test_cluster_posible_nunca_es_eliminable():
     ]
     plan = plan_curacion(clusters_duplicados(reportes), user_id_crawler=49)
     assert plan[0]["nivel"] == "posible"
-    assert all(s["accion"] == "revisión humana" for s in plan[0]["sobrantes"])
+    assert all(s["accion"].startswith("revisión") for s in plan[0]["sobrantes"])
 
 
-def test_pares_fusionables_exige_juez_confiado_y_par_crawl_propio():
-    from dedup.deteccion import pares_fusionables
+def test_relleno_determinista_solo_llena_vacios():
+    canonico = _rep(id=24, nombre="Whiskey", tipo="perdido")
+    sobrantes = [
+        _rep(id=136, color="Bicolor (manchas)", nombre="Whiskey"),
+        _rep(id=140, color="Negro", tamano="mediano"),  # color llega tarde: gana el primero
+    ]
+    cambios = relleno_determinista(canonico, sobrantes)
+    assert cambios == {"color": "Bicolor (manchas)", "tamano": "mediano"}
 
+
+def test_relleno_no_pone_nombre_en_encontrados():
+    canonico = _rep(id=30, tipo="encontrado", nombre=None)
+    cambios = relleno_determinista(canonico, [_rep(id=31, nombre="Rex")])
+    assert "nombre_mascota" not in cambios
+
+
+def _sobrante_juzgado(id, conf=0.95, conflicto=False):
+    juez = {"mismo_caso": True, "confianza": conf}
+    if conflicto:
+        juez["conflicto_hermanos"] = True
+    return {"id": id, "accion": "revisión humana", "juez": juez}
+
+
+def test_fusiones_por_canonico_agrupa_todos_los_sobrantes():
+    """Varios sobrantes del mismo canónico → UN grupo (un solo PUT), no N."""
+    por_id = {
+        37: _rep(id=37, user_id=7, tipo="encontrado"),
+        83: _rep(id=83, fuente="crawl", user_id=49, tipo="encontrado"),
+        84: _rep(id=84, fuente="crawl", user_id=49, tipo="encontrado"),
+    }
+    plan = [{"canonico": 37, "sobrantes": [_sobrante_juzgado(83), _sobrante_juzgado(84)]}]
+    grupos = fusiones_por_canonico(plan, por_id, user_id_crawler=49, incluir_manuales=True)
+    assert len(grupos) == 1
+    assert [s["id"] for s in grupos[0]["sobrantes"]] == [83, 84]
+    assert grupos[0]["user_id_editor"] == 7  # edita como el autor del canónico
+
+
+def test_fusiones_respeta_banderas_confianza_y_conflictos():
     por_id = {
         10: _rep(id=10, fuente="crawl", user_id=49, tipo="encontrado"),
         11: _rep(id=11, fuente="crawl", user_id=49, tipo="encontrado"),
         26: _rep(id=26),  # manual
     }
-    fusion = {"descripcion": "Señas combinadas.", "nombre_mascota": "Rex"}
-    plan = [
-        {  # par crawl-crawl con juez confiado → fusionable (y sin nombre: es encontrado)
-            "canonico": 10,
-            "sobrantes": [
-                {
-                    "id": 11,
-                    "accion": "revisión humana",
-                    "juez": {"mismo_caso": True, "confianza": 0.9, "fusion": fusion},
-                }
-            ],
-        },
-        {  # canónico manual → nunca se aplica, queda como sugerencia
-            "canonico": 26,
-            "sobrantes": [
-                {
-                    "id": 11,
-                    "accion": "revisión humana",
-                    "juez": {"mismo_caso": True, "confianza": 0.95, "fusion": fusion},
-                }
-            ],
-        },
-        {  # confianza baja → fuera
-            "canonico": 10,
-            "sobrantes": [
-                {
-                    "id": 11,
-                    "accion": "revisión humana",
-                    "juez": {"mismo_caso": True, "confianza": 0.5, "fusion": fusion},
-                }
-            ],
-        },
-    ]
-    pares = pares_fusionables(plan, por_id, user_id_crawler=49)
-    assert len(pares) == 1
-    assert pares[0]["canonico"] == 10
-    assert "nombre_mascota" not in pares[0]["fusion"]  # encontrado no lleva nombre
-    assert pares[0]["fusion"]["descripcion"] == "Señas combinadas."
-
-
-def test_fusion_para_manual_appendea_y_solo_llena_vacios():
-    from dedup.deteccion import fusion_para_manual
-
-    canonico = _rep(id=24, nombre="Whiskey", descripcion="Mancha en la cara. Collar naranja.")
-    sobrante = _rep(
-        id=136,
-        nombre="Whiskey",
-        fuente="crawl",
-        user_id=49,
-        color="Bicolor (manchas)",
-        descripcion="Gato blanco, mancha negra sobre el ojo izquierdo.",
-    )
-    cambios = fusion_para_manual(canonico, sobrante)
-    # Lo escrito por la familia queda primero, intacto; lo del duplicado, marcado.
-    assert cambios["descripcion"].startswith("Mancha en la cara. Collar naranja.")
-    assert "Señas adicionales (reporte duplicado en redes): Gato blanco" in cambios["descripcion"]
-    assert cambios["color"] == "Bicolor (manchas)"  # estaba vacío en el canónico
-    assert "nombre_mascota" not in cambios  # ya lo tenía
-
-
-def test_pares_fusionables_con_manuales_usa_fusion_determinista():
-    from dedup.deteccion import pares_fusionables
-
-    por_id = {
-        24: _rep(id=24, user_id=7, nombre="Whiskey", descripcion="Corta."),
-        136: _rep(
-            id=136,
-            fuente="crawl",
-            user_id=49,
-            nombre="Whiskey",
-            descripcion="Descripción del post con más señas.",
-        ),
-    }
-    plan = [
-        {
-            "canonico": 24,
-            "sobrantes": [
-                {
-                    "id": 136,
-                    "accion": "revisión humana",
-                    "juez": {"mismo_caso": True, "confianza": 0.9, "fusion": {"descripcion": "x"}},
-                }
-            ],
-        }
-    ]
-    # Sin la bandera: nada (el canónico es manual).
-    assert pares_fusionables(plan, por_id, user_id_crawler=49) == []
-    pares = pares_fusionables(plan, por_id, user_id_crawler=49, incluir_manuales=True)
-    assert len(pares) == 1
-    assert pares[0]["user_id_editor"] == 7  # edita como el autor del manual
-    # Fusión determinista (append), no la prosa del juez.
-    assert "Señas adicionales" in pares[0]["fusion"]["descripcion"]
+    # Par crawl propio: entra sin bandera.
+    plan = [{"canonico": 10, "sobrantes": [_sobrante_juzgado(11)]}]
+    assert len(fusiones_por_canonico(plan, por_id, user_id_crawler=49)) == 1
+    # Canónico manual sin bandera: fuera.
+    plan = [{"canonico": 26, "sobrantes": [_sobrante_juzgado(11)]}]
+    assert fusiones_por_canonico(plan, por_id, user_id_crawler=49) == []
+    # Confianza baja o conflicto de hermanos: fuera aunque haya bandera.
+    plan = [{"canonico": 26, "sobrantes": [_sobrante_juzgado(11, conf=0.5)]}]
+    assert fusiones_por_canonico(plan, por_id, 49, incluir_manuales=True) == []
+    plan = [{"canonico": 26, "sobrantes": [_sobrante_juzgado(11, conflicto=True)]}]
+    assert fusiones_por_canonico(plan, por_id, 49, incluir_manuales=True) == []
 
 
 def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
-    from dedup.deteccion import marcar_conflictos_hermanos, pares_fusionables
-
     por_id = {
         37: _rep(id=37, user_id=7, tipo="encontrado"),
         83: _rep(
@@ -246,7 +212,6 @@ def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
             user_id=49,
             tipo="encontrado",
             idempotency_id="drive:post-A#0",
-            descripcion="Calicó diluida.",
         ),
         84: _rep(
             id=84,
@@ -254,7 +219,6 @@ def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
             user_id=49,
             tipo="encontrado",
             idempotency_id="drive:post-B#1",
-            descripcion="Gris con blanco.",
         ),
         85: _rep(
             id=85,
@@ -262,21 +226,16 @@ def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
             user_id=49,
             tipo="encontrado",
             idempotency_id="drive:post-B#2",
-            descripcion="Gris oscuro.",
         ),
     }
-
-    def _sobrante(id, conf):
-        return {
-            "id": id,
-            "accion": "revisión humana",
-            "juez": {"mismo_caso": True, "confianza": conf, "fusion": {"descripcion": "x"}},
-        }
-
     plan = [
         {
             "canonico": 37,
-            "sobrantes": [_sobrante(83, 0.99), _sobrante(84, 0.90), _sobrante(85, 0.82)],
+            "sobrantes": [
+                _sobrante_juzgado(83, 0.99),
+                _sobrante_juzgado(84, 0.90),
+                _sobrante_juzgado(85, 0.82),
+            ],
         }
     ]
 
@@ -286,5 +245,5 @@ def test_hermanos_del_mismo_post_no_pueden_ser_ambos_el_mismo_caso():
     marcas = {s["id"]: s["juez"].get("conflicto_hermanos") for s in plan[0]["sobrantes"]}
     assert marcas == {83: None, 84: True, 85: True}
     # La fusión solo procede para el veredicto sin conflicto (#83).
-    pares = pares_fusionables(plan, por_id, user_id_crawler=49, incluir_manuales=True)
-    assert [p["sobrante"] for p in pares] == [83]
+    grupos = fusiones_por_canonico(plan, por_id, user_id_crawler=49, incluir_manuales=True)
+    assert [s["id"] for s in grupos[0]["sobrantes"]] == [83]
