@@ -60,6 +60,17 @@ function renderReportes(entrada = '/reportes') {
 }
 
 describe('Reportes', () => {
+  it('las tarjetas sin nombre componen el título con los atributos (feature 36)', async () => {
+    vi.mocked(client.listarReportesPaginado).mockResolvedValue({
+      items: [crearReporte({ nombre_mascota: null, tamano: 'mediano', color: 'Café' })],
+      total: 1,
+    });
+
+    renderReportes();
+
+    expect(await screen.findByRole('heading', { name: 'Perro mediano café' })).toBeInTheDocument();
+  });
+
   it('muestra los reportes con tipo, especie, zona y fecha', async () => {
     vi.mocked(client.listarReportesPaginado).mockResolvedValue({
       items: [

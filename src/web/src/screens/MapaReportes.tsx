@@ -4,12 +4,11 @@ import { listarReportes } from '../api/client';
 import type { Reporte } from '../api/types';
 import { MapaLienzo, type PinMapa } from '../components/MapaLienzo';
 import { NOMBRES_ZONAS } from '../lib/ciudades';
+import { tituloReporte } from '../lib/titulo';
 
 // Valor especial del selector: no es una zona de reporte, es la vista agregada
 // sobre el lienzo nacional (lib/ciudades.ts::cajaDeZona la resuelve a COLOMBIA).
 const VISTA_COLOMBIA = 'Colombia';
-
-const ETIQUETA_ESPECIE = { perro: 'Perro', gato: 'Gato', otro: 'Otro animal' } as const;
 
 export function MapaReportes() {
   const [vista, setVista] = useState(VISTA_COLOMBIA);
@@ -34,7 +33,7 @@ export function MapaReportes() {
     lat: reporte.lat,
     lng: reporte.lng,
     colorClass: reporte.tipo === 'perdido' && !soloReunidos ? 'bg-danger' : 'bg-forest',
-    etiqueta: `Reporte: ${reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie]}`,
+    etiqueta: `Reporte: ${tituloReporte(reporte)}`,
     onClick: () => setSeleccionado(reporte),
   }));
 
@@ -117,9 +116,7 @@ export function MapaReportes() {
       {seleccionado && (
         <div className="flex items-center justify-between gap-4 rounded-2xl border border-line bg-surface p-4">
           <div>
-            <p className="font-display text-lg text-ink">
-              {seleccionado.nombre_mascota ?? ETIQUETA_ESPECIE[seleccionado.especie]}
-            </p>
+            <p className="font-display text-lg text-ink">{tituloReporte(seleccionado)}</p>
             <p className="text-sm text-muted">
               {seleccionado.tipo === 'perdido' ? 'Se perdió' : 'Encontrada'} ·{' '}
               {seleccionado.zona === 'Otro'

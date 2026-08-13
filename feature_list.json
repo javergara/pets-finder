@@ -467,6 +467,59 @@
         "La pestaña de la nav y el título de /ayudar dicen 'Centros de ayuda'",
         "bash init.sh en verde"
       ]
+    },
+    {
+      "id": "36-titulo-descriptivo",
+      "title": "Título auto-compuesto para reportes sin nombre",
+      "description": "Benchmark encontradogs.co (docs/product-research.md §9): cuando el reporte no tiene nombre_mascota, el título de tarjetas/detalle/og pasa de 'Perro' a una composición reconocible con los atributos ('Perro mediano café con blanco'). Función pura tituloReporte en el frontend (lib/titulo.ts) y helper equivalente en el backend para los og tags de /reporte/:id (routers/paginas.py).",
+      "status": "done",
+      "depends_on": ["34-contadores-y-recencia"],
+      "acceptance": [
+        "Un reporte sin nombre muestra en la tarjeta y el detalle un título compuesto por especie + tamaño + color (los atributos presentes, sin huecos), y con nombre sigue mostrando el nombre",
+        "Los og tags de /reporte/:id usan el mismo título compuesto (test de la API)",
+        "La composición es una función pura con tests propios (frontend y backend)",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "37-coincidencias-explicables",
+      "title": "Coincidencias con razones visibles",
+      "description": "Benchmark encontradogs.co: las coincidencias muestran POR QUÉ coinciden. ordenar_coincidencias devuelve además las razones explicables (misma especie, misma zona, distancia, diferencia de días, y si coinciden color/tamaño — estos dos solo informativos, sin cambiar el orden determinista ya testeado). CoincidenciaOut gana razones: list[str] y la UI del detalle las muestra como chips bajo cada candidato.",
+      "status": "todo",
+      "depends_on": ["36-titulo-descriptivo"],
+      "acceptance": [
+        "GET /api/reports/{id}/coincidencias incluye por candidato una lista de razones legibles en español (especie, zona, 'a X km', 'mismo día'/'N días de diferencia', y 'mismo color'/'mismo tamaño' cuando aplique)",
+        "El orden de las coincidencias no cambia respecto al motor actual (tests existentes intactos)",
+        "El detalle muestra las razones de cada coincidencia (test del componente)",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "38-busqueda-por-descripcion",
+      "title": "Busca a tu mascota: búsqueda por descripción con parecido",
+      "description": "Benchmark encontradogs.co: el dueño describe a su mascota (especie obligatoria, tamaño, color del catálogo, zona, señas en texto libre) y la app rankea los reportes del tipo relevante por parecido, SIN AI: puntaje explicable por atributos (zona/color/tamaño) + solapamiento de palabras entre las señas y la descripción del reporte (normalizando tildes/mayúsculas). Endpoint GET /api/reports/busqueda con parecido (0-100) y razones por resultado (función pura services/busqueda.py), pantalla /buscar con el formulario y resultados con badge de parecido, y acceso desde la landing y el listado.",
+      "status": "todo",
+      "depends_on": ["37-coincidencias-explicables"],
+      "acceptance": [
+        "La búsqueda filtra por especie exacta y el tipo elegido (perdí la mía → encontrados; encontré una → perdidos) y ordena por parecido descendente",
+        "El parecido (0-100) y sus razones salen de una función pura con tests (zona, color, tamaño y solapamiento de señas pesan; texto con tildes/mayúsculas distintas igual coincide)",
+        "La pantalla /buscar muestra los resultados con su porcentaje y razones, y es accesible desde la landing",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "39-alertas-por-reporte",
+      "title": "Avísame si hay novedades: suscripción por correo a un reporte",
+      "description": "Benchmark encontradogs.co, recorte shippeable de la 22: cualquiera deja su correo en un reporte y recibe un email cuando hay novedades (nuevo avistamiento o reencuentro). Modelo Suscripcion (report_id, email único por reporte, token de baja), POST /api/reports/{id}/suscripciones, baja en un click vía GET /api/suscripciones/baja/{token} (HTML mínimo), envío en services/notificaciones.py vía Resend (HTTP API) detrás de RESEND_API_KEY/RESEND_FROM — sin credenciales queda en no-op con log, la app funciona igual (ADR nuevo). Caja de suscripción en el detalle del reporte. Migración prod: CREATE TABLE suscripciones ANTES del merge, con autorización explícita.",
+      "status": "todo",
+      "depends_on": ["28-avistamientos"],
+      "acceptance": [
+        "POST /api/reports/{id}/suscripciones guarda el correo (422 si es inválido, 404 si el reporte no existe, idempotente si ya estaba) y el detalle tiene la caja 'Avísame si hay novedades'",
+        "Un avistamiento nuevo y un reencuentro disparan la notificación a los suscritos del reporte (test con el envío monkeypatcheado); el fallo del proveedor jamás rompe el endpoint",
+        "El link de baja del correo elimina la suscripción con una página de confirmación en español",
+        "Sin RESEND_API_KEY el envío es no-op con log y todo lo demás funciona (test)",
+        "bash init.sh en verde; tabla suscripciones creada en prod antes del merge a main"
+      ]
     }
   ]
 }

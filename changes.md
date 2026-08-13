@@ -538,3 +538,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-13 — Benchmark: encontradogs.co (docs/product-research.md §9)
 
 - Análisis en navegador real del competidor directo (Velttora, ecosistema encontrados.co + Help Network): ficha-mascota con timeline de reportes, matching difuso con score visible ("Se parece en un 57%") y búsqueda por descripción, contacto mediado sin publicar teléfonos, alertas por ficha. Sin mapa, sin zonas, sin filtros, ~15 fichas vs >250 nuestras en Cali. Cuatro ideas candidatas anotadas para decisión del dueño (búsqueda por descripción sin AI, score explicable, título auto-compuesto, alertas por reporte).
+
+## 2026-08-13 — Feature 36: título auto-compuesto para reportes sin nombre
+
+- Benchmark encontradogs (product-research §9): sin nombre_mascota, el título pasa de "Perro" a "Perro mediano café" (especie + tamaño + color en minúscula; color "Otro" omitido; sin huecos). Con nombre, el nombre manda.
+- `src/web/src/lib/titulo.ts` (tituloReporte) en tarjetas, detalle (incl. coincidencias), mapa (pin y mini-tarjeta) y mis-reportes; `services/titulos.py` (espejo backend) en el og:title de /reporte/:id. Tests: 4+4 unitarios espejo, tarjeta sin nombre, og end-to-end. Aprobada por el revisor (134 API + 122 web en verde).

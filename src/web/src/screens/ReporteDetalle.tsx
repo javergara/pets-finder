@@ -16,6 +16,7 @@ import { MapaLienzo } from '../components/MapaLienzo';
 import { urlPerfilPlataforma } from '../lib/contacto';
 import { getActiveUserId } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
+import { tituloReporte } from '../lib/titulo';
 
 const ETIQUETA_TIPO = {
   perdido: { texto: 'Se perdió', color: 'bg-danger' },
@@ -78,7 +79,7 @@ export function ReporteDetalle() {
   }
 
   const tipo = ETIQUETA_TIPO[reporte.tipo];
-  const titulo = reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie];
+  const titulo = tituloReporte(reporte);
   const lugar = reporte.zona === 'Otro' ? reporte.ciudad_texto ?? 'Colombia' : reporte.zona;
   const enlaceOriginal =
     reporte.crawl_metadata?.url_post ??
@@ -447,9 +448,7 @@ export function ReporteDetalle() {
                     }}
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium text-ink">
-                      {c.nombre_mascota ?? ETIQUETA_ESPECIE[c.especie]}
-                    </span>
+                    <span className="block truncate font-medium text-ink">{tituloReporte(c)}</span>
                     <span className="block truncate text-sm text-muted">{c.descripcion}</span>
                   </span>
                   <span className="shrink-0 font-mono text-sm text-forest">

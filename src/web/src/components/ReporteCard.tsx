@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { mediaUrl } from '../api/client';
 import type { Reporte } from '../api/types';
 import { tiempoRelativo } from '../lib/tiempo';
+import { tituloReporte } from '../lib/titulo';
 
 const ETIQUETA_TIPO = {
   perdido: { texto: 'Se perdió', color: 'bg-danger' },
@@ -20,7 +21,7 @@ function formatearFecha(iso: string): string {
 // foto grande arriba con badge, bloque de texto abajo con chips y pie.
 export function ReporteCard({ reporte }: { reporte: Reporte }) {
   const tipo = ETIQUETA_TIPO[reporte.tipo];
-  const titulo = reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie];
+  const titulo = tituloReporte(reporte);
   const lugar = reporte.zona === 'Otro' ? reporte.ciudad_texto ?? 'Colombia' : reporte.zona;
 
   return (

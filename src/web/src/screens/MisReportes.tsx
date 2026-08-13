@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { ApiError, editarReporte, listarReportes, marcarReunido, mediaUrl } from '../api/client';
 import type { Reporte } from '../api/types';
 import { getActiveUserId } from '../lib/session';
-
-const ETIQUETA_ESPECIE = { perro: 'Perro', gato: 'Gato', otro: 'Otro animal' } as const;
+import { tituloReporte } from '../lib/titulo';
 
 export function MisReportes() {
   const [reportes, setReportes] = useState<Reporte[] | null>(null);
@@ -109,7 +108,7 @@ export function MisReportes() {
               />
               <div className="min-w-0 flex-1">
                 <Link to={`/reporte/${reporte.id}`} className="font-display text-lg text-ink">
-                  {reporte.nombre_mascota ?? ETIQUETA_ESPECIE[reporte.especie]}
+                  {tituloReporte(reporte)}
                 </Link>
                 <p className="text-sm text-muted">
                   {reporte.tipo === 'perdido' ? 'Se perdió' : 'Encontrada'} · {reporte.zona}
@@ -148,7 +147,7 @@ export function MisReportes() {
           className="space-y-3 rounded-2xl border border-line bg-surface-alt p-5"
         >
           <h2 className="font-display text-lg text-ink">
-            Editar el reporte de {editando.nombre_mascota ?? ETIQUETA_ESPECIE[editando.especie]}
+            Editar el reporte de {tituloReporte(editando)}
           </h2>
           <div>
             <label htmlFor="editar-descripcion" className="text-sm font-medium text-ink-soft">

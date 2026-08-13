@@ -15,11 +15,11 @@ from sqlalchemy.orm import Session
 
 from ..models.report import Report
 from ..services.db import get_session
+from ..services.titulos import titulo_reporte
 
 router = APIRouter(tags=["paginas"])
 
 ETIQUETA_TIPO = {"perdido": "Se perdió", "encontrado": "Encontrada"}
-ETIQUETA_ESPECIE = {"perro": "Perro", "gato": "Gato", "otro": "Otro animal"}
 
 
 def _sitio() -> str:
@@ -35,7 +35,7 @@ def pagina_reporte_para_bots(
         raise HTTPException(404, f"El reporte {report_id} no existe")
 
     sitio = _sitio()
-    nombre = report.nombre_mascota or ETIQUETA_ESPECIE.get(report.especie, "Mascota")
+    nombre = titulo_reporte(report)
     lugar = report.ciudad_texto if report.zona == "Otro" else report.zona
     titulo = escape(f"{nombre} — {ETIQUETA_TIPO.get(report.tipo, '')} en {lugar or 'Colombia'}")
     descripcion = escape(report.descripcion[:200])

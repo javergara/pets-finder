@@ -366,3 +366,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `35-marca-recorte-y-visibilidad` a `done` — línea 461 localizada por número exacto; único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 36 (2026-08-13): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `af71e2b`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 134/134 tests de API + 122/122 de web** (19 suites).
+- **Acceptance 3 (función pura espejo)**: `lib/titulo.ts::tituloReporte` y `services/titulos.py::titulo_reporte` leídos lado a lado — lógica idéntica (nombre manda; especie + tamaño + color en minúscula; color "Otro" omitido; `filter(Boolean)`/generator sin huecos; única divergencia razonable: el backend tiene fallback "Mascota" para especie desconocida, imposible en el frontend tipado). **4 tests unitarios en cada lado, caso a caso equivalentes** (nombre manda, composición completa, ausencias sin huecos ×3, color Otro).
+- **Acceptance 1**: test de la tarjeta sin nombre → heading exacto "Perro mediano café"; por diff, `tituloReporte` reemplaza el patrón `nombre ?? especie` en **todos** los consumidores (ReporteCard, ReporteDetalle incluidas las coincidencias, MapaReportes en etiqueta de pin y mini-tarjeta, MisReportes en título y modal de edición), y las constantes `ETIQUETA_ESPECIE` huérfanas se eliminaron (quedan solo donde los chips las siguen usando — sin código muerto). Con nombre, el nombre sigue mandando (tests en ambos lados).
+- **Acceptance 2**: test de API end-to-end (`og:title content="Perro mediano café — Se perdió en Armenia"`) **+ verificación en vivo del revisor sobre el seed real**: el reporte 2 (perro encontrado sin nombre) responde a un user-agent de WhatsApp `og:title "Perro mediano miel / dorado — Encontrada en Armenia"`, y Rocky (con nombre) queda intacto — los tests previos de `test_paginas.py` no se tocaron y pasan. Seed reseteado.
+- Sin cambios de esquema ni de API → sin migración. Las features 37-39 del lote quedan en `todo` sin revisar (los 3 `+status: todo` del diff son sus entradas nuevas del líder, no ediciones del revisor).
+- `feature_list.json`: `36-titulo-descriptivo` a `done` — línea 475 localizada por número exacto; único `done` del diff; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear (la entrada de la 36 aún no está en changes.md — añadirla con el commit, checkpoint #4).
