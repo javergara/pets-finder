@@ -405,7 +405,7 @@
       "id": "31-pin-mi-ubicacion",
       "title": "Usar mi ubicación: geolocalización del navegador para el pin y el mapa",
       "description": "Mejora móvil realista de lo actual: quien encuentra una mascota está parado exactamente donde la encontró — botón 'Usar mi ubicación' (navigator.geolocation) en el formulario de reportar que pone el pin en sus coordenadas (si caen dentro de la zona elegida; si no, ofrecer cambiar de zona o dejar el pin manual), y botón equivalente en /mapa para centrar el encuadre. Con fallbacks: permiso denegado o sin señal → flujo actual intacto.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "En reportar, 'Usar mi ubicación' coloca el pin en las coords reales del dispositivo con feedback visual; denegar el permiso deja el flujo manual intacto (tests con mock de geolocation)",

@@ -203,4 +203,72 @@ describe('ReportarMascota — envío', () => {
 
     await screen.findByText('El teléfono de contacto es obligatorio');
   });
+
+  it('Usar mi ubicación dentro de la zona elegida pone el pin en las coords reales', async () => {
+    vi.mocked(client.crearReporte).mockResolvedValue(crearReporteRespuesta());
+    // Coords dentro del bounding box de Armenia (distintas del centro).
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (ok: PositionCallback) =>
+          ok({ coords: { latitude: 4.51, longitude: -75.7 } } as GeolocationPosition),
+      },
+    });
+
+    renderReportar('perdido');
+    llenarMinimo();
+    fireEvent.click(screen.getByRole('button', { name: '📍 Usar mi ubicación' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar reporte de perdida' }));
+
+    await screen.findByText('Reporte publicado');
+    expect(client.crearReporte).toHaveBeenCalledWith(
+      expect.objectContaining({ zona: 'Armenia', lat: 4.51, lng: -75.7 }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('fuera de la zona elegida ofrece cambiarse a la zona real', async () => {
+    // Coords de Medellín con zona Armenia elegida.
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (ok: PositionCallback) =>
+          ok({ coords: { latitude: 6.244, longitude: -75.581 } } as GeolocationPosition),
+      },
+    });
+
+    renderReportar('perdido');
+    llenarMinimo();
+    fireEvent.click(screen.getByRole('button', { name: '📍 Usar mi ubicación' }));
+
+    expect(await screen.findByText(/parece que estás en Medellín/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Cambiar a Medellín y usar mi ubicación' }));
+
+    // La zona cambió y el pin quedó en las coords reales (visible en el selector).
+    expect((screen.getByLabelText('¿En qué zona?') as HTMLSelectElement).value).toBe('Medellín');
+    vi.unstubAllGlobals();
+  });
+
+  it('permiso denegado muestra el aviso y el flujo manual sigue intacto', async () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      geolocation: {
+        getCurrentPosition: (_ok: PositionCallback, err?: PositionErrorCallback) =>
+          err?.({} as GeolocationPositionError),
+      },
+    });
+
+    renderReportar('perdido');
+    llenarMinimo();
+    fireEvent.click(screen.getByRole('button', { name: '📍 Usar mi ubicación' }));
+
+    expect(
+      await screen.findByText('No pudimos obtener tu ubicación — pon el pin manualmente.'),
+    ).toBeInTheDocument();
+    // El submit manual sigue funcionando con el centro de la zona.
+    vi.mocked(client.crearReporte).mockResolvedValue(crearReporteRespuesta());
+    fireEvent.click(screen.getByRole('button', { name: 'Publicar reporte de perdida' }));
+    await screen.findByText('Reporte publicado');
+    vi.unstubAllGlobals();
+  });
 });

@@ -128,4 +128,16 @@ describe('MapaReportes', () => {
     const pin = await screen.findByRole('button', { name: 'Reporte: Rocky' });
     expect(pin.className).toContain('bg-forest');
   });
+
+  it('el botón de mi ubicación pide la geolocalización del navegador', async () => {
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal('navigator', { ...navigator, geolocation: { getCurrentPosition } });
+    vi.mocked(client.listarReportes).mockResolvedValue([]);
+
+    renderMapa();
+    fireEvent.click(await screen.findByRole('button', { name: '📍 Centrar en mi ubicación' }));
+
+    expect(getCurrentPosition).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });

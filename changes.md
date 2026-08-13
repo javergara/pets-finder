@@ -485,3 +485,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - `client.ts`: `listarReportesPaginado(filtros+q, limit=12, offset)` lee el header (fetch propio; request() no expone headers).
 - Listado: campo "Buscar" (nombre, señas, barrio…), primera página de 12 al cambiar cualquier filtro/búsqueda, botón "Cargar más (N restantes)" que acumula conservando filtros, y el "N con estos filtros" ahora sale del total del backend (mejora sobre la 34).
 - Tests: +4 API (q en los 4 campos y combinable, paginación con orden estable entre páginas + header, sin limit completa+total, 422 limit/offset inválidos) y tests del listado migrados al cliente paginado +2 nuevos (q conserva filtros; Cargar más pide offset y acumula). bash init.sh verde: 115 API + 99 web; build limpio. Sin cambio de esquema.
+
+## 2026-08-12 — Feature 31: usar mi ubicación para el pin y el mapa (commit: en revisión)
+
+- `lib/ciudades.ts`: `coordsEnZona()` y `zonaQueContiene()` (bounding boxes existentes).
+- Reportar: botón "📍 Usar mi ubicación" — dentro de la zona elegida pone el pin en las coords reales (redondeadas a 4 decimales); sin zona elegida y coords dentro de una zona conocida, la zona se autoselecciona; fuera de la zona elegida ofrece la corrección ("Cambiar a {zona real} y usar mi ubicación" / "Otro lugar de Colombia" / Ignorar). Permiso denegado o sin soporte → aviso y flujo manual intacto.
+- `MapaLienzo`: prop `centro` nueva — setView(15) al cambiar (no-op en tests, mapa no montado en jsdom). El formulario también centra el mapa al mover el pin.
+- `/mapa`: botón "📍 Centrar en mi ubicación" con el mismo patrón de fallbacks.
+- Tests: +3 en ReportarMascota.test (coords dentro de zona van al payload; fuera → sugerencia y cambio a Medellín; denegado → aviso y el submit manual sigue) y +1 en MapaReportes.test (el botón invoca la geolocalización). bash init.sh verde: 115 API + 103 web; build limpio. Sin cambio de esquema.

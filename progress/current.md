@@ -323,3 +323,17 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - Sin cambio de esquema → sin migración. `feature_list.json`: `30-busqueda-y-paginacion` a `done` — esta vez la línea se localizó por número exacto con grep antes de editar (lección de los off-by-one de la 34/29); línea 395, diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 31 (2026-08-12): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `599d0fb`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 115/115 tests de API + 103/103 de web**; `npm run build` corrido por el revisor — limpio (133.78 kB js gzip).
+- **Acceptance 1**: tests con `vi.stubGlobal` de `navigator.geolocation` — coords reales dentro de Armenia (4.51, -75.7) van al payload del reporte con redondeo a 4 decimales (aseverado con `objectContaining`), y **permiso denegado** muestra el aviso exacto ("No pudimos obtener tu ubicación — pon el pin manualmente.") con el submit manual publicando igual después (flujo intacto, test completo). Por lectura: navegador sin `geolocation` → aviso propio, mismo fallback.
+- **Acceptance 2**: test de coords de Medellín con zona Armenia elegida → tarjeta "parece que estás en Medellín" y el botón "Cambiar a Medellín y usar mi ubicación" actualiza el selector (aseverado). Por lectura: si ninguna zona contiene las coords → "Usar Otro lugar de Colombia" (con `cambiarZona(ZONA_OTRO)`), y "Ignorar" descarta la sugerencia sin tocar nada; el caso sin zona elegida autoselecciona la zona real (sinergia correcta con el fix reciente de "sin zona preseleccionada").
+- **Acceptance 3**: test del botón "📍 Centrar en mi ubicación" en `/mapa` invocando `getCurrentPosition`; el centrado (`MapaLienzo.centro` → `setView([lat,lng], 15)`) verificado por lectura — **limitación declarada**: el `setView` real es comportamiento de Leaflet no verificable en jsdom (el efecto es no-op natural con `mapaRef` null); queda a cargo de la verificación manual en navegador de la sesión principal post-deploy, igual que en la feature 14.
+- **Verificación numérica extra del revisor**: los casos de los tests del frontend replicados contra los bounding boxes del **backend** (fuente de verdad) — (4.51,-75.7)→Armenia, (6.244,-75.581)→Medellín, Cartagena→None — coinciden; y comprobado que **las 7 zonas no se solapan** entre sí, así que `zonaQueContiene` es determinista (nunca depende del orden de iteración).
+- Diseño consistente: helpers puros en `lib/ciudades.ts` sobre las cajas existentes (sin tercera copia de datos), fallbacks que nunca bloquean el flujo manual, sin permisos pedidos hasta que el usuario toca el botón (correcto en privacidad/UX). Sin cambio de esquema → sin migración.
+- `feature_list.json`: `31-pin-mi-ubicacion` a `done` — línea 408 localizada por número exacto antes de editar; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.

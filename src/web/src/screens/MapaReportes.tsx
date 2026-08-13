@@ -14,6 +14,8 @@ const ETIQUETA_ESPECIE = { perro: 'Perro', gato: 'Gato', otro: 'Otro animal' } a
 export function MapaReportes() {
   const [vista, setVista] = useState(VISTA_COLOMBIA);
   const [soloReunidos, setSoloReunidos] = useState(false);
+  const [miUbicacion, setMiUbicacion] = useState<{ lat: number; lng: number } | null>(null);
+  const [avisoUbicacion, setAvisoUbicacion] = useState<string | null>(null);
   const [reportes, setReportes] = useState<Reporte[]>([]);
   const [seleccionado, setSeleccionado] = useState<Reporte | null>(null);
 
@@ -45,15 +47,39 @@ export function MapaReportes() {
             {visibles.length} {soloReunidos ? 'reencuentros' : 'reportes activos'} en{' '}
             {vista === VISTA_COLOMBIA ? 'todo Colombia' : vista}.
           </p>
-          <label className="mt-2 flex items-center gap-2 text-sm text-ink-soft">
-            <input
-              type="checkbox"
-              checked={soloReunidos}
-              onChange={(e) => setSoloReunidos(e.target.checked)}
-              className="accent-forest"
-            />
-            Solo reencuentros 💚
-          </label>
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-ink-soft">
+              <input
+                type="checkbox"
+                checked={soloReunidos}
+                onChange={(e) => setSoloReunidos(e.target.checked)}
+                className="accent-forest"
+              />
+              Solo reencuentros 💚
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                setAvisoUbicacion(null);
+                if (!('geolocation' in navigator)) {
+                  setAvisoUbicacion('Tu navegador no permite obtener la ubicación.');
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (posicion) =>
+                    setMiUbicacion({
+                      lat: posicion.coords.latitude,
+                      lng: posicion.coords.longitude,
+                    }),
+                  () => setAvisoUbicacion('No pudimos obtener tu ubicación.'),
+                );
+              }}
+              className="text-sm font-medium text-forest underline-offset-4 hover:underline"
+            >
+              📍 Centrar en mi ubicación
+            </button>
+            {avisoUbicacion && <span className="text-sm text-danger">{avisoUbicacion}</span>}
+          </div>
         </div>
         <label className="flex flex-col text-xs text-muted">
           Zona
@@ -75,7 +101,7 @@ export function MapaReportes() {
         </label>
       </header>
 
-      <MapaLienzo zona={vista} pines={pines} />
+      <MapaLienzo zona={vista} pines={pines} centro={miUbicacion} />
 
       <div className="flex flex-wrap items-center gap-5 text-sm text-ink-soft">
         <span className="flex items-center gap-2">

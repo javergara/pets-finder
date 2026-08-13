@@ -28,6 +28,8 @@ type Props = {
   // Si se pasa, un click en el mapa devuelve las coords reales del punto —
   // así se ubica el pin de un reporte nuevo.
   onClickCoords?: (coords: { lat: number; lng: number }) => void;
+  // Al cambiar, el mapa se centra ahí (feature 31: "mi ubicación").
+  centro?: { lat: number; lng: number } | null;
   children?: ReactNode;
 };
 
@@ -39,7 +41,7 @@ function redondear(valor: number): number {
 // Además del mapa, cada pin se renderiza como botón accesible (sr-only) — es la
 // ruta para lectores de pantalla y lo que ejercitan los tests (Leaflet no se
 // inicializa en Vitest/jsdom, ver el guard de MODE==='test').
-export function MapaLienzo({ zona, pines, onClickCoords, children }: Props) {
+export function MapaLienzo({ zona, pines, onClickCoords, centro, children }: Props) {
   const contenedorRef = useRef<HTMLDivElement>(null);
   const mapaRef = useRef<L.Map | null>(null);
   const capaPinesRef = useRef<L.LayerGroup | null>(null);
@@ -80,6 +82,12 @@ export function MapaLienzo({ zona, pines, onClickCoords, children }: Props) {
       [caja.latMax, caja.lngMax],
     ]);
   }, [zona]);
+
+  // "Mi ubicación" (feature 31): centrar sin cambiar el encuadre de zona.
+  useEffect(() => {
+    if (!centro) return;
+    mapaRef.current?.setView([centro.lat, centro.lng], 15);
+  }, [centro]);
 
   useEffect(() => {
     const capa = capaPinesRef.current;

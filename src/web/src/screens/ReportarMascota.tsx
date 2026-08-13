@@ -6,7 +6,7 @@ import { FotoUpload } from '../components/FotoUpload';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { SelectorCiudad } from '../components/SelectorCiudad';
 import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
-import { ZONA_OTRO, cajaDeZona } from '../lib/ciudades';
+import { ZONA_OTRO, cajaDeZona, coordsEnZona, zonaQueContiene } from '../lib/ciudades';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 
 type Props = {
@@ -49,6 +49,12 @@ export function ReportarMascota({ tipo }: Props) {
   const [fechaEvento, setFechaEvento] = useState('2026-08-10');
   const [telefono, setTelefono] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [avisoUbicacion, setAvisoUbicacion] = useState<string | null>(null);
+  const [sugerenciaUbicacion, setSugerenciaUbicacion] = useState<{
+    lat: number;
+    lng: number;
+    zona: string | null;
+  } | null>(null);
   const [enviando, setEnviando] = useState(false);
   const [creado, setCreado] = useState<Reporte | null>(null);
   const navigate = useNavigate();
@@ -314,6 +320,7 @@ export function ReportarMascota({ tipo }: Props) {
           <MapaLienzo
             zona={zona}
             onClickCoords={setPin}
+            centro={pin}
             pines={[
               {
                 id: 'pin-reporte',
@@ -324,6 +331,91 @@ export function ReportarMascota({ tipo }: Props) {
               },
             ]}
           />
+          {/* Geolocalización (feature 31): quien encuentra una mascota está
+              parado exactamente donde la encontró. Fallbacks: sin permiso o sin
+              señal, el flujo manual sigue intacto. */}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setAvisoUbicacion(null);
+                setSugerenciaUbicacion(null);
+                if (!('geolocation' in navigator)) {
+                  setAvisoUbicacion('Tu navegador no permite obtener la ubicación.');
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (posicion) => {
+                    const lat = Math.round(posicion.coords.latitude * 10000) / 10000;
+                    const lng = Math.round(posicion.coords.longitude * 10000) / 10000;
+                    if (zona && coordsEnZona(zona, lat, lng)) {
+                      setPin({ lat, lng });
+                      return;
+                    }
+                    const zonaReal = zonaQueContiene(lat, lng);
+                    if (!zona && zonaReal) {
+                      // Sin zona elegida aún: la ubicación la decide.
+                      cambiarZona(zonaReal);
+                      setPin({ lat, lng });
+                      return;
+                    }
+                    setSugerenciaUbicacion({ lat, lng, zona: zonaReal });
+                  },
+                  () =>
+                    setAvisoUbicacion('No pudimos obtener tu ubicación — pon el pin manualmente.'),
+                );
+              }}
+              className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink-soft"
+            >
+              📍 Usar mi ubicación
+            </button>
+            {avisoUbicacion && <span className="text-sm text-danger">{avisoUbicacion}</span>}
+          </div>
+          {sugerenciaUbicacion && (
+            <div className="mt-2 rounded-xl border border-line bg-surface-alt p-3 text-sm text-ink-soft">
+              <p className="mb-2">
+                Tu ubicación está fuera de {zona || 'la zona elegida'}
+                {sugerenciaUbicacion.zona
+                  ? ` — parece que estás en ${sugerenciaUbicacion.zona}`
+                  : ''}
+                .
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {sugerenciaUbicacion.zona ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      cambiarZona(sugerenciaUbicacion.zona as string);
+                      setPin({ lat: sugerenciaUbicacion.lat, lng: sugerenciaUbicacion.lng });
+                      setSugerenciaUbicacion(null);
+                    }}
+                    className="rounded-full bg-forest px-4 py-1.5 text-sm font-medium text-bg"
+                  >
+                    Cambiar a {sugerenciaUbicacion.zona} y usar mi ubicación
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      cambiarZona(ZONA_OTRO);
+                      setPin({ lat: sugerenciaUbicacion.lat, lng: sugerenciaUbicacion.lng });
+                      setSugerenciaUbicacion(null);
+                    }}
+                    className="rounded-full bg-forest px-4 py-1.5 text-sm font-medium text-bg"
+                  >
+                    Usar &quot;Otro lugar de Colombia&quot; con mi ubicación
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSugerenciaUbicacion(null)}
+                  className="text-sm font-medium text-muted"
+                >
+                  Ignorar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div>

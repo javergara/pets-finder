@@ -129,3 +129,19 @@ export const OTRAS_CIUDADES_COLOMBIA = [
 export function cajaDeZona(zona: string): BoundingBox {
   return ZONAS[zona] ?? COLOMBIA;
 }
+
+// Geolocalización (feature 31): ¿dónde caen unas coords reales?
+function dentroDeCaja(caja: BoundingBox, lat: number, lng: number): boolean {
+  return lat >= caja.latMin && lat <= caja.latMax && lng >= caja.lngMin && lng <= caja.lngMax;
+}
+
+export function coordsEnZona(zona: string, lat: number, lng: number): boolean {
+  return dentroDeCaja(cajaDeZona(zona), lat, lng);
+}
+
+export function zonaQueContiene(lat: number, lng: number): string | null {
+  for (const [nombre, caja] of Object.entries(ZONAS)) {
+    if (dentroDeCaja(caja, lat, lng)) return nombre;
+  }
+  return null;
+}
