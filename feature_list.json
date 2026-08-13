@@ -485,7 +485,7 @@
       "id": "37-coincidencias-explicables",
       "title": "Coincidencias con razones visibles",
       "description": "Benchmark encontradogs.co: las coincidencias muestran POR QUÉ coinciden. ordenar_coincidencias devuelve además las razones explicables (misma especie, misma zona, distancia, diferencia de días, y si coinciden color/tamaño — estos dos solo informativos, sin cambiar el orden determinista ya testeado). CoincidenciaOut gana razones: list[str] y la UI del detalle las muestra como chips bajo cada candidato.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["36-titulo-descriptivo"],
       "acceptance": [
         "GET /api/reports/{id}/coincidencias incluye por candidato una lista de razones legibles en español (especie, zona, 'a X km', 'mismo día'/'N días de diferencia', y 'mismo color'/'mismo tamaño' cuando aplique)",

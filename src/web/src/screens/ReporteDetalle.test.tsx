@@ -134,13 +134,17 @@ describe('ReporteDetalle', () => {
           descripcion: 'Perro color miel resguardado',
         }),
         distancia_km: 0.6,
+        razones: ['mismo perro', 'misma zona (Armenia)', 'a 0.6 km', '1 día de diferencia'],
       },
     ]);
 
     renderDetalle();
 
     expect(await screen.findByText('Posibles coincidencias')).toBeInTheDocument();
+    // Las razones del backend se muestran como chips (feature 37).
     expect(screen.getByText('a 0.6 km')).toBeInTheDocument();
+    expect(screen.getByText('mismo perro')).toBeInTheDocument();
+    expect(screen.getByText('1 día de diferencia')).toBeInTheDocument();
     const links = screen.getAllByRole('link');
     expect(links.some((l) => l.getAttribute('href') === '/reporte/2')).toBe(true);
   });

@@ -226,9 +226,11 @@ class ReportOut(BaseModel):
 
 
 class CoincidenciaOut(ReportOut):
-    """Un candidato a ser la misma mascota, con su distancia geográfica real."""
+    """Un candidato a ser la misma mascota, con su distancia geográfica real
+    y las razones legibles de por qué coincide (feature 37)."""
 
     distancia_km: float
+    razones: list[str]
 
 
 class ReunidoIn(BaseModel):

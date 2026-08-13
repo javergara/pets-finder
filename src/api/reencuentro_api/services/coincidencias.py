@@ -48,3 +48,37 @@ def ordenar_coincidencias(reporte: Report, candidatos: list[Report]) -> list[tup
 
     puntuados.sort(key=lambda item: item[2])
     return [(candidato, round(distancia, 2)) for candidato, distancia, _ in puntuados]
+
+
+ETIQUETA_ESPECIE = {"perro": "perro", "gato": "gato", "otro": "otro animal"}
+
+
+def razones_coincidencia(reporte: Report, candidato: Report, distancia: float) -> list[str]:
+    """Por qué este candidato coincide, en frases cortas para chips de UI.
+
+    Solo informa — el orden lo decide `ordenar_coincidencias` y no cambia
+    (feature 37): especie y zona son filtros (siempre coinciden), distancia y
+    días son el puntaje, y color/tamaño se agregan cuando ambos los declaran
+    iguales. Benchmark encontradogs (product-research §9): mostrar el porqué
+    da confianza sin volver el motor una caja negra.
+    """
+    razones = [
+        f"mismo {ETIQUETA_ESPECIE.get(reporte.especie, 'animal')}",
+        f"misma zona ({reporte.zona})",
+        f"a {distancia} km",
+    ]
+
+    dias = abs((reporte.fecha_evento - candidato.fecha_evento).days)
+    if dias == 0:
+        razones.append("el mismo día")
+    elif dias == 1:
+        razones.append("1 día de diferencia")
+    else:
+        razones.append(f"{dias} días de diferencia")
+
+    if reporte.color and reporte.color != "Otro" and reporte.color == candidato.color:
+        razones.append("mismo color")
+    if reporte.tamano and reporte.tamano == candidato.tamano:
+        razones.append("mismo tamaño")
+
+    return razones

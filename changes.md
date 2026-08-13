@@ -543,3 +543,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Benchmark encontradogs (product-research §9): sin nombre_mascota, el título pasa de "Perro" a "Perro mediano café" (especie + tamaño + color en minúscula; color "Otro" omitido; sin huecos). Con nombre, el nombre manda.
 - `src/web/src/lib/titulo.ts` (tituloReporte) en tarjetas, detalle (incl. coincidencias), mapa (pin y mini-tarjeta) y mis-reportes; `services/titulos.py` (espejo backend) en el og:title de /reporte/:id. Tests: 4+4 unitarios espejo, tarjeta sin nombre, og end-to-end. Aprobada por el revisor (134 API + 122 web en verde).
+
+## 2026-08-13 — Feature 37: coincidencias con razones visibles
+
+- `razones_coincidencia()` nueva en services/coincidencias.py (función pura, el orden de `ordenar_coincidencias` quedó intacto): "mismo perro", "misma zona (X)", "a N km", "el mismo día"/"N días de diferencia", y "mismo color"/"mismo tamaño" solo si ambos lo declaran igual (color "Otro" no afirma). `CoincidenciaOut.razones`, chips en el detalle (el "a X km" ahora vive en los chips). +4 tests API, test del detalle ampliado. Aprobada por el revisor (138 API + 122 web).

@@ -450,9 +450,17 @@ export function ReporteDetalle() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-ink">{tituloReporte(c)}</span>
                     <span className="block truncate text-sm text-muted">{c.descripcion}</span>
-                  </span>
-                  <span className="shrink-0 font-mono text-sm text-forest">
-                    a {c.distancia_km} km
+                    {/* Por qué coincide (feature 37): confianza sin caja negra. */}
+                    <span className="mt-1.5 flex flex-wrap gap-1">
+                      {c.razones.map((razon) => (
+                        <span
+                          key={razon}
+                          className="rounded-full bg-forest-tint px-2 py-0.5 text-xs text-forest"
+                        >
+                          {razon}
+                        </span>
+                      ))}
+                    </span>
                   </span>
                 </Link>
               </li>

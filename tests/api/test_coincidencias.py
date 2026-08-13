@@ -123,3 +123,56 @@ def test_endpoint_reporte_inexistente_devuelve_404(client, db_session):
 
     assert respuesta.status_code == 404
     assert "9999" in respuesta.json()["detail"]
+
+
+# --- Razones explicables (feature 37) ---
+
+
+def test_razones_basicas_especie_zona_distancia_y_dias():
+    from reencuentro_api.services.coincidencias import razones_coincidencia
+
+    perdido = _reporte()
+    candidato = _reporte(tipo="encontrado", fecha_evento=date(2026, 8, 12))
+
+    razones = razones_coincidencia(perdido, candidato, 0.62)
+
+    assert razones == ["mismo perro", "misma zona (Armenia)", "a 0.62 km", "2 días de diferencia"]
+
+
+def test_razones_mismo_dia_color_y_tamano():
+    from reencuentro_api.services.coincidencias import razones_coincidencia
+
+    perdido = _reporte(color="Negro", tamano="mediano")
+    candidato = _reporte(tipo="encontrado", color="Negro", tamano="mediano")
+
+    razones = razones_coincidencia(perdido, candidato, 0.1)
+
+    assert "el mismo día" in razones
+    assert "mismo color" in razones
+    assert "mismo tamaño" in razones
+
+
+def test_razones_color_distinto_u_otro_no_se_afirma():
+    from reencuentro_api.services.coincidencias import razones_coincidencia
+
+    con_distinto = razones_coincidencia(
+        _reporte(color="Negro"), _reporte(tipo="encontrado", color="Blanco"), 0.5
+    )
+    con_otro = razones_coincidencia(
+        _reporte(color="Otro"), _reporte(tipo="encontrado", color="Otro"), 0.5
+    )
+
+    assert all("color" not in r for r in con_distinto)
+    assert all("color" not in r for r in con_otro)
+
+
+def test_endpoint_incluye_las_razones(client, par_sembrado):
+    rocky, encontrado = par_sembrado
+
+    cuerpo = client.get(f"/api/reports/{rocky.id}/coincidencias").json()
+
+    razones = cuerpo[0]["razones"]
+    assert "mismo perro" in razones
+    assert "misma zona (Armenia)" in razones
+    assert "1 día de diferencia" in razones
+    assert any(r.startswith("a 0.") for r in razones)

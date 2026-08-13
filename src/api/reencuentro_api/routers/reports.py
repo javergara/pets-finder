@@ -20,7 +20,7 @@ from ..schemas.report import (
     SightingIn,
     SightingOut,
 )
-from ..services.coincidencias import ordenar_coincidencias
+from ..services.coincidencias import ordenar_coincidencias, razones_coincidencia
 from ..services.db import get_session
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -214,7 +214,11 @@ def listar_coincidencias(
     resultado = ordenar_coincidencias(reporte, list(candidatos))
 
     return [
-        CoincidenciaOut(distancia_km=distancia, **ReportOut.model_validate(c).model_dump())
+        CoincidenciaOut(
+            distancia_km=distancia,
+            razones=razones_coincidencia(reporte, c, distancia),
+            **ReportOut.model_validate(c).model_dump(),
+        )
         for c, distancia in resultado
     ]
 

@@ -379,3 +379,16 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `36-titulo-descriptivo` a `done` — línea 475 localizada por número exacto; único `done` del diff; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear (la entrada de la 36 aún no está en changes.md — añadirla con el commit, checkpoint #4).
+
+## Veredicto del revisor — feature 37 (2026-08-13): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `a65fbca`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 138/138 tests de API + 122/122 de web**.
+- **Acceptance 1**: `razones_coincidencia` es una función pura nueva con 3 tests unitarios (razones básicas con lista exacta aseverada; mismo día/color/tamaño; color distinto u "Otro" **no afirma nada** — aseverado con `all("color" not in r)`) + test del endpoint con las razones del par sembrado. **Verificación en vivo del revisor sobre el seed real**: Rocky↔encontrado → `['mismo perro', 'misma zona (Armenia)', 'a 0.6 km', '1 día de diferencia', 'mismo color', 'mismo tamaño']` (el par comparte Criollo/Miel-dorado/mediano en el seed — correcto), y el par de Medellín → `misma zona (Medellín)`, `a 5.06 km`. Todas las frases en español, formato de chips.
+- **Acceptance 2 (orden intacto)**: el diff de `ordenar_coincidencias` es **cero líneas** (solo adiciones debajo de la función), los 6 tests previos de `test_coincidencias.py` no se tocaron (diff solo con `+`), y en vivo el primer candidato de Rocky sigue siendo el id 2 a 0.6 km — el motor determinista de la 08 no cambió.
+- **Acceptance 3**: test del detalle ampliado con los chips ("mismo perro", "1 día de diferencia" aseverados); por diff, las razones se pintan como chips `bg-forest-tint` bajo cada candidato y el badge suelto "a X km" de la derecha se retiró sin perder la información (ahora viaja dentro de las razones — cumple la letra del acceptance 1 que pide 'a X km' en la lista).
+- Diseño consistente: separación correcta informar-vs-ordenar (documentada en el docstring — especie/zona son filtros, distancia/días son puntaje, color/tamaño solo informativos), `CoincidenciaOut.razones: list[str]` sin tocar `ReportOut`, sin cambio de esquema de DB → **sin migración** (el campo es calculado en el response).
+- `feature_list.json`: `37-coincidencias-explicables` a `done` — línea 488 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. Las 38-39 siguen en `todo`, sin tocar.
+
+Pendiente obligatorio al commitear (checkpoint #4): añadir la entrada de la feature 37 a `changes.md` con su hash — igual que en la 36, la entrada aún no existe en el working tree.

@@ -48,7 +48,7 @@ export type Reporte = {
   resuelto_en: string | null;
 };
 
-export type Coincidencia = Reporte & { distancia_km: number };
+export type Coincidencia = Reporte & { distancia_km: number; razones: string[] };
 
 export type ReunidosResumen = {
   total: number;
