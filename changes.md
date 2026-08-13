@@ -526,3 +526,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Pestaña "Ayudar" → **"Centros de ayuda"** (nav, h1 de `/ayudar`, link de la landing y botón de RegistrarOrganizacion). La ruta `/ayudar` no cambia: nada de links rotos.
 - Tests: +1 App (logo y pestaña), +2 Landing, +1 RedDeApoyo, FotoUpload.test reescrito para el flujo con recorte (stub de react-easy-crop), +3 de `recortarImagen`. Fix de test preexistente con fecha-bomba en Reportes.test (`creado_en` fijo pasaba de "hace X horas" a "ayer" y rompía el regex — ahora es relativo a la corrida). `bash init.sh` verde: 115 API + 117 web.
 - Verificación visual en navegador real: landing, nav y flujo completo de recorte (original 900x600 → subido 600x600 cuadrado).
+
+## 2026-08-13 — SEO y vista previa al compartir el sitio (fix directo, pedido del usuario)
+
+- El link de la raíz compartido en Instagram/WhatsApp salía pelado: título "petfinder-col", sin imagen ni descripción (los `/reporte/:id` ya tenían vista propia vía ADR 0009 — esto cubre el sitio en sí, que los bots leen del `index.html` estático).
+- `index.html`: título SEO real ("Pet Finder Col — Mascotas perdidas y encontradas en Colombia"), meta description, canonical, Open Graph completo (type/site_name/title/description/url/image 1200x630 con width/height/alt/locale es_CO) y Twitter Card `summary_large_image`. URLs absolutas: los rastreadores no resuelven relativas.
+- `public/og-image.png` (1200x630, 57 KB): wordmark claro sobre fondo forest + tagline y ciudades, compuesto por SVG desde `design/logo/petfinder-col-logo-claro.svg` y rasterizado con sips.
+- `public/robots.txt` (allow all).
+- Nota operativa: WhatsApp/Facebook cachean la vista previa por URL ~7 días; para refrescarla al instante usar https://developers.facebook.com/tools/debug/ con la URL del sitio.
