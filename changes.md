@@ -505,3 +505,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Tras el merge del stack del crawler, DOS pushes a main (aea5fb7, 1dadda8) no crearon NINGÚN deployment (ni Production ni Canceled), mientras los previews de ramas sí se creaban. Diagnóstico vía dashboard con el navegador: sin errores de build — los deployments simplemente no se crearon.
 - Solución: Deployments → "…" → Create Deployment → main → Deploy to Production (el trigger manual respondió 200 y quedó Ready). Verificado: bundle DUPVExON servido con el detalle crawleado, health 200, columnas nuevas activas.
 - Si se repite: revisar los webhook deliveries de la GitHub App de Vercel, o usar el mismo Create Deployment del dashboard. Este mismo commit sirve de prueba de si el auto-deploy se recuperó.
+
+## 2026-08-13 — Auto-deploy de Vercel restaurado
+
+- El usuario desconectó/reconectó el repo (Vercel → Settings → Git). Push de prueba 9f36d9a → deployment de Production creado automáticamente y Ready. Incidente cerrado; gotcha actualizado en memory/memory.md.
