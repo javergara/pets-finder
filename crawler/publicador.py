@@ -17,7 +17,7 @@ import requests
 from reencuentro_api.schemas.report import ReportIn
 
 from .schema import PostExtraido
-from .zonas import resolver_zona
+from .zonas import normalizar_texto, resolver_zona
 
 MODELO_EXTRACCION = "llamaextract"
 
@@ -34,6 +34,60 @@ def _telefono_saneado(crudo: str | None) -> str | None:
     primero = re.split(r"[/,;]| y | o ", crudo)[0]
     digitos = re.sub(r"\D", "", primero)
     return digitos if 7 <= len(digitos) <= 15 else None
+
+
+def _clave_telefono(telefono: str | None) -> str | None:
+    """Últimos 10 dígitos: '573001234567' y '3001234567' son el mismo número."""
+    if not telefono:
+        return None
+    digitos = re.sub(r"\D", "", telefono)
+    return digitos[-10:] if len(digitos) >= 10 else (digitos or None)
+
+
+def cargar_existentes(api_url: str) -> list[dict[str, Any]]:
+    """Reportes ya publicados en la API destino, para el chequeo de duplicados.
+
+    Incluye reunidos: re-publicar un caso ya resuelto es peor que un duplicado
+    activo."""
+    respuesta = requests.get(
+        f"{api_url.rstrip('/')}/api/reports", params={"estado": "todos"}, timeout=30
+    )
+    respuesta.raise_for_status()
+    return respuesta.json()
+
+
+def posibles_duplicados(
+    payload: ReportIn, existentes: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Dedup v0 por teléfono. El teléfono identifica a la PERSONA, no al caso:
+    una familia pierde varias mascotas y un rescatista encuentra muchas. Por
+    eso es llave de candidatos, nunca veredicto — tipo+especie acotan y el
+    nombre discrimina (dos nombres distintos = dos mascotas de la misma
+    persona). El resultado se REPORTA para revisión humana; descartar en
+    automático solo es seguro para el duplicado exacto (idempotency_id)."""
+    tel = _clave_telefono(payload.telefono_contacto)
+    if tel is None:
+        return []
+    hallazgos: list[dict[str, Any]] = []
+    nombre_nuevo = normalizar_texto(payload.nombre_mascota) if payload.nombre_mascota else None
+    for existente in existentes:
+        if _clave_telefono(existente.get("telefono_contacto")) != tel:
+            continue
+        if existente.get("tipo") != payload.tipo or existente.get("especie") != payload.especie:
+            continue
+        nombre_existente = (
+            normalizar_texto(existente["nombre_mascota"])
+            if existente.get("nombre_mascota")
+            else None
+        )
+        if nombre_nuevo and nombre_existente:
+            if nombre_nuevo != nombre_existente:
+                continue  # mismo dueño, otra mascota (caso Iru y Nala)
+            nivel, razon = "casi seguro", "mismo teléfono, tipo, especie y nombre"
+        else:
+            nivel, razon = "posible", "mismo teléfono, tipo y especie; sin nombre para distinguir"
+        hallazgos.append({"id": existente.get("id"), "nivel": nivel, "razon": razon})
+    return hallazgos
 
 
 def convertir(
