@@ -1,14 +1,30 @@
 import { type ChangeEvent, useEffect, useState } from 'react';
+import Cropper from 'react-easy-crop';
 import { ApiError, subirFoto } from '../api/client';
-import { comprimirImagen } from '../lib/imagen';
+import { type AreaRecorte, comprimirImagen, recortarImagen } from '../lib/imagen';
 
 type Props = {
   // Se invoca con el foto_url definitivo (bajo /media/uploads/) al terminar la subida.
   onFotoSubida: (fotoUrl: string) => void;
 };
 
+// Proporciones del encuadre: null = la de la foto original (el encuadre inicial
+// es la foto completa, así que sin tocar nada se sube tal cual).
+const PROPORCIONES = [
+  { etiqueta: 'Original', valor: null },
+  { etiqueta: 'Cuadrada', valor: 1 },
+  { etiqueta: 'Horizontal', valor: 4 / 3 },
+] as const;
+
 export function FotoUpload({ onFotoSubida }: Props) {
+  const [archivo, setArchivo] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [recortando, setRecortando] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [proporcion, setProporcion] = useState<number | null>(null);
+  const [aspectoOriginal, setAspectoOriginal] = useState<number | null>(null);
+  const [area, setArea] = useState<AreaRecorte | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [subida, setSubida] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,19 +36,44 @@ export function FotoUpload({ onFotoSubida }: Props) {
     };
   }, [preview]);
 
-  async function handleChange(e: ChangeEvent<HTMLInputElement>) {
-    const archivo = e.target.files?.[0];
-    if (!archivo) return;
+  function handleChange(e: ChangeEvent<HTMLInputElement>) {
+    const elegido = e.target.files?.[0];
+    if (!elegido) return;
 
-    setPreview(URL.createObjectURL(archivo));
+    setArchivo(elegido);
+    setPreview(URL.createObjectURL(elegido));
+    setRecortando(true);
     setSubida(false);
+    setError(null);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setProporcion(null);
+    setAspectoOriginal(null);
+    setArea(null);
+    // Permite volver a elegir el mismo archivo tras cancelar.
+    e.target.value = '';
+  }
+
+  function cancelar() {
+    setArchivo(null);
+    setPreview(null);
+    setRecortando(false);
+    setError(null);
+  }
+
+  async function subir() {
+    if (!archivo) return;
     setError(null);
     setSubiendo(true);
     try {
-      // Reescala/recomprime en el navegador (o devuelve el original si no aplica):
+      // recortarImagen devuelve el original intacto si el encuadre cubre todo;
+      // comprimirImagen reescala/recomprime (o pasa de largo si no aplica):
       // subir 3-5 MB de foto de celular castiga cada tarjeta del listado después.
-      const comprimida = await comprimirImagen(archivo);
+      const recortada = area ? await recortarImagen(archivo, area) : archivo;
+      const comprimida = await comprimirImagen(recortada);
       const { foto_url } = await subirFoto(comprimida);
+      setRecortando(false);
+      if (recortada !== archivo) setPreview(URL.createObjectURL(recortada));
       setSubida(true);
       onFotoSubida(foto_url);
     } catch (err) {
@@ -49,15 +90,83 @@ export function FotoUpload({ onFotoSubida }: Props) {
       <label htmlFor="foto-upload" className="text-sm font-medium text-ink-soft">
         Foto de la mascota
       </label>
-      {/* Preview sin recorte (object-contain): debe verse tal cual quedará la
-          foto en el detalle, no una versión 4:3 que engaña sobre el encuadre. */}
-      {preview && (
+
+      {/* Paso de encuadre: arrastrar y hacer zoom recorta; sin tocar nada, el
+          encuadre inicial es la foto completa y se sube el archivo original. */}
+      {recortando && preview && (
+        <div className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3">
+          <div className="relative h-72 w-full overflow-hidden rounded-lg bg-ink">
+            <Cropper
+              image={preview}
+              crop={crop}
+              zoom={zoom}
+              aspect={proporcion ?? aspectoOriginal ?? 4 / 3}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={(_, areaPixeles) => setArea(areaPixeles)}
+              onMediaLoaded={(media) =>
+                setAspectoOriginal(media.naturalWidth / media.naturalHeight)
+              }
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {PROPORCIONES.map(({ etiqueta, valor }) => (
+              <button
+                key={etiqueta}
+                type="button"
+                onClick={() => setProporcion(valor)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                  proporcion === valor
+                    ? 'border-forest bg-forest text-bg'
+                    : 'border-line bg-surface text-ink-soft'
+                }`}
+              >
+                {etiqueta}
+              </button>
+            ))}
+            <label className="ml-auto flex items-center gap-2 text-xs text-muted">
+              Zoom
+              <input
+                type="range"
+                min={1}
+                max={4}
+                step={0.05}
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+              />
+            </label>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={subir}
+              disabled={subiendo}
+              className="flex-1 rounded-full bg-forest px-4 py-2 text-sm font-medium text-bg disabled:opacity-60"
+            >
+              {subiendo ? 'Subiendo…' : 'Subir foto'}
+            </button>
+            <button
+              type="button"
+              onClick={cancelar}
+              disabled={subiendo}
+              className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink-soft"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Preview final sin recorte extra (object-contain): debe verse tal cual
+          quedará la foto en el detalle. */}
+      {!recortando && preview && (
         <img
           src={preview}
           alt="Vista previa de la foto elegida"
           className="max-h-80 w-full rounded-xl border border-line bg-surface-alt object-contain"
         />
       )}
+
       <input
         id="foto-upload"
         type="file"

@@ -453,6 +453,20 @@
         "Los contadores salen de una query agregada del backend, no de contar en el cliente",
         "bash init.sh en verde"
       ]
+    },
+    {
+      "id": "35-marca-recorte-y-visibilidad",
+      "title": "Logos oficiales, recorte de foto al subir, accesos visibles en la landing y pestaña de ayuda evidente",
+      "description": "Pedido del usuario (2026-08-13): (a) 'Ver todos los reportes' y 'Ver el mapa' pasan de links de texto chicos a botones secundarios visibles en la landing, sin robar protagonismo a los dos CTAs gigantes; (b) recorte de foto antes de subir (react-easy-crop: encuadre con zoom/arrastre y proporciones Original/Cuadrada/Horizontal, recorte en canvas propio + la compresión existente) en todos los formularios que usan FotoUpload — por defecto el encuadre es la foto completa y se sube tal cual; (c) logos oficiales de design/logo/ aplicados: favicon = isotipo, wordmark en la nav y la landing, apple-touch-icon desde el avatar; (d) la pestaña 'Ayudar' se renombra a 'Centros de ayuda' (nav, landing y título de /ayudar) para que diga lo que hace.",
+      "status": "done",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "En la landing, 'Ver todos los reportes' y 'Ver el mapa' se ven como botones con borde (no links subrayados) y navegan a /reportes y /mapa",
+        "Al elegir una foto aparece el paso de recorte; sin ajustar nada se sube el archivo original, y con un encuadre ajustado se sube la versión recortada por canvas (recortarImagen con tests propios)",
+        "La nav y la landing muestran el logo wordmark (alt 'Pet Finder Col') y el favicon es el isotipo oficial con URL versionada (?v=3)",
+        "La pestaña de la nav y el título de /ayudar dicen 'Centros de ayuda'",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }

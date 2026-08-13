@@ -10,6 +10,16 @@
 
 **Lo que queda requiere decisiones del dueño**: `22-alertas-por-zona` (elegir mecanismo, ADR), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor), `25-ops-produccion-pendientes` (checklist en dashboards: SKIP_DB_CREATE_ALL, A record, Website Builder, pausa de Supabase) — y la rotación de credenciales de Supabase (recordatorio aparte, fuera del backlog a pedido del usuario).
 
+## Feature 35 en curso (2026-08-13): marca, recorte y visibilidad
+
+Implementado, `bash init.sh` en verde (115 API + 117 web) y verificación visual en navegador real hecha (landing con logo y botones, recorte cuadrado subido 600x600 desde un original 900x600). Pendiente: veredicto del revisor → done → merge a main.
+
+- Landing: "Ver todos los reportes" / "Ver el mapa" como botones con borde (sin competir con los CTAs); logo wordmark arriba; link a /ayudar renombrado.
+- FotoUpload: paso de recorte con react-easy-crop (proporciones Original/Cuadrada/Horizontal + zoom/arrastre); `recortarImagen()` en lib/imagen.ts (canvas, devuelve el original si el encuadre cubre todo); luego la compresión existente.
+- Marca: favicon = isotipo oficial (?v=3), logo.svg en nav y landing, apple-touch-icon.png desde el avatar (design/logo/).
+- Renombre: pestaña "Ayudar" → "Centros de ayuda" (nav, h1 de /ayudar, landing, RegistrarOrganizacion). La ruta /ayudar no cambia.
+- Fix aparte: test de Reportes con fecha-bomba (creado_en fijo hacía fallar "· hace" al día siguiente) → fixture relativo a la corrida.
+
 ## Próximo paso
 
 Tomar la siguiente feature del backlog (`20`-`24`) con el patrón líder→implementador→revisor, o ejecutar el checklist `25` (dueño). Regla dura vigente: nunca `seed.py` contra prod; migraciones aditivas ANTES de mergear a `main` si hay esquema nuevo.
@@ -339,5 +349,20 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - **Verificación numérica extra del revisor**: los casos de los tests del frontend replicados contra los bounding boxes del **backend** (fuente de verdad) — (4.51,-75.7)→Armenia, (6.244,-75.581)→Medellín, Cartagena→None — coinciden; y comprobado que **las 7 zonas no se solapan** entre sí, así que `zonaQueContiene` es determinista (nunca depende del orden de iteración).
 - Diseño consistente: helpers puros en `lib/ciudades.ts` sobre las cajas existentes (sin tercera copia de datos), fallbacks que nunca bloquean el flujo manual, sin permisos pedidos hasta que el usuario toca el botón (correcto en privacidad/UX). Sin cambio de esquema → sin migración.
 - `feature_list.json`: `31-pin-mi-ubicacion` a `done` — línea 408 localizada por número exacto antes de editar; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0.
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 35 (2026-08-13): APROBADA
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `a43b5c7`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 5**: `bash init.sh` corrido de verdad — **verde completo, 129/129 tests de API + 117/117 de web**; `npm run build` corrido por el revisor — limpio (141.63 kB js gzip; el +8 kB es `react-easy-crop`). Nota de contexto: el conteo de API subió respecto al reporte del líder (115→129) porque el HEAD base ya incluye el trabajo del crawler (`a43b5c7`), ajeno al alcance de esta revisión.
+- **Acceptance 1**: test del listado/mapa como **botones con borde** — asevera `href` y que la clase contiene `border-forest` (no link subrayado); por lectura, jerarquía correcta (borde vs los 2 CTAs llenos, y "Centros de ayuda" baja a link de texto).
+- **Acceptance 2 (recorte)**: `recortarImagen` con tests propios — área que cubre toda la imagen → **devuelve el original por identidad** (sin re-codificar), área parcial → canvas con los args exactos de `drawImage(100,50,400,300 → 0,0,400,300)` y JPEG a 0.92 (calidad alta a propósito: la compresión posterior es la de siempre), sin soporte → original. `FotoUpload` con el flujo completo testeado vía stub de `react-easy-crop` (imposible en jsdom, decisión honesta): elegir archivo abre el encuadre sin subir nada; **sin ajustar, sube el archivo elegido y `recortarImagen` ni se llama**; con encuadre ajustado sube la versión recortada (payload del área exacto); Cancelar cierra sin subir. El orden recorte→compresión y el `e.target.value=''` para reelegir el mismo archivo, correctos por lectura.
+- **Acceptance 3 (marca)**: tests — logo en la nav con `alt='Pet Finder Col'`, `src=/logo.svg` y link a `/`; logo en la landing. Verificado por el revisor **sobre el build real**: `dist/favicon.svg` idéntico al isotipo oficial (huella+casa sobre forest `#1F4D3A`), `?v=3` en `dist/index.html` (cache-busting correcto y bien explicado en el comentario), `apple-touch-icon.png` y `logo.svg` presentes en `dist/`. El test viejo de la marca sigue pasando porque el `alt` da el mismo nombre accesible — señalado honestamente por el líder y verificado.
+- **Acceptance 4**: tests del renombre en nav (`Centros de ayuda` → `/ayudar`), landing ("Centros de ayuda: acopio, fundaciones y donaciones") y h1 de `/ayudar`; la ruta no cambió; grep confirma que en la UI no quedan restos de "Ayudar"/"Red de apoyo" (solo un comentario de código de la 32).
+- **Fix de test preexistente correcto**: `Reportes.test.tsx` tenía `creado_en` fijo que se volvía "ayer" al día siguiente — ahora es relativo a la corrida (`Date.now() - 2h`). Es exactamente la clase de test dependiente del reloj que hay que erradicar; bien resuelto.
+- Dependencia nueva: solo `react-easy-crop ^6.2.3` (UI, sin servicios externos — no amerita ADR). Sin cambios de esquema ni de API → sin migración. La verificación visual del recorte real en navegador (900x600 → 600x600) queda documentada por la sesión principal, límite de jsdom declarado.
+- `feature_list.json`: `35-marca-recorte-y-visibilidad` a `done` — línea 461 localizada por número exacto; único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.

@@ -40,14 +40,23 @@ describe('LandingEmergencia', () => {
     );
   });
 
-  it('da acceso al listado y al mapa', () => {
+  it('da acceso al listado y al mapa como botones visibles (feature 35)', () => {
     renderLanding();
 
-    expect(screen.getByRole('link', { name: 'Ver todos los reportes' })).toHaveAttribute(
-      'href',
-      '/reportes',
-    );
+    const reportes = screen.getByRole('link', { name: 'Ver todos los reportes' });
+    expect(reportes).toHaveAttribute('href', '/reportes');
+    // Botón con borde, no link subrayado: visibilidad sin competir con los CTAs.
+    expect(reportes.className).toContain('border-forest');
     expect(screen.getByRole('link', { name: 'Ver el mapa' })).toHaveAttribute('href', '/mapa');
+  });
+
+  it('muestra el logo oficial y el acceso a los centros de ayuda', () => {
+    renderLanding();
+
+    expect(screen.getByAltText('Pet Finder Col')).toHaveAttribute('src', '/logo.svg');
+    expect(
+      screen.getByRole('link', { name: 'Centros de ayuda: acopio, fundaciones y donaciones' }),
+    ).toHaveAttribute('href', '/ayudar');
   });
 
   it('nombra las zonas cubiertas incluyendo Cali y Quibdó', () => {

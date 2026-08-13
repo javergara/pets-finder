@@ -21,7 +21,7 @@ export function RedDeApoyo() {
     <div className="mx-auto max-w-4xl space-y-6 p-6 pb-24">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl text-ink">Red de apoyo</h1>
+          <h1 className="font-display text-3xl text-ink">Centros de ayuda</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
             Centros de acopio, fundaciones, tiendas y veterinarias que están ayudando. Encuentra
             dónde llevar donaciones o a quién acudir.

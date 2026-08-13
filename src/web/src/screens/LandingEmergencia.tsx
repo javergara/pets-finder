@@ -21,6 +21,7 @@ export function LandingEmergencia() {
 
   return (
     <div className="mx-auto flex min-h-svh max-w-4xl flex-col items-center justify-center gap-8 p-6 text-center">
+      <img src="/logo.svg" alt="Pet Finder Col" className="h-9 w-auto sm:h-11" />
       <p className="font-mono text-sm uppercase tracking-wider text-muted">
         Colombia · Sismo del 10 de agosto de 2026
       </p>
@@ -56,15 +57,28 @@ export function LandingEmergencia() {
         </p>
       )}
 
-      <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-        <Link to="/reportes" className="font-medium text-forest underline-offset-4 hover:underline">
-          Ver todos los reportes
-        </Link>
-        <Link to="/mapa" className="font-medium text-forest underline-offset-4 hover:underline">
-          Ver el mapa
-        </Link>
-        <Link to="/ayudar" className="font-medium text-forest underline-offset-4 hover:underline">
-          ¿Quieres ayudar? Centros de acopio y fundaciones
+      {/* Accesos secundarios: botones con borde, visibles a primera vista pero
+          sin competir con los dos CTAs llenos de arriba. */}
+      <div className="flex w-full max-w-2xl flex-col items-center gap-3">
+        <div className="flex w-full flex-col gap-3 sm:flex-row">
+          <Link
+            to="/reportes"
+            className="flex-1 rounded-xl border-2 border-forest px-6 py-3 text-base font-medium text-forest"
+          >
+            Ver todos los reportes
+          </Link>
+          <Link
+            to="/mapa"
+            className="flex-1 rounded-xl border-2 border-forest px-6 py-3 text-base font-medium text-forest"
+          >
+            Ver el mapa
+          </Link>
+        </div>
+        <Link
+          to="/ayudar"
+          className="text-sm font-medium text-forest underline-offset-4 hover:underline"
+        >
+          Centros de ayuda: acopio, fundaciones y donaciones
         </Link>
       </div>
 

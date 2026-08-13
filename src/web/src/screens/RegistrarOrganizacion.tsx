@@ -106,7 +106,7 @@ export function RegistrarOrganizacion() {
             to="/ayudar"
             className="rounded-full border border-line px-5 py-3 font-medium text-ink"
           >
-            Ir a la red de apoyo
+            Ir a los centros de ayuda
           </Link>
         </div>
       </div>

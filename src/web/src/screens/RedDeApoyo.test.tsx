@@ -51,6 +51,14 @@ function renderRed() {
 }
 
 describe('RedDeApoyo', () => {
+  it('se titula Centros de ayuda (feature 35: la pestaña dice lo que hace)', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+
+    renderRed();
+
+    expect(await screen.findByRole('heading', { name: 'Centros de ayuda' })).toBeInTheDocument();
+  });
+
   it('muestra las tarjetas con nombre, tipo, dirección y horario, y el pin en el mapa', async () => {
     vi.mocked(client.listarOrganizaciones).mockResolvedValue([
       crearOrganizacion(),

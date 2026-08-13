@@ -43,7 +43,9 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
     crawl_metadata: null,
     idempotency_id: null,
     estado: 'activo',
-    creado_en: '2026-08-12T08:00:00',
+    // Relativo al momento de la corrida: el pie asegura "· hace 2 horas" y un
+    // timestamp fijo se vuelve "ayer" (sin "hace") al día siguiente.
+    creado_en: new Date(Date.now() - 2 * 3_600_000).toISOString(),
     resuelto_en: null,
     ...overrides,
   };

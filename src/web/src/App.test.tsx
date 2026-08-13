@@ -42,4 +42,20 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Mis reportes' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Entra o crea tu cuenta' })).toBeInTheDocument();
   });
+
+  it('la marca de la nav es el logo oficial y la pestaña de ayuda dice Centros de ayuda (feature 35)', () => {
+    render(
+      <MemoryRouter initialEntries={['/registro']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    const logo = screen.getByAltText('Pet Finder Col');
+    expect(logo).toHaveAttribute('src', '/logo.svg');
+    expect(logo.closest('a')).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Centros de ayuda' })).toHaveAttribute(
+      'href',
+      '/ayudar',
+    );
+  });
 });
