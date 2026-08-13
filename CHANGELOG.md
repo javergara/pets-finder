@@ -4,7 +4,27 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Unreleased]
 
-Backlog planeado (en `todo` en `feature_list.json`): `20-fotos-huerfanas-storage`, `21-compartir-reporte`, `22-alertas-por-zona`, `23-moderacion-reportes`, `24-ai-matching-fotos` y el checklist operativo `25-ops-produccion-pendientes`.
+Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes`.
+
+## [2.2.0] - 2026-08-12
+
+Cierre del backlog ejecutable en la misma jornada del lanzamiento: 30 features en `done`, todas revisadas y desplegadas.
+
+### Added
+- **`26-zona-medellin`**: Medellín (Valle de Aburrá) como séptima zona con mapa propio + test comparativo permanente de sync backend↔frontend de las zonas.
+- **`27-vista-reencuentros`**: filtro "Reunidas 💚" navegable en el listado (entrada desde la franja de la landing), badge celebratorio y capa "solo reencuentros" en el mapa.
+- **`28-avistamientos`**: "la vi por aquí" — pistas georreferenciadas de terceros (sin cuenta) sobre reportes perdidos, con pins ocre y lista cronológica (tabla `sightings`).
+- **`32-red-de-apoyo`** + **`33-necesidades-ayuda`**: sección /ayudar con centros de acopio, fundaciones, tiendas y veterinarias (mapa + directorio + Cómo donar), y necesidades concretas con "Quiero ayudar" por WhatsApp y "Cubierta 💚" (tablas `organizaciones` y `necesidades`).
+- **`34-contadores-y-recencia`**: conteos en vivo por tipo (`/api/reports/conteos`) en listado y landing, y recencia relativa ("hace 2 horas") en tarjetas y detalle.
+- **`21-compartir-reporte`** (ADR 0009): botón Compartir (Web Share API + fallback copiar) y vista previa real en WhatsApp — og tags por reporte servidos solo a bots vía rewrite por user-agent.
+- **`30-busqueda-y-paginacion`**: búsqueda por texto libre (`q`) sobre nombre/señas/barrio/ciudad, paginación limit/offset con orden estable y total en `X-Total-Count`, campo Buscar y "Cargar más".
+- **`31-pin-mi-ubicacion`**: geolocalización del navegador para el pin al reportar (con autoselección de zona y sugerencia de corrección) y para centrar el mapa.
+- **`29-editar-reporte-completo`**: pantalla /reporte/:id/editar con foto, características, fecha, barrio y pin corregibles (solo autor).
+- **`20-fotos-huerfanas-storage`**: al eliminar un reporte u organización su foto se borra del bucket/disco (tolerante a fallos; seed y hosts ajenos intocables).
+
+### Changed
+- Sin zona/ciudad preseleccionada en los formularios ("Selecciona la zona/ciudad" + mapa nacional) — antes todo defaulteaba a Armenia.
+- Benchmarks documentados en product-research §6-8 (Reúne Mascotas, Encuentra tu Peludo).
 
 ## [2.1.0] - 2026-08-12
 

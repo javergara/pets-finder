@@ -4,7 +4,9 @@
 
 ## Qué está pasando
 
-**23 features en `done` y todo desplegado en <https://petfinder-col.com>.** Última entrega: el plan "Red de apoyo" completo — feature 32 (directorio/mapa /ayudar de centros de acopio, fundaciones, tiendas y veterinarias) y feature 33 (necesidades con "Quiero ayudar" por WhatsApp y "Cubierta 💚"). Tablas `organizaciones` y `necesidades` creadas en prod con autorización explícita del usuario ANTES de cada merge. Suites: 97 tests de API + 83 de web. Backlog restante en `todo`: 20-25, 27, 29-31.
+**Backlog ejecutable CERRADO: 30 features en `done`, release 2.2.0 desplegado en <https://petfinder-col.com>.** En la jornada post-lanzamiento se cerraron 20, 21, 26-34 (benchmarks incluidos) + fixes de UX (sin default Armenia, fotos sin recorte, marca Pet Finder Col). Suites: 115 tests de API + 103 de web. Tablas de prod: users, reports, sightings, organizaciones, necesidades — todas migradas con autorización explícita ANTES de cada merge.
+
+**Lo que queda requiere decisiones del dueño**: `22-alertas-por-zona` (elegir mecanismo, ADR), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor), `25-ops-produccion-pendientes` (checklist en dashboards: SKIP_DB_CREATE_ALL, A record, Website Builder, pausa de Supabase) — y la rotación de credenciales de Supabase (recordatorio aparte, fuera del backlog a pedido del usuario).
 
 ## Próximo paso
 
