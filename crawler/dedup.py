@@ -1,4 +1,4 @@
-"""Registro local de posts procesados: un post nunca se re-extrae (ADR 0009).
+"""Registro local de posts procesados: un post nunca se re-extrae (ADR 0010).
 
 El dedup es a nivel de EXTRACCIÓN, no de reporte: como el LLM no es determinista,
 re-extraer un post podría dar otro número/orden de mascotas y desalinear los

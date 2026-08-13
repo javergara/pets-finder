@@ -1,4 +1,4 @@
-"""Crawler de redes sociales para Pet Finder Col (ADR 0009).
+"""Crawler de redes sociales para Pet Finder Col (ADR 0010).
 
 Paquete INDEPENDIENTE en ejecución (no se despliega a Vercel ni lo importa la
 API) pero que corre desde el checkout del repo e importa el CONTRATO de la API

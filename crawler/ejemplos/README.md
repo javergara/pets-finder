@@ -20,3 +20,7 @@ Generado con `python -m crawler.cli <carpeta> --ciudad Cali` (tier
 `agentic_plus` de LlamaExtract). Los teléfonos y cuentas que aparecen ya son
 públicos: vienen de los pantallazos que los mismos usuarios publicaron en la
 plataforma.
+
+> Nota de privacidad: los teléfonos de este ejemplo están **anonimizados**
+> (3000000001…) — los reales solo viven en la app, donde el autor puede
+> eliminarlos; un repo público no olvida.

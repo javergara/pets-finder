@@ -1,6 +1,6 @@
 # Crawler de redes — Pet Finder Col
 
-Proceso **independiente** de la app (ADR 0009), organizado en **pipelines de
+Proceso **independiente** de la app (ADR 0010), organizado en **pipelines de
 crawling**: cada pipeline es una forma distinta de obtener publicaciones de
 redes, y todas convergen en el mismo extractor (LlamaExtract) → publicador
 (API pública con `fuente: "crawl"`). Este paquete implementa la primera:

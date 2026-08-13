@@ -1,6 +1,6 @@
 """CLI de la pipeline de pantallazos: procesa un pantallazo O una carpeta.
 
-El crawler está organizado en pipelines (ADR 0009 §3); esta es la primera:
+El crawler está organizado en pipelines (ADR 0010 §3); esta es la primera:
 pantallazos aportados a mano. Uso típico (ver crawler/README.md):
 
     python -m crawler.cli captura.png --url-post https://instagram.com/p/ABC/

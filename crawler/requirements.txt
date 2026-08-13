@@ -1,4 +1,4 @@
-# Dependencias SOLO del crawler (proceso independiente, ADR 0009): la función
+# Dependencias SOLO del crawler (proceso independiente, ADR 0010): la función
 # serverless de Vercel no debe cargar llama-cloud — mantener esta lista fuera
 # de src/api/requirements.txt y del pyproject.toml raíz.
 # Instalar aparte: .venv/bin/pip install -r crawler/requirements.txt

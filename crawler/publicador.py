@@ -1,7 +1,7 @@
 """Convierte un PostExtraido en ReportIn de la API y los publica.
 
 Un post con N mascotas produce N reportes que comparten foto, zona, fecha y
-url_post, distinguidos por crawl_metadata.indice_mascota (ADR 0009). El
+url_post, distinguidos por crawl_metadata.indice_mascota (ADR 0010). El
 contrato es el REAL: `convertir` construye y valida `ReportIn` (importado de
 la API vía crawler/__init__), así una extracción no publicable falla aquí,
 localmente y con los mismos mensajes de producto del backend — nunca como un

@@ -1,5 +1,5 @@
 {
-  "_nota": "Tracking del trabajo del crawler (contribución de Javier, ADR 0009). Separado a propósito del feature_list.json del proyecto: ese backlog es del dueño y su tooling (validate_feature_list.py, pre-commit) no aplica aquí. Mismo formato por familiaridad.",
+  "_nota": "Tracking del trabajo del crawler (contribución de Javier, ADR 0010). Separado a propósito del feature_list.json del proyecto: ese backlog es del dueño y su tooling (validate_feature_list.py, pre-commit) no aplica aquí. Mismo formato por familiaridad.",
   "features": [
     {
       "id": "C1-fuente-y-metadata",
@@ -10,7 +10,7 @@
         "POST con fuente 'crawl' exige crawl_metadata; sin teléfono exige url_post o autor_handle; roundtrip completo del JSON en GET",
         "fuente 'manual' con crawl_metadata es 422",
         "El detalle web de un reporte crawl sin teléfono muestra 'Ver publicación original' (href exacto) y NO muestra WhatsApp/llamada; con teléfono muestra los botones de siempre; en ambos casos la línea de procedencia con la plataforma y @handle",
-        "Migración de producción documentada en el ADR 0009 (ALTER aditivo, antes del merge a main)"
+        "Migración de producción documentada en el ADR 0010 (ALTER aditivo, antes del merge a main)"
       ],
       "status": "done"
     },
