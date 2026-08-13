@@ -46,6 +46,7 @@ export function ReporteDetalle() {
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
+  const [avisoCompartir, setAvisoCompartir] = useState<string | null>(null);
   const [mostrandoFormAvistamiento, setMostrandoFormAvistamiento] = useState(false);
   const [pinAvistamiento, setPinAvistamiento] = useState<{ lat: number; lng: number } | null>(null);
   const [fechaAvistamiento, setFechaAvistamiento] = useState(hoyISO());
@@ -102,6 +103,33 @@ export function ReporteDetalle() {
           {tipo.texto}
         </span>
       </header>
+
+      {/* Difusión (feature 21): Web Share API nativa, con fallback a copiar el
+          link — la vista previa bonita la ponen los og tags (ADR 0009). */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={async () => {
+            const url = window.location.href;
+            const texto = `${titulo} — ${tipo.texto} en ${lugar}. Ayuda a difundir:`;
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: 'Pet Finder Col', text: texto, url });
+              } catch {
+                // Compartir cancelado por el usuario: no es un error.
+              }
+            } else {
+              await navigator.clipboard.writeText(url);
+              setAvisoCompartir('Link copiado — pégalo donde quieras.');
+              setTimeout(() => setAvisoCompartir(null), 3000);
+            }
+          }}
+          className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+        >
+          Compartir este reporte
+        </button>
+        {avisoCompartir && <span className="text-sm text-forest">{avisoCompartir}</span>}
+      </div>
 
       {reporte.estado === 'reunido' && (
         <p className="rounded-2xl border border-forest-tint-line bg-forest-tint p-4 text-sm text-forest">

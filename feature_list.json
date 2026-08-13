@@ -275,7 +275,7 @@
       "id": "21-compartir-reporte",
       "title": "Compartir un reporte por redes con vista previa decente",
       "description": "La difusión es el mecanismo #1 para encontrar mascotas (product-research): hoy compartir un link de un reporte por WhatsApp muestra una vista previa genérica (SPA sin meta tags por reporte). Añadir botón 'Compartir' en el detalle (Web Share API con fallback a copiar link) y resolver la vista previa: og:title/og:image por reporte requiere HTML por URL (opciones: función serverless que inyecte meta tags para /reporte/:id, o prerender ligero — decidir con ADR corto).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["19-optimizacion-carga-y-tab"],
       "acceptance": [
         "El detalle tiene botón Compartir: usa navigator.share si existe y si no copia el link con confirmación visual",

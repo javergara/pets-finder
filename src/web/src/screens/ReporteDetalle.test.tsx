@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -238,6 +238,41 @@ describe('ReporteDetalle', () => {
 
     await screen.findByRole('heading', { name: 'Rocky' });
     expect(screen.queryByRole('button', { name: 'Eliminar este reporte' })).not.toBeInTheDocument();
+  });
+
+  it('compartir usa navigator.share cuando existe', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    const share = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, share });
+
+    renderDetalle();
+
+    (await screen.findByRole('button', { name: 'Compartir este reporte' })).click();
+
+    await waitFor(() =>
+      expect(share).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Pet Finder Col',
+          text: 'Rocky — Se perdió en Armenia. Ayuda a difundir:',
+          url: window.location.href,
+        }),
+      ),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('sin navigator.share copia el link y lo confirma', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } });
+
+    renderDetalle();
+
+    (await screen.findByRole('button', { name: 'Compartir este reporte' })).click();
+
+    expect(await screen.findByText('Link copiado — pégalo donde quieras.')).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(window.location.href);
+    vi.unstubAllGlobals();
   });
 
   it('muestra los avistamientos como lista y como pins ochre en el mapa', async () => {

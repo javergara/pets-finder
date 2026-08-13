@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .media import MEDIA_DIR
 from .models.base import Base, engine
-from .routers import organizaciones, reports, uploads, users
+from .routers import organizaciones, paginas, reports, uploads, users
 
 logger = logging.getLogger("reencuentro")
 
@@ -61,6 +61,7 @@ app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(uploads.router)
 app.include_router(organizaciones.router)
+app.include_router(paginas.router)
 
 # En serverless (Vercel, ADR 0007) el filesystem es de solo lectura: si no se
 # puede crear/encontrar el directorio, simplemente no se monta /media — en

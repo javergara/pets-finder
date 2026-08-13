@@ -34,6 +34,7 @@ En dev local nada cambia: `bash dev.sh` (SQLite + filesystem, la web apunta a `h
    | `SUPABASE_SERVICE_KEY` | `service_role` key |
    | `SUPABASE_BUCKET` | `fotos` |
    | `SKIP_DB_CREATE_ALL` | `1` (opcional) — omite el `create_all` del arranque y recorta el cold start; ponerla solo cuando el esquema ya existe en la DB. ⚠️ Quitarla (o cambiar el valor) temporalmente si un deploy trae tablas/columnas nuevas, o migrarlas a mano antes |
+   | `SITE_URL` | (opcional) dominio público para los og tags de compartir (ADR 0009). Default: `https://petfinder-col.com` — solo fijarla si el dominio cambia |
 
    No hace falta `VITE_API_BASE_URL` (la web llama a `/api` en el mismo dominio) ni `CORS_ORIGINS` (same-origin). ⚠️ Si el proyecto Supabase se creó fuera del Marketplace, estas vars NUNCA se inyectan solas — añadirlas a mano es obligatorio, y aplican solo tras un Redeploy.
 4. **Deploy**. Desde aquí, cada push a `main` redespliega frontend y API juntos.

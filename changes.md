@@ -450,3 +450,11 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - Listado: "Ahora mismo: X perdidas · Y encontradas · N con estos filtros" y opciones del filtro de tipo con conteos. Landing: línea de dimensión del problema bajo los CTAs (no bloqueante, con catch).
 - `lib/tiempo.ts`: `tiempoRelativo()` pura (min/horas/ayer/días/semanas; ancla los timestamps sin zona del backend a UTC). En el pie de ReporteCard ("fecha · hace X") y en el meta del detalle ("Publicado hace X").
 - Tests: +2 API (conteos solo activos; ruta no eclipsada) y +4 web (tiempo.test.ts con ahora fijo, conteos en listado y landing, pie de tarjeta con recencia). bash init.sh verde: 99 API + 87 web. Sin cambio de esquema.
+
+## 2026-08-12 — Feature 21: compartir reporte con vista previa (commit: en revisión)
+
+- ADR 0009: og tags servidos SOLO a bots — rewrite de vercel.json condicionado por user-agent (facebookexternalhit|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot) manda /reporte/:id a la API; los humanos siguen en la SPA sin costo.
+- `routers/paginas.py`: GET /reporte/{id} → HTML mínimo con og:title ("Rocky — Se perdió en Armenia"), og:description (200 chars escapados), og:image (foto relativa → absoluta con SITE_URL, default petfinder-col.com; omitida sin foto), og:url, twitter:card.
+- Detalle: botón "Compartir este reporte" — navigator.share nativo con fallback a clipboard + aviso "Link copiado" (3s).
+- Tests: tests/api/test_paginas.py (4: og tags exactos con escape, sin foto omite og:image, foto absoluta tal cual, 404) + 2 en ReporteDetalle.test.tsx (share con payload exacto; fallback clipboard). bash init.sh verde: 103 API + 89 web; build limpio. Sin cambio de esquema.
+- Verificación manual pendiente post-deploy: curl con user-agent de WhatsApp contra prod.

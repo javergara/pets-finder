@@ -253,3 +253,19 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 - `feature_list.json`: `34-contadores-y-recencia` a `done` — nota de proceso: el primer `sed` del revisor apuntó a la línea 449 (una línea abajo del status) y **no cambió nada** (verificado por `git diff`); se corrigió con la edición puntual sobre la línea 448 real. Diff neto `todo`→`done` (el `in_progress` del líder estaba sin commitear); único cambio de status; `validate_feature_list.py` → exit 0.
 
 Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.
+
+## Veredicto del revisor — feature 21 (2026-08-12): APROBADA, condicionada a la evidencia manual del acceptance 2 post-deploy
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `7224b0d`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 103/103 tests de API + 89/89 de web**; `npm run build` corrido por el revisor — limpio (132.05 kB js gzip).
+- **Acceptance 1**: tests del botón "Compartir este reporte" — con `navigator.share` presente, payload exacto aseverado (`{title: 'Pet Finder Col', text: 'Rocky — Se perdió en Armenia. Ayuda a difundir:', url}`); sin share, `clipboard.writeText(url)` + confirmación visual "Link copiado — pégalo donde quieras." (con auto-ocultado a los 3 s y catch del share cancelado por lectura — correcto, cancelar no es error).
+- **Acceptance 3**: ADR 0009 leído — corto, con las 3 opciones evaluadas (SSR/prerender descartado por cambiar el stack; inyección para todos descartada por latencia en la ruta caliente) y la elegida bien fundamentada: rewrite condicionado por user-agent **solo para bots**, declarado en `vercel.json` ANTES del fallback SPA (verificado por lectura del orden), regex de 7 rastreadores, humanos sin costo. Documenta la degradación aceptable (bot no listado → vista genérica) y `SITE_URL`.
+- **Backend verificado**: 4 tests de `test_paginas.py` (og tags exactos, **escape correcto de `&` y comillas** — sin inyección HTML —, foto relativa → absoluta con el sitio, foto absoluta de Supabase tal cual, sin foto omite `og:image`, 404) **+ en vivo del revisor**: `GET /reporte/1` con User-Agent de WhatsApp devuelve el HTML con `og:title "Rocky — Se perdió en Armenia"` + description/image/url correctos; `SITE_URL` respetada (incluye `.strip()` de espacios — lección aprendida aplicada); 404 y `/api/*` intactos. Seed sin tocar. La ruta top-level `/reporte/{id}` en la API no colisiona (solo había `/api/*` y `/health`).
+- **Acceptance 2 (vista previa real en WhatsApp) — CONDICIÓN de esta aprobación**: es verificación manual post-deploy que el revisor no puede ejecutar (requiere prod desplegado y el rastreador real). Queda condicionada a que la sesión principal ejecute el `curl` con user-agent de WhatsApp contra producción y **documente la evidencia en `changes.md`** (el propio acceptance exige "verificación manual documentada"). Si la evidencia no llega o falla, este `done` debe revertirse.
+- Sin cambio de esquema → sin migración, correcto.
+- `feature_list.json`: `21-compartir-reporte` a `done` con edición puntual sobre la línea 278 (diff neto `todo`→`done` por el `in_progress` sin commitear del líder); único cambio de status; `validate_feature_list.py` → exit 0.
+
+**Nota importante ligada a la condición**: el default de `SITE_URL` es `https://petfinder-col.com`, pero la bitácora registra la app en `pets-finder-sable.vercel.app` — si el dominio custom no existe o difiere, hay que **fijar `SITE_URL` en las env vars de Vercel al dominio real** o los `og:url` (y `og:image` de fotos relativas) apuntarán a un host equivocado; la verificación del acceptance 2 lo detectará. Añadir `SITE_URL` a la tabla de env vars de `docs/deploy.md` (mismo pendiente que `SKIP_DB_CREATE_ALL` de la feature 19).
+
+Menor recurrente: hash del commit en la entrada de `changes.md` al commitear.

@@ -6,6 +6,17 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/health", "destination": "/api/index" },
+    {
+      "source": "/reporte/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/index"
+    },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
