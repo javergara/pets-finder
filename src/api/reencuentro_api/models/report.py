@@ -41,17 +41,17 @@ class Report(Base):
     lng: Mapped[float] = mapped_column(Float)
     situacion: Mapped[str | None] = mapped_column(String(20), nullable=True)
     fecha_evento: Mapped[date] = mapped_column(Date)
-    # Nullable desde el crawler (ADR 0009): un reporte con fuente "crawl" puede no
+    # Nullable desde el crawler (ADR 0010): un reporte con fuente "crawl" puede no
     # traer teléfono — el contacto es la publicación original (crawl_metadata).
     # Para fuente "manual" sigue siendo obligatorio (validación en el schema).
     telefono_contacto: Mapped[str | None] = mapped_column(String(20), nullable=True)
-    # Procedencia del reporte (ADR 0009): "manual" (formulario) o "crawl" (el
+    # Procedencia del reporte (ADR 0010): "manual" (formulario) o "crawl" (el
     # rastreador de redes publica vía la API). JSON es portable: nativo en
     # Postgres y TEXT serializado en SQLite — única excepción a la regla de
     # tipos simples de los modelos, anotada en el ADR.
     fuente: Mapped[str] = mapped_column(String(20), default="manual")  # "manual" | "crawl"
     crawl_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    # Idempotencia de creación (ADR 0009): el crawler manda una clave estable por
+    # Idempotencia de creación (ADR 0010): el crawler manda una clave estable por
     # mascota (`<clave_post>#<indice>`); repetir el POST con la misma clave
     # devuelve el reporte existente en vez de duplicarlo. El índice único es la
     # garantía real (los NULL no chocan entre sí — reportes manuales no la usan).

@@ -346,7 +346,7 @@ describe('ReporteDetalle', () => {
     expect(screen.queryByText('Avistamientos')).not.toBeInTheDocument();
   });
 
-  // --- Reportes del crawler (ADR 0009) ---
+  // --- Reportes del crawler (ADR 0010) ---
 
   it('un reporte crawleado sin teléfono ofrece la publicación original en vez de WhatsApp', async () => {
     vi.mocked(client.obtenerReporte).mockResolvedValue(

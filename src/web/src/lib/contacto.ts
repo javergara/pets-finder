@@ -17,7 +17,7 @@ export function urlTelefono(telefono: string): string {
   return `tel:+${normalizar(telefono)}`;
 }
 
-// URL del perfil de quien publicó un post crawleado (ADR 0009), derivada del
+// URL del perfil de quien publicó un post crawleado (ADR 0010), derivada del
 // handle cuando el pantallazo no dejó leer la URL del post. Para WhatsApp el
 // "handle" visible suele ser el número de quien publicó → wa.me si es un
 // teléfono plausible. 'desconocida' no tiene forma canónica de perfil → null.

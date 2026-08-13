@@ -120,7 +120,7 @@ export function ReporteDetalle() {
       </header>
 
       {/* Difusión (feature 21): Web Share API nativa, con fallback a copiar el
-          link — la vista previa bonita la ponen los og tags (ADR 0009). */}
+          link — la vista previa bonita la ponen los og tags (ADR 0010). */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -378,7 +378,7 @@ export function ReporteDetalle() {
 
       {reporte.estado === 'activo' && (
         <section className="rounded-2xl border border-line bg-surface p-6">
-          {/* Reporte crawleado sin teléfono (ADR 0009): el contacto es el post
+          {/* Reporte crawleado sin teléfono (ADR 0010): el contacto es el post
               original — y a falta de su URL, el perfil de quien publicó. Sin
               nada accionable no se promete contacto (solo la procedencia). */}
           {(reporte.telefono_contacto || enlaceOriginal) && (

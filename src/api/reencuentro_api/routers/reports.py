@@ -30,7 +30,7 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 def crear_reporte(
     payload: ReportIn, response: Response, session: Session = Depends(get_session)
 ) -> ReportOut:
-    """Crea un reporte. Con `idempotency_id` (lo manda el crawler, ADR 0009) el
+    """Crea un reporte. Con `idempotency_id` (lo manda el crawler, ADR 0010) el
     POST es idempotente: repetirlo devuelve el reporte ya creado con 200 en vez
     de duplicarlo — el índice único de la columna garantiza esto incluso si dos
     requests llegan a la vez."""
