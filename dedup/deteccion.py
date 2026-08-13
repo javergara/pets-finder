@@ -96,9 +96,11 @@ def clusters_duplicados(reportes: list[Reporte]) -> list[dict[str, Any]]:
 
 
 def _orden_canonico(reporte: Reporte) -> tuple:
-    """El canónico de un cluster: primero el manual (lo escribió la familia,
-    con su pin y su foto), y a igual fuente el más antiguo."""
-    return (0 if reporte.get("fuente") == "manual" else 1, reporte.get("id") or 0)
+    """El canónico de un cluster es el PRIMERO en ser creado, sin importar su
+    origen (decisión del operador): el registro más antiguo es el caso
+    original — conserva su id, sus links compartidos y sus avistamientos; los
+    posteriores son re-reportes que se fusionan hacia él."""
+    return (reporte.get("creado_en") or "", reporte.get("id") or 0)
 
 
 def aporta_informacion(canonico: Reporte, sobrante: Reporte) -> list[str]:
@@ -143,25 +145,20 @@ def plan_curacion(clusters: list[dict[str, Any]], user_id_crawler: int | None) -
     return plan
 
 
-def fusion_para_manual(canonico: Reporte, sobrante: Reporte) -> dict[str, Any]:
-    """Fusión determinista para canónicos MANUALES: respeto de autoría.
-
-    Lo que la familia escribió no se reescribe (y menos con prosa de un LLM):
-    la descripción del duplicado se APPENDEA marcada como señas adicionales,
-    y solo se llenan campos que estaban vacíos. El juez solo aporta el
-    veredicto de mismo caso; el texto es el que ya existía."""
+def relleno_determinista(canonico: Reporte, sobrantes: list[Reporte]) -> dict[str, Any]:
+    """Campos de catálogo que al canónico le faltan, tomados del primer
+    sobrante que los traiga — valores que ya existían en reportes, nunca del
+    LLM. Lo que el canónico ya tiene no se toca."""
     cambios: dict[str, Any] = {}
     for campo in ("raza", "color", "tamano", "barrio", "nombre_mascota"):
-        if sobrante.get(campo) and not canonico.get(campo):
-            cambios[campo] = sobrante[campo]
+        if canonico.get(campo):
+            continue
+        for sobrante in sobrantes:
+            if sobrante.get(campo):
+                cambios[campo] = sobrante[campo]
+                break
     if canonico.get("tipo") == "encontrado":
         cambios.pop("nombre_mascota", None)
-    extra = (sobrante.get("descripcion") or "").strip()
-    base = (canonico.get("descripcion") or "").strip()
-    if extra and extra not in base:
-        # String(2000) en la API: el append nunca debe reventar la columna.
-        combinada = f"{base}\n\nSeñas adicionales (reporte duplicado en redes): {extra}"
-        cambios["descripcion"] = combinada[:2000]
     return cambios
 
 
@@ -193,67 +190,54 @@ def marcar_conflictos_hermanos(plan: list[dict[str, Any]], por_id: dict[int, Rep
                     s["juez"]["conflicto_hermanos"] = True
 
 
-def pares_fusionables(
+def fusiones_por_canonico(
     plan: list[dict[str, Any]],
     por_id: dict[int, Reporte],
     user_id_crawler: int | None,
     umbral: float = 0.8,
     incluir_manuales: bool = False,
 ) -> list[dict[str, Any]]:
-    """Pares donde la fusión se puede APLICAR, no solo sugerir.
+    """Grupos de fusión a nivel de CLUSTER: un canónico absorbe TODOS sus
+    sobrantes confirmados de una vez.
 
-    Siempre exige: veredicto del juez 'mismo caso' con confianza >= umbral,
-    y sobrante que sea copia crawl del usuario del crawler (lo único que sus
-    herramientas de autor pueden eliminar). Sobre el canónico:
+    Par por par la fusión se pisa a sí misma (cada PUT recalculado contra el
+    canónico original borra el append anterior) y apila N bloques repetidos —
+    por eso aquí: un grupo por canónico, una síntesis, un solo PUT.
 
-    - crawl propio → se aplica la fusión redactada por el juez.
-    - manual → SOLO con incluir_manuales=True (edita el reporte de otra
-      persona vía su user_id — el modelo de confianza del MVP lo permite,
-      pero es decisión del dueño de la plataforma): fusión determinista de
-      fusion_para_manual, nunca prosa del LLM."""
+    Gates por sobrante: juez 'mismo caso' con confianza >= umbral y sin
+    conflicto de hermanos. El canónico es el primero en ser creado, sin
+    importar el origen. Cualquier reporte ajeno involucrado exige
+    incluir_manuales=True (se edita/borra vía el user_id de su autor: modelo
+    de confianza del MVP — correr con el ok del dueño de la plataforma)."""
 
     def _crawl_propio(reporte: Reporte) -> bool:
         return reporte.get("fuente") == "crawl" and reporte.get("user_id") == user_id_crawler
 
-    pares = []
+    grupos = []
     for c in plan:
         canonico = por_id.get(c["canonico"])
+        if not canonico:
+            continue
+        elegidos = []
         for s in c["sobrantes"]:
             veredicto = s.get("juez") or {}
-            if not veredicto.get("mismo_caso") or not veredicto.get("fusion"):
-                continue
-            if veredicto.get("conflicto_hermanos"):
+            if not veredicto.get("mismo_caso") or veredicto.get("conflicto_hermanos"):
                 continue
             if float(veredicto.get("confianza", 0.0)) < umbral:
                 continue
             sobrante = por_id.get(s["id"])
-            if not canonico or not sobrante:
+            if not sobrante:
                 continue
-            if not _crawl_propio(sobrante):
+            if not incluir_manuales and not (_crawl_propio(canonico) and _crawl_propio(sobrante)):
                 continue
-            if _crawl_propio(canonico):
-                fusion = dict(veredicto["fusion"])
-                # nombre_mascota solo aplica a perdidos (regla del schema de la API).
-                if canonico.get("tipo") == "encontrado":
-                    fusion.pop("nombre_mascota", None)
-                pares.append(
-                    {
-                        "canonico": c["canonico"],
-                        "sobrante": s["id"],
-                        "fusion": fusion,
-                        "user_id_editor": user_id_crawler,
-                    }
-                )
-            elif incluir_manuales and canonico.get("fuente") == "manual":
-                fusion = fusion_para_manual(canonico, sobrante)
-                if not fusion:
-                    continue  # nada que aportar: el par queda para --aplicar normal
-                pares.append(
-                    {
-                        "canonico": c["canonico"],
-                        "sobrante": s["id"],
-                        "fusion": fusion,
-                        "user_id_editor": canonico.get("user_id"),
-                    }
-                )
-    return pares
+            elegidos.append(sobrante)
+        if elegidos:
+            grupos.append(
+                {
+                    "canonico": canonico,
+                    "sobrantes": elegidos,
+                    "propio": _crawl_propio(canonico),
+                    "user_id_editor": canonico.get("user_id"),
+                }
+            )
+    return grupos

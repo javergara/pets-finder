@@ -25,8 +25,8 @@ PETFINDER_API_URL=... python -m dedup.cli --json informe.json
 PETFINDER_API_URL=... CRAWLER_USER_ID=... python -m dedup.cli --aplicar
 ```
 
-- Clusters por caso (teléfono+tipo+especie+nombre); canónico = el manual (lo
-  escribió la familia) o el más antiguo.
+- Clusters por caso (teléfono+tipo+especie+nombre); canónico = el primero
+  en ser creado, sin importar su origen.
 - `--aplicar` solo elimina sobrantes "casi seguro" que sean del usuario del
   crawler — lo único que sus herramientas de autor alcanzan. Los duplicados
   manuales y todos los "posibles" quedan en revisión humana siempre.
@@ -45,16 +45,18 @@ PETFINDER_API_URL=... OPENAI_API_KEY=... python -m dedup.cli --juez --json infor
 
 ## Fusión (merge)
 
-Cuando el juez dicta "mismo caso" con confianza ≥ 0.8, `--fusionar` aplica el
-merge y elimina el duplicado (con respaldo del JSON completo):
+Cuando el juez dicta "mismo caso" con confianza ≥ 0.8 y sin conflicto de
+hermanos, `--fusionar` aplica el merge **a nivel de cluster**: un canónico
+absorbe todos sus duplicados confirmados de una vez — una sola descripción
+combinada redactada por el modelo (todas las señas, sin inventar), campos de
+catálogo llenados determinísticamente desde los duplicados, un solo PUT, y los
+sobrantes se eliminan con respaldo del JSON completo. (Par por par la fusión
+se pisaría a sí misma y apilaría bloques repetidos.)
 
-- **Canónico crawl propio** → se aplica la versión combinada que redactó el
-  juez (descripción con todas las señas, campos completados).
-- **Canónico manual** → solo con `--incluir-manuales`: fusión **determinista**
-  — lo que escribió la familia queda intacto y la descripción del duplicado se
-  añade marcada como "señas adicionales"; solo se llenan campos vacíos. Nunca
-  prosa del LLM en un reporte ajeno. Editar como el autor usa el modelo de
-  confianza del MVP: correrlo contra prod solo con el ok del dueño.
+- El **canónico es el primero en ser creado**, sin importar su origen.
+- Reportes ajenos (manuales) solo entran con `--incluir-manuales`: se
+  editan/borran vía el user_id de su autor — el modelo de confianza del MVP lo
+  permite; correrlo contra prod solo con el ok del dueño.
 
 ## Mapa
 
