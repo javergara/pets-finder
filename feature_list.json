@@ -314,7 +314,7 @@
       "id": "24-ai-matching-fotos",
       "title": "Coincidencias asistidas por AI sobre las fotos",
       "description": "Idea del backlog original, explícitamente fuera del MVP (ADR 0005: coincidencias sin AI). Explorar mejorar el ranking de coincidencias usando las fotos (embeddings de imagen o un modelo multimodal) manteniendo la heurística actual como base explicable. Requiere ADR nuevo (costo de API, privacidad de fotos, y si el free tier de algún proveedor alcanza); no arrancar sin validar que las coincidencias actuales se quedan cortas con datos reales.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["21-compartir-reporte"],
       "acceptance": [
         "ADR con proveedor/enfoque, costo real y decisión de privacidad",

@@ -55,6 +55,25 @@ def supabase_configurado() -> bool:
     return _config_supabase() is not None
 
 
+def prefijo_publico() -> str | None:
+    """Prefijo de las URLs del bucket propio, o None si no hay SUPABASE_URL.
+
+    Es la forma de responder "¿esta foto_url es nuestra?". La usan `borrar_foto`
+    (para no tocar fotos de otros hosts) y el worker de embeddings (para no
+    convertirse en un SSRF: `foto_url` la fija quien crea el reporte, que es
+    cualquiera — ADR 0005 §4).
+
+    A propósito NO exige la `service_role` key: esto es información pública y
+    quien solo necesita leer fotos del bucket (el worker) no tiene por qué
+    cargar con una credencial de escritura.
+    """
+    url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    if not url:
+        return None
+    bucket = os.environ.get("SUPABASE_BUCKET", "fotos").strip()
+    return f"{url}/storage/v1/object/public/{bucket}/"
+
+
 def subir_a_supabase(nombre: str, contenido: bytes, content_type: str) -> str:
     """Sube el archivo al bucket y devuelve su URL pública absoluta.
 
@@ -103,8 +122,12 @@ def borrar_foto(foto_url: str | None) -> None:
                 logger.warning("No se borra %s: Supabase sin configurar", foto_url)
                 return
             url, key, bucket = config
-            prefijo = f"{url}/storage/v1/object/public/{bucket}/"
-            if not foto_url.startswith(prefijo):
+            # Sin `or ""`: `startswith("")` es SIEMPRE True, así que un prefijo
+            # vacío convertiría este guardia en un pase libre para borrar
+            # cualquier URL. Hoy es inalcanzable (config no es None implica
+            # SUPABASE_URL), pero un guardia no puede depender de eso.
+            prefijo = prefijo_publico()
+            if prefijo is None or not foto_url.startswith(prefijo):
                 logger.warning("No se borra %s: no es del bucket propio", foto_url)
                 return
             nombre = foto_url[len(prefijo) :]

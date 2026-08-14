@@ -1,0 +1,50 @@
+{
+  "pipeline": "yolos-tiny+dinov2-animal-id/v1",
+  "reportes_con_foto": 251,
+  "vectores_obtenidos": 244,
+  "pares_del_acceptance": [
+    {
+      "par": [
+        61,
+        141
+      ],
+      "etiqueta": "falso positivo: perra dorada vs perro crema, ambos en imagen compuesta",
+      "con_recorte": 0.4605,
+      "sin_recorte": 0.8854
+    },
+    {
+      "par": [
+        26,
+        61
+      ],
+      "etiqueta": "verdadero positivo: la misma perra (Mila) en dos reportes distintos",
+      "con_recorte": 0.997,
+      "sin_recorte": 0.9999
+    }
+  ],
+  "linea_base_negativos": {
+    "gato": {
+      "n": 5453,
+      "media": 0.1839,
+      "p50": 0.1485,
+      "p90": 0.4559,
+      "p95": 0.5687,
+      "p99": 0.7761
+    },
+    "perro": {
+      "n": 9577,
+      "media": 0.2243,
+      "p50": 0.1949,
+      "p90": 0.4831,
+      "p95": 0.5837,
+      "p99": 0.7695
+    }
+  },
+  "control_positivo": {
+    "n": 100,
+    "media": 0.9634,
+    "min": 0.0502,
+    "p10": 0.9372,
+    "p50": 0.9802
+  }
+}

@@ -602,8 +602,27 @@ export function ReporteDetalle() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-ink">{tituloReporte(c)}</span>
                     <span className="block truncate text-sm text-muted">{c.descripcion}</span>
-                    {/* Por qué coincide (feature 37): confianza sin caja negra. */}
+                    {/* Por qué coincide (feature 37): confianza sin caja negra.
+                        El parecido de la foto va primero y con más peso visual:
+                        es la única razón que puede traer un candidato de otra
+                        zona, así que explica lo que las demás no. Banda y nunca
+                        porcentaje (ADR 0012) — un "87%" se leería como certeza,
+                        y una certeza falsa entrega una mascota a quien no es. */}
                     <span className="mt-1.5 flex flex-wrap gap-1">
+                      {c.parecido_foto && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                            c.parecido_foto === 'alto'
+                              ? 'bg-forest text-bg'
+                              : // ochre sobre surface-alt da 3.06:1 y el mínimo
+                                // AA es 4.5:1: el ochre queda en el borde y el
+                                // texto en ink-soft (~11:1).
+                                'bg-surface-alt text-ink-soft ring-1 ring-ochre'
+                          }`}
+                        >
+                          {c.parecido_foto === 'alto' ? 'foto muy parecida' : 'foto parecida'}
+                        </span>
+                      )}
                       {c.razones.map((razon) => (
                         <span
                           key={razon}

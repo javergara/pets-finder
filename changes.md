@@ -840,3 +840,66 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - 7 commits rebasados sobre develop sin conflictos y aprobados por el revisor independiente: detección pura (teléfono = llave de candidatos, nunca veredicto; clusters por nombre; canónico cronológico), guarda anti-pérdida (un sobrante que aporta foto/señas va a revisión humana, jamás se auto-borra), juez LLM opcional (OPENAI_API_KEY, solo anota, minimización de datos testeada) y aviso de duplicados en el --publicar del crawler. Cero cambios de esquema/API — herramienta de operador, sin deploy implicado.
 - Hallazgo del revisor arreglado en el mismo cierre: init.sh corría `pytest tests/api` a secas y dejaba fuera 45 tests reales (crawler + dedup) — ahora usa los testpaths de pyproject (338 de API+herramientas en verde). Riesgos anotados en progress/current.md: la descripción combinada del --fusionar la redacta un LLM (revisar tras cada corrida real) y el loop de fusión no maneja fallos de red por grupo.
+## 2026-08-13 — Feature 24, paso 1-3: calibración del modelo visual + worker `embeddings/`
+
+- **Calibración sobre las 140 fotos reales de producción** (compuerta que exige el acceptance 2 de la feature 24, ADR 0012). Modelo elegido: `AvitoTech/DINO-v2-small-for-animal-identification` (Apache 2.0, 384 dims, DINOv2-small afinado para identidad individual de perros/gatos). MegaDescriptor descartado por licencia cc-by-nc-4.0; HF Inference API por free tier insuficiente; embedding en navegador por los 43 MB de descarga en datos móviles.
+- **Hallazgo que cambió el diseño**: sin recortar al animal, el vector describe el PÓSTER, no la mascota — producción está llena de pósters diseñados ("¡SE PERDIÓ!") y pantallazos de story con chrome del teléfono. Se añadió una etapa previa de detección/recorte (`hustvl/yolos-tiny`, 26 MB, Apache 2.0). Medido: el falso positivo #61(perra dorada)↔#141(perro crema) cayó de 0.885 a **0.461**, el verdadero positivo #26↔#61 (la misma perra, archivos distintos) se mantuvo en **0.997**, y la línea base bajó de media 0.258 a 0.197. Cobertura del detector: 137/140 fotos.
+- **Umbrales derivados de los datos**: `alto ≥ 0.90`, `medio ≥ 0.80` (base al p99 = 0.770). Marcan 6 de 1608 pares tipo-opuesto.
+- **Paquete `embeddings/`** (proceso independiente, patrón de `crawler/`): `modelo.py` (recorte + embedding, imports perezosos de torch para que la suite corra sin él) y `cli.py` (dry-run por defecto, `--escribir`, `--rehacer`, `--reporte`, `--limite`; escribe directo a la DB porque un endpoint abierto de escritura de embeddings dejaría envenenar el matching — no hay auth real, ADR 0005 §4). `requirements.txt` propio, JAMÁS en los de la API (torch no cabe ni tiene wheels cp314 en Vercel).
+- **Esquema**: `Report.embedding` (JSON, portable como `crawl_metadata`) + `Report.embedding_modelo`, que versiona el pipeline COMPLETO — vectores de pipelines distintos no se comparan, para que un cambio de modelo no produzca un bug silencioso.
+- Tests: +8 en `tests/embeddings/` (a quién procesa, dry-run vs escribir, degradación sin animal/sin foto, lectura local). Corren sin red, sin torch y sin descargar modelos. Suite: **162 pasan** (154 antes).
+- ⚠️ Pendientes de este trabajo: la función pura de coincidencias, el API/UI, el ADR 0012, y la migración aditiva de prod (`embedding`, `embedding_modelo`) ANTES de cualquier merge a `main`.
+
+## 2026-08-13 — Feature 24, pasos 4-7: función pura, API, UI y ADR 0012
+
+- **`services/coincidencias.py` reescrita** conservando su naturaleza pura. La zona deja de ser filtro duro (un candidato de otra zona entra si su parecido llega al umbral) y el orden pasa a `afinidad = cercania + BONO_VISUAL × bono`, donde `cercania = 1/(1 + distancia + 0.5×días)`.
+- **Decisión de diseño central: el parecido solo suma, nunca resta.** El modelo tiene ~72% de top-1, así que un parecido bajo es *ausencia de evidencia*, no evidencia en contra; si restara, publicar una foto mala hundiría un reporte que hoy sale bien por cercanía. Consecuencia buscada: `cercania` es una transformación monótona del puntaje viejo, así que **sin embeddings el orden es exactamente el de antes** — la degradación elegante es aritmética, no un `if`. Test que lo fija.
+- `BONO_VISUAL` subió de 1.0 a 2.0 tras un test que falló con razón: un parecido de 0.99 a 30 km perdía por milésimas contra uno de 0.10 a 14 metros, lo que anulaba el propósito de la feature. Calibrado para que la banda "alto" (≥0.90) gane contra la cercanía sola.
+- **Guarda contra la foto compartida**: si dos reportes comparten `foto_url` su similitud no cuenta — pasa con el crawler multi-mascota (ADR 0010 §6) y ahí un coseno de 1.0 dice "es la misma imagen", no "es la misma mascota". En la calibración los 6 pares con coseno exacto 1.000 eran todos de ese origen.
+- API: `CoincidenciaOut.parecido` ("alto"|"medio"|null) vía `banda_de_parecido` — renombrado a `parecido_foto` al mergear con main, ver la entrada del 2026-08-14; el vector nunca se expone. UI: chip en las coincidencias del detalle, con los tokens del design system.
+- **ADR 0012** escrito: modelos y licencias, alternativas rechazadas (MegaDescriptor por cc-by-nc, HF Inference por free tier, navegador por los 43 MB, vector DB por innecesaria a este volumen con umbral de revisión en ~10k reportes), costo $0, privacidad (las fotos no salen a ningún tercero), y la supersesión formal de "coincidencias sin AI" del ADR 0005 §4. `product-research.md` §2 y `architecture.md` §3 actualizados.
+- Tests: +8 de coincidencias (orden histórico intacto, admisión cruzada por parecido, el parecido no hunde, pipelines distintos no se comparan, foto compartida, bandas, endpoint) y +1 de web (chip sí, porcentaje nunca). **170 de API + 110 de web**, ruff limpio, build de prod limpio (134.35 kB gzip).
+- **Fix aparte, no relacionado**: `Reportes.test.tsx` fallaba en HEAD limpio desde el cambio de día — anclaba el pie de la tarjeta a `/…· hace/` y `tiempoRelativo` devuelve "ayer" al día siguiente. Se dejó de anclar la redacción (las variantes ya las fija `lib/tiempo.test.ts` con un ahora fijo).
+- ⚠️ **Prod intacta, solo lectura** (instrucción explícita del dueño): la calibración solo leyó el API y el bucket públicos. La migración aditiva (`embedding`, `embedding_modelo`) está documentada en el ADR y **no se ha ejecutado**.
+
+## 2026-08-13 — Feature 24: validación con tres revisiones independientes + réplica de prod
+
+**Método**: se construyó una **réplica local de producción** (260 reportes leídos del API público; prod nunca se escribió) para ensayar migración, backfill y endpoint end-to-end antes de proponer tocar prod. Tres agentes revisaron en paralelo: veredicto formal, seguridad y buenas prácticas.
+
+**Hallazgo que justifica la feature mejor que ninguna estimación previa**: 234 de los 260 reportes comparten exactamente el mismo pin (el 78% viene del crawler, que pone el centro de la zona — ADR 0010 §8). De los 14.230 pares candidatos, **el 89% empata** bajo la heurística vieja; el peor caso es un reporte con 84 de sus 86 candidatos en el mismo puntaje. La heurística no estaba corta: para nueve de cada diez pares no podía ordenar nada.
+
+**Correcciones de seguridad** (todas con test):
+- **Envenenamiento del matching (ALTA)**: la guarda de "misma imagen" comparaba URLs, así que bastaba bajar la foto pública de un reporte perdido y re-subirla (URL nueva) para clavar un "encontrado" falso en el primer puesto desde cualquier parte del país — el "tengo a tu perro, mándame un giro". Ahora se compara por vector (`UMBRAL_MISMA_IMAGEN`). Se evaluó y descartó además limitar el salto de zona por distancia: la zona la elige quien publica, así que no le cuesta nada al atacante y sí a los casos legítimos.
+- **SSRF en el worker**: `foto_url` la fija cualquiera y el worker corre en la máquina del dueño; ahora solo descarga del prefijo público del bucket propio, sin redirects y con tope de 15 MB. `prefijo_publico()` se extrajo de `media.py` (donde ya estaba duplicado) y **no exige la service key**: leer fotos públicas no necesita credencial de escritura.
+- **Path traversal**: `/media/../..` y rutas absolutas (`/media/C:/...`) escapaban del directorio; ahora se resuelve y se verifica con `is_relative_to`.
+- **Bomba de descompresión**: el aviso de PIL pasa a error (un PNG de pocos KB podía pedir cientos de MB).
+- `foto_url` gana `max_length=300` en los schemas (sin él, Postgres respondía 500).
+- `similitud_coseno` valida que el JSON sea numérico (defensa en profundidad).
+
+**Correcciones de calidad**:
+- **Los 8 tests del worker no los corría nadie**: `testpaths` no incluía `tests/embeddings` e `init.sh` invocaba `pytest tests/api`. Ahora `init.sh` corre `pytest` a secas — de paso `tests/crawler` también se ejecuta por primera vez ahí (deuda previa).
+- Rendimiento: los filtros tipo/especie/estado bajan a SQL. Mediana del endpoint **30 ms → 16 ms** con 110 reportes más.
+- Accesibilidad: el chip "medio" usaba `text-ochre` sobre `surface-alt` (3.06:1 a 11px, falla AA); pasa a `text-ink-soft` con anillo ochre.
+- `embeddings/calibrar.py` + `embeddings/ejemplos/` — la calibración deja de ser prosa y pasa a ser artefacto reproducible (mismo patrón que `crawler/ejemplos/`).
+- `logging.basicConfig` en el CLI (los `logger.info` de `modelo.py` se descartaban en silencio, y un comentario afirmaba lo contrario), `sys.path` al `__init__.py` con guard como el crawler, `requests` declarado en su requirements, guarda de `DIMENSIONES`, docstrings deduplicados contra el ADR.
+- Tests nuevos: borde exacto del umbral, `similitud_coseno` directo, foto ajena re-subida, verdadero positivo que debe sobrevivir la guarda, SSRF, traversal, y `--limite` (el test que decía probarlo nunca lo pasaba).
+
+**Verificación final**: 178 tests de API + 110 de web, ruff y ruff-format limpios, build de prod limpio. Contra la réplica: 244/251 vectores, el par Sasha en posición 1 de 23, 43 reportes cambian su candidato #1, 40 pares marcados de 14.230 (0.28%), y **0 regresiones** de orden en los 16 reportes sin vector.
+
+⚠️ **Prod sigue intacta y en solo lectura por instrucción explícita del dueño.** La migración aditiva no se ha ejecutado.
+
+## 2026-08-13 — Fixes previos, en commits aparte
+
+- `787009b` — `fix(test)`: la recencia del listado dependía del reloj de pared (fallaba en HEAD limpio al cambiar el día). Ajeno a la feature 24.
+- `0af0f73` — `fix(init)`: `init.sh` corría `pytest tests/api`, así que `tests/crawler` nunca se ejecutó ahí. Ahora corre `pytest` a secas.
+
+## 2026-08-14 — Feature 24 mergeada con main: composición con la 37 y renumeración del ADR
+
+- `main` avanzó 20+ commits (features 35-46) mientras esta rama estaba abierta. 10 archivos en conflicto, resueltos a mano.
+- **La feature 37 (razones visibles) y la 24 (parecido visual) resultaron complementarias y se compusieron**: las razones explican por qué coincide, el parecido añade la señal de la foto y es la única capaz de traer un candidato de otra zona. Se muestran juntas, con el chip de la foto primero.
+- **Bug nacido de juntarlas, corregido**: `razones_coincidencia` emitía "misma zona" incondicionalmente — cierto mientras la zona era filtro duro, falso desde la 24. Ahora distingue "misma zona (X)" de "otra zona (Y)": un chip de confianza que afirma algo falso es peor que no tenerlo.
+- **`CoincidenciaOut.parecido` → `parecido_foto`**: la feature 38 ya usa `parecido` como entero 0-100 en la búsqueda por descripción, y dos campos homónimos con distinto significado son una trampa. Cambio de contrato del endpoint.
+- **ADR 0011 → 0012**: el 0011 quedó tomado por las alertas por correo (feature 39). Se renumeró el nuestro y se actualizaron solo nuestras referencias (código, docs y bitácoras), dejando intactas las de la 39.
+- **`services/radar.py` (feature 43)** consumía `ordenar_coincidencias` y la firma pasó de 2 a 3 valores; ajustado sin tocar su semántica.
+- **Auditoría del merge línea por línea**: se revisó cada eliminación respecto a `main`. Apareció una pérdida real — la resolución del `CHANGELOG.md` se había comido las secciones `[2.4.0]` y `[2.3.0]` enteras (8 features de main + la ingesta de Cali) — y se reconstruyó desde la versión de `main`. `changes.md` y `progress/current.md` conservan todos los encabezados de main.
+- Verificación sobre el resultado: **228 tests de Python + 148 de web**, ruff y ruff-format limpios, build de producción limpio, `feature_list.json` válido (0 in_progress).

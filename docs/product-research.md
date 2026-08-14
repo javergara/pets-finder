@@ -11,7 +11,7 @@ El terremoto del Eje Cafetero (10 de agosto de 2026) separó a miles de mascotas
 - **Mapa colaborativo del Eje Cafetero** (Google My Maps): marcadores georreferenciados con categorías por tipo de animal y códigos de color por estado. Validó la necesidad, pero sin estructura de datos ni contacto integrado.
 - **Patitas a Salvo / mascotasporvenezuela.com** (terremotos de Venezuela, 2026): tres entradas ("Perdí a mi mascota" / "Encontré una mascota" / "Necesita atención"), búsqueda por zona, contacto directo. El modelo más cercano al nuestro.
 - **PawBoost** (EE. UU.): "AMBER Alert para mascotas", alertas comunitarias por zona. Fuera de alcance del MVP (requiere base de usuarios), pero valida "reunido" como métrica central.
-- **Love Lost (Petco)**: matching de fotos con AI. Fuera de alcance — nuestras coincidencias son por especie + zona + distancia + fecha, sin AI.
+- **Love Lost (Petco)**: matching de fotos con AI. Estuvo fuera de alcance hasta la feature `24` (2026-08-13): hoy las coincidencias **suman** parecido visual sobre la heurística explicable de siempre (especie + zona + distancia + fecha), con modelos abiertos que corren fuera de la API y sin mandar las fotos a ningún tercero. Ver ADR 0012.
 
 ## 3. Roles
 

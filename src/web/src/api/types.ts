@@ -60,7 +60,16 @@ export type Reporte = {
   adopcion_pet_id?: number | null;
 };
 
-export type Coincidencia = Reporte & { distancia_km: number; razones: string[] };
+/** `parecido_foto` es la banda visual del ADR 0012 — nunca un porcentaje: el
+ * modelo no da una probabilidad y un número alto y equivocado llevaría a
+ * entregarle una mascota a quien no es. Ausente cuando no hay evidencia visual.
+ * Se llama así y no `parecido` porque `ResultadoBusqueda.parecido` ya existe y
+ * es un 0-100 de otra cosa (feature 38). */
+export type Coincidencia = Reporte & {
+  distancia_km: number;
+  razones: string[];
+  parecido_foto: 'alto' | 'medio' | null;
+};
 
 export type ResultadoBusqueda = Reporte & { parecido: number; razones: string[] };
 

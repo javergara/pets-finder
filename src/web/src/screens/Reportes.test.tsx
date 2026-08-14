@@ -99,8 +99,11 @@ describe('Reportes', () => {
     // la aserción se limita al pie de cada tarjeta.
     const tarjetaRocky = screen.getByRole('link', { name: /Rocky/ });
     expect(within(tarjetaRocky).getByText('Armenia')).toBeInTheDocument();
-    // El pie une fecha del evento + recencia (feature 34): "10/08/2026 · hace …".
-    expect(within(tarjetaRocky).getByText(/10\/08\/2026 · hace/)).toBeInTheDocument();
+    // El pie une fecha del evento + recencia (feature 34): "10/08/2026 · …".
+    // No se ancla la redacción de la recencia a propósito: depende del reloj de
+    // pared y rotaba el test ("hace 5 horas" → "ayer" → "hace 2 días"). Las
+    // variantes de redacción las fija `lib/tiempo.test.ts` con un ahora fijo.
+    expect(within(tarjetaRocky).getByText(/10\/08\/2026 · ./)).toBeInTheDocument();
     const tarjetaGato = screen.getByRole('link', { name: /Gato/ });
     expect(within(tarjetaGato).getByText('Pereira')).toBeInTheDocument();
     // El encontrado sin nombre usa la especie como título.
