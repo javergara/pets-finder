@@ -571,3 +571,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Tabla nueva `avisos_ayuda` (tipo pido|ofrezco, categoría hogar_de_paso|transporte|alimento|salud|rescate|otro, zona validada, autoría con cuenta liviana). CRUD /api/avisos-ayuda con los patrones del repo (403 no-autor, 409 doble resuelto, resueltos fuera del listado por defecto; AvisoResueltoIn tipado por sugerencia del revisor).
 - /ayudar con pestañas Lugares/Comunidad (?tab=comunidad): filtros por tipo/categoría/zona, tarjetas con WhatsApp de mensaje propio, Resuelto 💚 y Eliminar solo del autor, botones "Necesito ayuda"/"Quiero ayudar" → /ayudar/publicar-aviso (pantalla nueva con gate de cuenta y AvisoSeguridad). +5 tests API, +6 web. Aprobada por el revisor (165 API + 139 web), migración en el paquete 40-42.
+
+## 2026-08-14 — Plan de integración del módulo de adopción (revivir adopta-v1)
+
+- Decisión del dueño: integrar la era Adopta completa (opción 3). Entregables para el dev que lo tome: `docs/integracion-adopcion.md` (contexto, inventario de la rama adopta-v1, las 7 diferencias críticas de stack — la mayor: el chat WebSockets del ADR 0004 es incompatible con Vercel serverless y exige ADR 0012 —, decisiones vigentes ADR 0002/0003, estrategia por fases y proceso obligatorio) y `feature_list_adopcion.json` (backlog fuente AD-01…AD-09 con acceptance criteria; cada item se copia a feature_list.json al arrancar para respetar el máximo de un in_progress).

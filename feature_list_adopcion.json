@@ -1,0 +1,122 @@
+{
+  "project": "Reencuentro — módulo de adopción",
+  "note": "Backlog fuente para revivir la era Adopta (rama adopta-v1, intocable) dentro de Pet Finder Col. LEER PRIMERO docs/integracion-adopcion.md: explica el contexto, las 7 diferencias de stack y las decisiones vigentes. Proceso: al arrancar una tarea, copiarla a feature_list.json (edición de texto puntual, nunca json.dump) con status in_progress — allí aplica la regla de máximo un in_progress y el ciclo líder→implementador→revisor. Toda tabla nueva exige migración SQL aditiva en prod (con RLS y autorización explícita del dueño) ANTES del merge a main.",
+  "items": [
+    {
+      "id": "AD-01-modelo-pet-y-catalogo",
+      "title": "Modelo Pet y catálogo público /adoptar",
+      "description": "Portar Pet desde adopta-v1 (git show adopta-v1:src/api/adopta_api/models/pet.py) adaptado: organizacion_id FK nullable (reemplaza shelter_id, ver integracion-adopcion.md §4.3) + user_id FK nullable (rescatista individual) con constraint de exactamente-uno; fotos JSON de URLs de Supabase Storage; estado disponible|en_proceso|adoptado. Schemas PetIn/PetOut con validación de catálogo (especie/tamano/energia/sexo como Literals), router /api/pets (POST 404 si el dueño no existe, GET con filtros especie/tamano/energia/zona-de-la-org y estado default disponible, GET /{id}). Pantalla /adoptar: galería de tarjetas (adaptar el estilo de ReporteCard) con filtros y ficha /adoptar/mascota/:id (fotos con galería de la feature 41, historia, tags, checklist salud, quién la publica con link a la organización o contacto). Seed local con ~8 mascotas de ejemplo.",
+      "status": "todo",
+      "depends_on": [],
+      "acceptance": [
+        "POST /api/pets crea una mascota colgando de una organización O de un usuario (422 si ambos o ninguno) y GET /api/pets filtra por especie/tamaño/energía y excluye adoptadas por defecto",
+        "El catálogo /adoptar muestra las mascotas del seed con foto, nombre, edad y tags, filtrable, y cada tarjeta navega a la ficha",
+        "La ficha muestra la galería de fotos, historia, checklist de salud (esterilizado/vacunas/microchip/desparasitado) y quién la publica",
+        "bash init.sh en verde; tabla pets creada en prod (RLS) antes del merge a main"
+      ]
+    },
+    {
+      "id": "AD-02-publicar-en-adopcion",
+      "title": "Publicar en adopción: organizaciones, rescatistas y el puente desde encontrados",
+      "description": "Tres caminos de entrada. (1) Panel de la organización: en /organizacion/:id el autor gana pestaña 'En adopción' con form de publicar (adaptar PublicarMascota de adopta-v1 con FotoUpload maxFotos=3) y gestión de estado. (2) Rescatista individual: mismo form desde /adoptar ('Dar en adopción', gate de cuenta liviana). (3) Puente desde el flujo actual: en un reporte 'encontrado' con situacion 'conmigo' del propio autor, botón 'Darla en adopción' que pre-llena el form con los datos y fotos del reporte y al publicar enlaza pet.report_id (columna nullable) — el reporte muestra 'Ahora en adopción' con link. Editar/despublicar solo el autor (patrón 403 de organizaciones).",
+      "status": "todo",
+      "depends_on": ["AD-01-modelo-pet-y-catalogo"],
+      "acceptance": [
+        "El autor de una organización publica una mascota desde su panel y aparece en /adoptar; otro usuario recibe 403 al intentarlo en esa organización",
+        "Un usuario con cuenta publica como rescatista individual y la ficha lo muestra como contacto",
+        "Desde un reporte encontrado propio (situacion conmigo), 'Darla en adopción' pre-llena el form, publica con report_id enlazado y el reporte muestra el aviso con link a la ficha",
+        "bash init.sh en verde; columna pets.report_id incluida en la migración de AD-01 o migrada aparte antes del merge"
+      ]
+    },
+    {
+      "id": "AD-03-deck-swipe-y-afinidad",
+      "title": "Deck de descubrimiento con swipe y afinidad explicable",
+      "description": "Portar Descubrir.tsx (deck swipe con gestos), services/deck.py y services/affinity.py (funciones puras, ADR 0003: afinidad calculada al vuelo, sin persistir scores) y services/filters.py desde adopta-v1. Modelo Swipe (user_id, pet_id, direccion, unique(user_id,pet_id)) para no repetir tarjetas. El score se muestra CON razones ('le va bien con niños como pides', 'energía media como tu hogar') — misma filosofía explicable de la feature 38. Sin HomeProfile aún, la afinidad usa los defaults (AD-04 la completa). Ruta /adoptar/descubrir con acceso desde el catálogo.",
+      "status": "todo",
+      "depends_on": ["AD-01-modelo-pet-y-catalogo"],
+      "acceptance": [
+        "El deck muestra mascotas disponibles no swipeadas por el usuario, con swipe izquierda/derecha por gesto y botones accesibles",
+        "El orden del deck y el score de afinidad salen de funciones puras portadas con sus tests (adaptados de adopta-v1)",
+        "Cada tarjeta del deck muestra el porcentaje de afinidad con al menos dos razones legibles",
+        "bash init.sh en verde; tabla swipes creada en prod (RLS) antes del merge a main"
+      ]
+    },
+    {
+      "id": "AD-04-perfil-de-hogar",
+      "title": "Perfil de hogar: cuestionario interactivo del adoptante",
+      "description": "Portar HomeProfile (home_profile.py cuelga de users — el modelo User actual es idéntico al de Adopta, ver integracion-adopcion.md §4.1) y la pantalla Cuestionario.tsx (onboarding interactivo: tipo de vivienda, niños, otras mascotas, horas solo, experiencia, energía buscada). Endpoints GET/PUT /api/users/{id}/home-profile (solo el propio usuario, 403). La afinidad de AD-03 pasa a usar el perfil real cuando existe; sin perfil, el deck invita a completarlo ('mejora tus coincidencias') sin bloquear.",
+      "status": "todo",
+      "depends_on": ["AD-03-deck-swipe-y-afinidad"],
+      "acceptance": [
+        "El cuestionario guarda el perfil de hogar del usuario activo y se puede reeditar desde su perfil",
+        "Con perfil completo, el score de afinidad del deck cambia y las razones citan las respuestas del usuario (test de la función pura con y sin perfil)",
+        "Sin perfil el deck funciona igual y muestra la invitación no bloqueante",
+        "bash init.sh en verde; tabla home_profiles creada en prod (RLS) antes del merge a main"
+      ]
+    },
+    {
+      "id": "AD-05-solicitudes-de-adopcion",
+      "title": "Solicitudes: del swipe-derecha a la visita (match no mutuo)",
+      "description": "Portar Match (match.py: user/pet/organizacion, estado, motivo_descarte), services/solicitudes.py (transiciones solicitado→en_revision→visita_agendada→aprobado|descartado con sus reglas) y las pantallas MisMatches.tsx (adoptante) + la gestión en el panel de la organización (de PanelRefugio.tsx y SolicitudDetalle.tsx). ADR 0002 vigente: el match NO es mutuo — swipe-derecha crea la solicitud, la organización la gestiona. Al aprobar, la mascota pasa a estado adoptado y las demás solicitudes se descartan con motivo automático. Franja de celebración de adopciones (métrica de esperanza, como los reencuentros).",
+      "status": "todo",
+      "depends_on": ["AD-03-deck-swipe-y-afinidad"],
+      "acceptance": [
+        "El swipe-derecha crea la solicitud (una por user+pet, idempotente) visible en /adoptar/mis-solicitudes con su estado",
+        "Solo la organización/rescatista dueña avanza los estados (403 para otros) y las transiciones inválidas responden 409 (tests portados de solicitudes.py)",
+        "Aprobar una solicitud marca la mascota como adoptada, descarta las demás solicitudes y celebra la adopción en el catálogo",
+        "bash init.sh en verde; tabla matches creada en prod (RLS) antes del merge a main"
+      ]
+    },
+    {
+      "id": "AD-06-comunicacion-solicitud",
+      "title": "Comunicación de la solicitud (exige ADR nuevo — NO portar WebSockets)",
+      "description": "El chat de adopta-v1 (ADR 0004) usa WebSockets con estado en memoria: INCOMPATIBLE con Vercel serverless (integracion-adopcion.md §4.2). Escribir ADR 0012 eligiendo entre: (a) WhatsApp directo con mensaje precargado por estado de la solicitud — recomendada, coherente con ADR 0005 y cero infra; (b) Supabase Realtime sobre tabla mensajes; (c) polling. Implementar la opción elegida en las pantallas de solicitud de AD-05. Si se elige (a), MensajesMatch/MensajesSolicitud de adopta-v1 NO se portan y este item es pequeño.",
+      "status": "todo",
+      "depends_on": ["AD-05-solicitudes-de-adopcion"],
+      "acceptance": [
+        "ADR 0012 escrito con las 3 opciones evaluadas y la decisión justificada",
+        "Adoptante y organización pueden comunicarse desde la solicitud según la opción elegida (hrefs o mensajes testeados)",
+        "Ninguna dependencia de WebSockets/proceso persistente entra al código de producción",
+        "bash init.sh en verde; si la opción trae tabla mensajes, migrada (RLS) antes del merge"
+      ]
+    },
+    {
+      "id": "AD-07-favoritos-y-apadrinamiento",
+      "title": "Favoritos y apadrinamiento (paridad opcional con Adopta 1.0)",
+      "description": "Portar Favorite (favorites.py + Favoritos.tsx: guardar mascotas sin swipe, lista propia) y Sponsorship (sponsorship.py + Apadrinar.tsx: compromiso de apadrinamiento SIN pasarela de pagos — registro en DB + contacto WhatsApp, igual que 'Cómo donar' de la red de apoyo). Ambos son independientes y pueden recortarse si el dueño prioriza cerrar antes: confirmar alcance con él antes de arrancar este item.",
+      "status": "todo",
+      "depends_on": ["AD-05-solicitudes-de-adopcion"],
+      "acceptance": [
+        "Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)",
+        "El apadrinamiento registra el compromiso y muestra el contacto de la organización, sin ninguna integración de pago",
+        "bash init.sh en verde; tablas favorites y sponsorships creadas en prod (RLS) antes del merge"
+      ]
+    },
+    {
+      "id": "AD-08-integracion-transversal",
+      "title": "Integración transversal: nav, landing, og tags y cruces con los flujos actuales",
+      "description": "Coser el módulo a la app: pestaña 'Adoptar' en la nav y CTA en la landing (sin robar protagonismo a los dos caminos de emergencia); og tags por mascota para compartir por WhatsApp (extender routers/paginas.py y el rewrite de bots de vercel.json a /adoptar/mascota/:id); título auto-compuesto reutilizando services/titulos.py; avisos de seguridad (feature 40) en publicar/contactar; cruces: la Comunidad de /ayudar enlaza el catálogo en la categoría hogar_de_paso, y la búsqueda por descripción (feature 38) opcionalmente incluye mascotas en adopción. Actualizar CLAUDE.md, AGENTS.md, docs/architecture.md y product-research con el módulo.",
+      "status": "todo",
+      "depends_on": ["AD-02-publicar-en-adopcion", "AD-05-solicitudes-de-adopcion"],
+      "acceptance": [
+        "La nav y la landing dan acceso a /adoptar y compartir una ficha muestra vista previa con foto y nombre en WhatsApp (test del HTML de bots)",
+        "Los avisos de seguridad aparecen al publicar y al contactar en el módulo",
+        "CLAUDE.md, AGENTS.md y docs reflejan el módulo (el revisor lo verifica leyéndolos)",
+        "bash init.sh en verde"
+      ]
+    },
+    {
+      "id": "AD-09-migraciones-y-deploy",
+      "title": "Cierre: paquete de migraciones, deploy y verificación en producción",
+      "description": "Si las migraciones se fueron haciendo por feature este item las audita; si se difirieron, ejecuta el paquete completo (pets, swipes, home_profiles, matches, favorites, sponsorships, y mensajes si aplica — todas aditivas, con ENABLE ROW LEVEL SECURITY, en el SQL Editor de Supabase con autorización explícita del dueño, ANTES del merge). Verificación post-deploy con el patrón del repo: poll del bundle por string marcador + GET a los endpoints nuevos en prod + flujo manual en petfinder-col.com (publicar mascota de prueba de una organización real, swipe, solicitud, y limpieza de los datos de prueba con autorización). CHANGELOG release 3.0.0.",
+      "status": "todo",
+      "depends_on": ["AD-08-integracion-transversal"],
+      "acceptance": [
+        "Todas las tablas del módulo existen en prod (verificadas contra information_schema) con RLS y cero errores en los endpoints",
+        "El flujo completo funciona en producción con un caso real de prueba, documentado con evidencia en progress/",
+        "CHANGELOG 3.0.0 publicado y main/develop sincronizadas",
+        "python3 scripts/validate_feature_list.py sale 0 con los items de este módulo marcados done en ambos JSON"
+      ]
+    }
+  ]
+}
