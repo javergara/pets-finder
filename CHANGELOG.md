@@ -4,7 +4,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Unreleased]
 
-Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
+### Added
+- **`24-ai-matching-fotos`** (ADR 0012): las coincidencias suman **parecido visual** de las fotos sobre la heurística explicable de siempre. Modelos abiertos (Apache 2.0) que corren en el worker `embeddings/` fuera de la API — costo $0 y las fotos no salen a ningún tercero. Chip "foto muy parecida"/"foto parecida" junto a las razones de la 37, nunca un porcentaje. El parecido solo suma y nunca resta, así que sin vectores el orden es idéntico al anterior.
+  - Motivo medido: 234 de los 260 reportes de producción comparten el mismo pin (el crawler los ubica en el centro de la zona), y el **89% de los pares candidatos empataba** bajo la heurística de distancia. La foto es la única señal que quedaba.
+  - Pendiente antes de desplegar: migración aditiva (`embedding`, `embedding_modelo`) y backfill del worker.
+
+### Fixed
+- `init.sh` corría `pytest tests/api`, así que los tests de `tests/crawler` (y los nuevos de `tests/embeddings`) nunca se ejecutaban ahí. Ahora corre `pytest` a secas, respetando `testpaths`.
+- La recencia de las tarjetas del listado se aseveraba con una redacción que dependía del reloj de pared ("hace X" → "ayer"), y rompía la suite al día siguiente.
+- `dev.sh` asumía `.venv/bin/activate` (Linux) y no arrancaba en Windows; ahora detecta el intérprete y respeta `DATABASE_URL` si viene del entorno.
+
+Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
 
 ## [2.4.0] - 2026-08-14
 

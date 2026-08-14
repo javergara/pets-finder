@@ -6,5 +6,9 @@ design
 progress
 memory
 .claude
+# Procesos independientes que corren desde el checkout, nunca en serverless
+# (ADR 0010 y 0012): la API no los importa y sus dependencias no son las suyas.
+crawler
+embeddings
 *.md
 !README.md

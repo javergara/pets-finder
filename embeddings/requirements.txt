@@ -1,0 +1,15 @@
+# Dependencias SOLO del worker de embeddings (proceso independiente, ADR 0012):
+# la función serverless de Vercel no debe cargar torch — mantener esta lista
+# fuera de src/api/requirements.txt y del pyproject.toml raíz.
+# Instalar aparte: .venv/Scripts/pip install -r embeddings/requirements.txt
+#   (en Linux/macOS: .venv/bin/pip install -r embeddings/requirements.txt)
+#
+# torch va en su variante CPU: el worker corre en la máquina del dueño o en un
+# runner de GitHub Actions, nunca en una GPU.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.9.1
+transformers==4.57.1
+pillow==11.3.0
+# La API también lo trae, pero este archivo debe bastar por sí solo: el README
+# manda instalar solo esto (mismo criterio que crawler/requirements.txt).
+requests==2.32.3

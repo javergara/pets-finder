@@ -17,7 +17,7 @@ Sin migraciones formales: `scripts/seed.py` hace `drop_all` + `create_all` (skil
 
 - `services/geo.py` — distancia haversine entre dos coordenadas.
 - `services/ciudades.py` — fuente de verdad de las zonas (bounding box + centro): Armenia, Pereira, Manizales, Cali, Quibdó, Bogotá + `COLOMBIA` (nacional). Duplicada a mano en `src/web/src/lib/ciudades.ts` — mantener en sync.
-- `services/coincidencias.py` — ordena candidatos del tipo opuesto por distancia + penalización por diferencia de fechas.
+- `services/coincidencias.py` — ordena candidatos del tipo opuesto por cercanía (distancia + penalización por fecha) **más el parecido visual de las fotos** (ADR 0012), que solo suma y nunca resta. Los vectores (`Report.embedding`, 384 dims en JSON) los calcula el worker `embeddings/`, un proceso aparte: torch no cabe en la función serverless. Sin vector, el orden es idéntico al anterior al ADR 0012.
 
 ## 4. API
 
