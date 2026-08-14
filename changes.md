@@ -575,3 +575,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-14 — Plan de integración del módulo de adopción (revivir adopta-v1)
 
 - Decisión del dueño: integrar la era Adopta completa (opción 3). Entregables para el dev que lo tome: `docs/integracion-adopcion.md` (contexto, inventario de la rama adopta-v1, las 7 diferencias críticas de stack — la mayor: el chat WebSockets del ADR 0004 es incompatible con Vercel serverless y exige ADR 0012 —, decisiones vigentes ADR 0002/0003, estrategia por fases y proceso obligatorio) y `feature_list_adopcion.json` (backlog fuente AD-01…AD-09 con acceptance criteria; cada item se copia a feature_list.json al arrancar para respetar el máximo de un in_progress).
+
+## 2026-08-14 — 16 fundaciones afectadas importadas a la Red de Apoyo
+
+- Fuente: serie "Fundaciones que nos necesitan" (partes 1-4) de @proteccionanimaljaveriana (Instagram), recorrida con el navegador. Autorizado por el dueño.
+- Publicadas vía la API de prod como usuario sistema id 70 "Red de Apoyo (importado)": 16 organizaciones tipo fundación (Cali ×3, Pereira ×3, Armenia ×2, Buenaventura ×2, Bogotá, Tuluá, Chinchiná, Montenegro, Villamaría y Betania como zona Otro), cada una con "Cómo donar" (Nequi/Daviplata/Bancolombia/PayPal exactos, con la advertencia del Nequi de Latidos de Amor que reportó no recibir), crédito a la fuente en la descripción, pin en el centro de su ciudad, y 18 necesidades activas (techos, muros, alimento para 250+ animales, materiales y mano de obra). Verificado: /api/organizaciones responde 17 activas y todas las importadas con necesidades pendientes.
+- Idempotencia casera del script (scratchpad/importar_fundaciones.py): salta por nombre exacto si se re-corre.
