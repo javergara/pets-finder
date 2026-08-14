@@ -1,3 +1,4 @@
+from .aviso_ayuda import AvisoAyuda
 from .base import Base, SessionLocal, engine
 from .necesidad import Necesidad
 from .organizacion import Organizacion
@@ -18,4 +19,5 @@ __all__ = [
     "Necesidad",
     "Suscripcion",
     "ReportFoto",
+    "AvisoAyuda",
 ]

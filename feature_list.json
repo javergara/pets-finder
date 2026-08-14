@@ -551,7 +551,7 @@
       "id": "42-tablero-ayuda-p2p",
       "title": "Ayuda entre personas: necesito ayuda / ofrezco ayuda",
       "description": "Benchmark Patas en Cali — su mejor idea: el tercer flujo de la emergencia es la ayuda puntual entre vecinos (hogar de paso, transporte, alimento, salud, rescate), que no cabe en el directorio de organizaciones. Modelo AvisoAyuda (user_id, tipo pido|ofrezco, categoria, titulo, descripcion, zona+ciudad_texto/barrio, telefono_contacto, estado activo|resuelto), CRUD /api/avisos-ayuda con los patrones existentes (403 no-autor, zona validada, resolver solo el autor con 409 doble), y /ayudar con dos pestañas: Lugares (directorio actual) y Comunidad (avisos P2P con chips pido/ofrezco + categoría, WhatsApp con mensaje propio, publicar con gate de cuenta, Resuelto 💚 del autor). Migración prod: CREATE TABLE avisos_ayuda ANTES del merge, con autorización.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["32-red-de-apoyo"],
       "acceptance": [
         "Un usuario con cuenta publica un aviso (pido u ofrezco, con categoría y zona validada) y aparece en la pestaña Comunidad de /ayudar, filtrable por tipo, categoría y zona",

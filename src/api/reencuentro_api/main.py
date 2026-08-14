@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .media import MEDIA_DIR
 from .models.base import Base, engine
-from .routers import organizaciones, paginas, reports, suscripciones, uploads, users
+from .routers import avisos_ayuda, organizaciones, paginas, reports, suscripciones, uploads, users
 
 logger = logging.getLogger("reencuentro")
 
@@ -61,6 +61,7 @@ app.include_router(users.router)
 app.include_router(reports.router)
 app.include_router(uploads.router)
 app.include_router(organizaciones.router)
+app.include_router(avisos_ayuda.router)
 app.include_router(suscripciones.router)
 app.include_router(paginas.router)
 

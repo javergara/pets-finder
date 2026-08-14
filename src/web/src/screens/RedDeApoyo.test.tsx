@@ -7,10 +7,17 @@ import { RedDeApoyo } from './RedDeApoyo';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarOrganizaciones: vi.fn() };
+  return {
+    ...actual,
+    listarOrganizaciones: vi.fn(),
+    listarAvisosAyuda: vi.fn(),
+    resolverAvisoAyuda: vi.fn(),
+    eliminarAvisoAyuda: vi.fn(),
+  };
 });
 
 beforeEach(() => {
+  vi.mocked(client.listarAvisosAyuda).mockResolvedValue([]);
   vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
 });
 
@@ -49,6 +56,90 @@ function renderRed() {
     </MemoryRouter>,
   );
 }
+
+function crearAviso(overrides: Partial<import('../api/types').AvisoAyuda> = {}) {
+  return {
+    id: 1,
+    user_id: 7,
+    tipo: 'ofrezco' as const,
+    categoria: 'hogar_de_paso' as const,
+    titulo: 'Ofrezco mi casa como hogar de paso',
+    descripcion: 'Tengo espacio y experiencia.',
+    zona: 'Cali',
+    ciudad_texto: null,
+    barrio: 'Los Chorros',
+    telefono_contacto: '3001234567',
+    estado: 'activo' as const,
+    creado_en: new Date(Date.now() - 3_600_000).toISOString(),
+    resuelto_en: null,
+    ...overrides,
+  };
+}
+
+describe('RedDeApoyo — Comunidad (feature 42)', () => {
+  it('la pestaña Comunidad lista los avisos con tipo, categoría y WhatsApp correcto', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+    vi.mocked(client.listarAvisosAyuda).mockResolvedValue([crearAviso()]);
+
+    renderRed();
+    fireEvent.click(screen.getByRole('button', { name: 'Comunidad' }));
+
+    expect(await screen.findByText('Ofrezco mi casa como hogar de paso')).toBeInTheDocument();
+    // 'Ofrece ayuda' existe como chip de filtro y como badge de la tarjeta.
+    expect(screen.getAllByText('Ofrece ayuda')).toHaveLength(2);
+    // 'Hogar de paso' existe también como opción del select de categorías.
+    expect(screen.getAllByText('Hogar de paso').length).toBeGreaterThan(1);
+    const whatsapp = screen.getByRole('link', { name: 'WhatsApp' });
+    expect(whatsapp.getAttribute('href')).toBe(
+      `https://wa.me/573001234567?text=${encodeURIComponent(
+        'Hola, vi tu aviso en Pet Finder Col: "Ofrezco mi casa como hogar de paso".',
+      )}`,
+    );
+    // Aviso de seguridad de la feature 40 presente en la Comunidad.
+    expect(screen.getByText(/nadie debe pedirte dinero/)).toBeInTheDocument();
+  });
+
+  it('el autor puede marcar resuelto; otros no ven los controles', async () => {
+    // Sin localStorage, getActiveUserId() = 1.
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+    vi.mocked(client.listarAvisosAyuda).mockResolvedValue([
+      crearAviso({ id: 2, user_id: 1, titulo: 'Mi propio aviso' }),
+      crearAviso({ id: 3, user_id: 99, titulo: 'Aviso ajeno' }),
+    ]);
+    vi.mocked(client.resolverAvisoAyuda).mockResolvedValue(
+      crearAviso({ id: 2, user_id: 1, estado: 'resuelto' }),
+    );
+
+    renderRed();
+    fireEvent.click(screen.getByRole('button', { name: 'Comunidad' }));
+    await screen.findByText('Mi propio aviso');
+
+    // Solo un aviso (el propio) tiene el botón de resolver.
+    const botones = screen.getAllByRole('button', { name: 'Marcar resuelto 💚' });
+    expect(botones).toHaveLength(1);
+
+    fireEvent.click(botones[0]);
+    expect(await screen.findByText('Resuelto 💚')).toBeInTheDocument();
+    expect(client.resolverAvisoAyuda).toHaveBeenCalledWith(2, 1);
+  });
+
+  it('los botones de publicar llevan a /ayudar/publicar-aviso con el tipo', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+    vi.mocked(client.listarAvisosAyuda).mockResolvedValue([]);
+
+    renderRed();
+    fireEvent.click(screen.getByRole('button', { name: 'Comunidad' }));
+
+    expect(await screen.findByRole('link', { name: 'Necesito ayuda' })).toHaveAttribute(
+      'href',
+      '/ayudar/publicar-aviso?tipo=pido',
+    );
+    expect(screen.getByRole('link', { name: 'Quiero ayudar' })).toHaveAttribute(
+      'href',
+      '/ayudar/publicar-aviso?tipo=ofrezco',
+    );
+  });
+});
 
 describe('RedDeApoyo', () => {
   it('se titula Centros de ayuda (feature 35: la pestaña dice lo que hace)', async () => {

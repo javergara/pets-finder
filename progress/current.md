@@ -454,3 +454,19 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Condición explícita**: tabla nueva `report_fotos` — va en el **paquete conjunto de migración 40-42** (ALTER de la 40 + CREATE TABLE de la 41/42) autorizado por el dueño ANTES del merge a `main`; con `SKIP_DB_CREATE_ALL=1` en prod nada se crea solo.
 
 Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 41 en `changes.md` con su hash. Menor: `lazy="selectin"` dispara una query extra por página del listado (aceptable hoy; si el listado crece, medir).
+
+## Veredicto del revisor — feature 42 (2026-08-13): APROBADA, condicionada al paquete de migración de prod (40-42) antes del merge a main
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `901698a`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 5 (primera mitad)**: `bash init.sh` corrido de verdad — **verde completo, 165/165 tests de API + 139/139 de web** (21 suites).
+- **Acceptance 1**: 5 tests de API + **E2E en vivo del revisor**: publica `ofrezco` y `pido` (201, reciente primero por `creado_en desc`), zona "Otro" con `ciudad_texto` aceptada, filtros tipo/categoría/zona correctos, 422 de zona inválida/Otro sin ciudad/categoría inválida (Literals) y 404 de usuario inexistente. Frontend: pestañas Lugares/Comunidad con `?tab=comunidad` de entrada directa, gate de cuenta en publicar (`Navigate` a `/registro?volver=`, test), y el directorio de la 32 intacto (sus 7 tests previos pasan sin cambios).
+- **Acceptance 2**: patrón "reunido" replicado — en vivo: resolver 403 otro → 200 autor con `resuelto_en` → **409 doble** → fuera del listado default y visible con `estado=resuelto`; DELETE 403/204/404. Tests de UI: controles Marcar resuelto/Eliminar **solo para el autor** (`getActiveUserId`) y resolver actualiza a "Resuelto 💚".
+- **Acceptance 3**: test con el href exacto de WhatsApp (`https://wa.me/573001234567?text=` + mensaje propio "Hola, vi tu aviso en Pet Finder Col…" URL-encoded aseverado).
+- **Acceptance 4**: `AvisoSeguridad` de la 40 reutilizado — "contactar" arriba del listado de la Comunidad (línea 169 de RedDeApoyo, test asevera "nadie debe pedirte dinero") y "publicar" en `PublicarAvisoAyuda` (línea 219, test del "espacio público").
+- Consistencia: modelo con tipos portables y estados sin lenguaje de fracaso (activo|resuelto, cierre con 💚 como los reencuentros); mismas reglas de zona/teléfono que reportes/organizaciones; separación correcta con el directorio (persona+aviso puntual vs organización+dirección).
+- `feature_list.json`: `42-tablero-ayuda-p2p` a `done` — línea 554 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. **Con esto cierra el lote Patas en Cali (40-42), todo condicionado al mismo paquete de migración.**
+
+**Condición explícita (cierre del paquete 40-42)**: el merge/push a `main` exige ejecutar ANTES, con autorización del dueño, el paquete completo de migración aditiva en Supabase Postgres: `ALTER TABLE reports ADD COLUMN instagram/facebook` (40) + `CREATE TABLE report_fotos` (41) + `CREATE TABLE avisos_ayuda` (42). Con `SKIP_DB_CREATE_ALL=1` en prod, nada se crea solo.
+
+Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 42 en `changes.md` con su hash. Menor de convención (no bloquea): `marcar_resuelto` recibe `payload: dict` crudo en vez de un schema tipado como `ReunidoIn`/`CubrirNecesidadIn` — el comportamiento es correcto (user_id ausente → 403), pero al tocar ese archivo conviene alinearlo con el patrón tipado del repo.

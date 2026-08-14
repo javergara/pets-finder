@@ -5,6 +5,7 @@ import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
 import { MisReportes } from './screens/MisReportes';
 import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
+import { PublicarAvisoAyuda } from './screens/PublicarAvisoAyuda';
 import { RedDeApoyo } from './screens/RedDeApoyo';
 import { Registro } from './screens/Registro';
 import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
@@ -78,6 +79,7 @@ function App() {
           <Route path="/mis-reportes" element={<MisReportes />} />
           <Route path="/ayudar" element={<RedDeApoyo />} />
           <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
+          <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
         </Route>
       </Routes>

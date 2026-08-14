@@ -566,3 +566,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Tabla nueva `report_fotos` (report_id, foto_url, orden) + relationship con cascade y property `Report.fotos` (principal primero) expuesta en ReportOut. `ReportIn.fotos_extra` (máx 2, 422 con más). foto_url intacta: tarjetas/mapa/og sin cambios. DELETE borra también las extras del bucket.
 - FotoUpload con `maxFotos`/`onFotosSubidas` (default 1 = comportamiento previo): miniaturas con quitar, picker que vuelve hasta el máximo, contador. ReportarMascota sube hasta 3; detalle con galería de miniaturas. +5 tests API, +3 web. Aprobada por el revisor (160 API + 133 web), migración en el paquete 40-42.
+
+## 2026-08-13 — Feature 42: ayuda entre personas (pido/ofrezco) — cierra el lote Patas en Cali
+
+- Tabla nueva `avisos_ayuda` (tipo pido|ofrezco, categoría hogar_de_paso|transporte|alimento|salud|rescate|otro, zona validada, autoría con cuenta liviana). CRUD /api/avisos-ayuda con los patrones del repo (403 no-autor, 409 doble resuelto, resueltos fuera del listado por defecto; AvisoResueltoIn tipado por sugerencia del revisor).
+- /ayudar con pestañas Lugares/Comunidad (?tab=comunidad): filtros por tipo/categoría/zona, tarjetas con WhatsApp de mensaje propio, Resuelto 💚 y Eliminar solo del autor, botones "Necesito ayuda"/"Quiero ayudar" → /ayudar/publicar-aviso (pantalla nueva con gate de cuenta y AvisoSeguridad). +5 tests API, +6 web. Aprobada por el revisor (165 API + 139 web), migración en el paquete 40-42.

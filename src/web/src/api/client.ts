@@ -1,5 +1,7 @@
 import {
   type Avistamiento,
+  type AvisoAyuda,
+  type AvisoAyudaIn,
   type AvistamientoIn,
   type CategoriaNecesidad,
   type Coincidencia,
@@ -282,4 +284,30 @@ export async function listarReportesPaginado(
   const items = (await respuesta.json()) as Reporte[];
   const total = Number(respuesta.headers.get('X-Total-Count') ?? items.length);
   return { items, total };
+}
+
+export function listarAvisosAyuda(
+  filtros: { tipo?: string; categoria?: string; zona?: string } = {},
+): Promise<AvisoAyuda[]> {
+  const params = new URLSearchParams();
+  if (filtros.tipo) params.set('tipo', filtros.tipo);
+  if (filtros.categoria) params.set('categoria', filtros.categoria);
+  if (filtros.zona) params.set('zona', filtros.zona);
+  const query = params.toString();
+  return request(`/api/avisos-ayuda${query ? `?${query}` : ''}`);
+}
+
+export function crearAvisoAyuda(datos: AvisoAyudaIn): Promise<AvisoAyuda> {
+  return request('/api/avisos-ayuda', { method: 'POST', body: JSON.stringify(datos) });
+}
+
+export function resolverAvisoAyuda(avisoId: number, userId: number): Promise<AvisoAyuda> {
+  return request(`/api/avisos-ayuda/${avisoId}/resuelto`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+export function eliminarAvisoAyuda(avisoId: number, userId: number): Promise<void> {
+  return request(`/api/avisos-ayuda/${avisoId}?user_id=${userId}`, { method: 'DELETE' });
 }

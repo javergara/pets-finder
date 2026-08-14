@@ -191,3 +191,41 @@ export type Conteos = {
   perdidos: number;
   encontrados: number;
 };
+
+export type TipoAvisoAyuda = 'pido' | 'ofrezco';
+
+export type CategoriaAvisoAyuda =
+  | 'hogar_de_paso'
+  | 'transporte'
+  | 'alimento'
+  | 'salud'
+  | 'rescate'
+  | 'otro';
+
+export type AvisoAyuda = {
+  id: number;
+  user_id: number;
+  tipo: TipoAvisoAyuda;
+  categoria: CategoriaAvisoAyuda;
+  titulo: string;
+  descripcion: string;
+  zona: string;
+  ciudad_texto: string | null;
+  barrio: string | null;
+  telefono_contacto: string;
+  estado: 'activo' | 'resuelto';
+  creado_en: string;
+  resuelto_en: string | null;
+};
+
+export type AvisoAyudaIn = {
+  user_id: number;
+  tipo: TipoAvisoAyuda;
+  categoria: CategoriaAvisoAyuda;
+  titulo: string;
+  descripcion: string;
+  zona: string;
+  ciudad_texto?: string;
+  barrio?: string;
+  telefono_contacto: string;
+};
