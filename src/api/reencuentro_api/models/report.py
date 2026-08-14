@@ -75,6 +75,15 @@ class Report(Base):
     idempotency_id: Mapped[str | None] = mapped_column(
         String(300), nullable=True, unique=True, index=True
     )
+    # Parecido visual (ADR 0012): vector de 384 dims normalizado de la foto, que
+    # calcula el worker `embeddings/` fuera de la API (torch no cabe en la función
+    # serverless). JSON por portabilidad, igual que crawl_metadata — con este
+    # volumen el coseno en Python es más barato que traer pgvector.
+    # `embedding_modelo` identifica el pipeline COMPLETO (detector + embedder):
+    # vectores de pipelines distintos no son comparables y mezclarlos sería un bug
+    # silencioso, así que la comparación exige que ambos lados coincidan.
+    embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    embedding_modelo: Mapped[str | None] = mapped_column(String(80), nullable=True)
     estado: Mapped[str] = mapped_column(String(20), default="activo")  # "activo" | "reunido"
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)

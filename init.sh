@@ -101,7 +101,11 @@ fi
 # ---------------------------------------------------------------------------
 say "8. Tests"
 if [ -d tests/api ] && find tests/api -name 'test_*.py' -print -quit | grep -q .; then
-  pytest tests/api && ok "tests de API pasan" || fail "tests de API fallaron"
+  # `pytest` a secas respeta `testpaths` de pyproject.toml y recoge tests/api,
+  # tests/crawler y tests/embeddings. Antes decía `pytest tests/api` y los otros
+  # dos paquetes nunca se ejecutaban aquí pese a estar en verde.
+  pytest && ok "tests de Python pasan (api + crawler + embeddings)" \
+    || fail "tests de Python fallaron"
 else
   skip "sin tests en tests/api todavía"
 fi

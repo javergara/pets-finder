@@ -20,9 +20,48 @@ Implementado, `bash init.sh` en verde (115 API + 117 web) y verificación visual
 - Renombre: pestaña "Ayudar" → "Centros de ayuda" (nav, h1 de /ayudar, landing, RegistrarOrganizacion). La ruta /ayudar no cambia.
 - Fix aparte: test de Reportes con fecha-bomba (creado_en fijo hacía fallar "· hace" al día siguiente) → fixture relativo a la corrida.
 
+## Cerrada por el revisor (2026-08-13) — feature `24-ai-matching-fotos`, rama `ruiz/ai-search`
+
+> **VEREDICTO DEL REVISOR (2026-08-13): APROBADA.** `status` pasado a `done` en `feature_list.json` mediante edición puntual de una sola línea (validador en verde, 0 features en `in_progress`). Commits revisados: `787009b`, `0af0f73`, `e6e8494`. `bash init.sh` corrido en esta sesión; sus 3 pasos en rojo son de entorno (Windows) y se reproducen sobre archivos que la feature no toca — detalle abajo.
+
+Plan aprobado por el dueño (4 decisiones: worker aparte tipo `crawler/`, vectores en columna JSON + coseno en Python, candidatos de todo el país, banda cualitativa en vez de porcentaje). ADR ya escrito: **0011**.
+
+**Hecho:**
+- [x] **Paso 1 — calibración (compuerta del acceptance 2): PASA, con un componente extra.** Sobre las 140 fotos reales de prod se descubrió que sin recortar al animal el vector describe el póster/pantallazo, no la mascota. Con `hustvl/yolos-tiny` recortando antes: falso positivo 0.885 → **0.461**, verdadero positivo **0.997** intacto, base media 0.258 → 0.197, cobertura 137/140. Umbrales: alto ≥ 0.90, medio ≥ 0.80.
+- [x] **Paso 2 — esquema**: `Report.embedding` (JSON) + `Report.embedding_modelo` (versiona el pipeline completo).
+- [x] **Paso 3 — worker `embeddings/`**: `modelo.py` + `cli.py` + README + `requirements.txt` propio. 8 tests nuevos, suite en **162** (154 antes), ruff limpio.
+
+- [x] **Pasos 4-7 — función pura, API, UI y ADR 0012**: `ordenar_coincidencias` ahora suma parecido visual (la zona deja de ser filtro duro); `CoincidenciaOut.parecido_foto` (entonces `parecido`; renombrado al mergear con la 38) con banda "alto"/"medio" y chip en el detalle; ADR 0012 escrito (supersede "sin AI" del 0005 §4); `product-research.md` §2 y `architecture.md` §3 al día. **170 tests de API + 110 de web**, ruff limpio, build de prod limpio.
+
+- [x] **Validación de pies a cabeza (2026-08-13)**: réplica local de los 260 reportes de prod (leídos del API público, **prod nunca escrita**) + tres revisiones independientes en paralelo (veredicto formal, seguridad, buenas prácticas). Todas sus correcciones aplicadas con test: envenenamiento del matching por foto re-subida (ALTA), SSRF y path traversal en el worker, bomba de descompresión, `max_length` de `foto_url`, filtros a SQL (30→16 ms), accesibilidad del chip, y **los 8 tests del worker que no ejecutaba nadie** (`testpaths` + `init.sh` corría `pytest tests/api`). Artefacto de calibración reproducible en `embeddings/ejemplos/calibracion.json` (251 fotos), **atado por tests**: si alguien mueve un umbral o cambia el pipeline sin recalibrar, la suite truena. Separación verificada: base p99 **0.776** < medio **0.80** < alto **0.90** < p10 del control positivo **0.937**. Cifras finales: **181 API + 110 web**, ruff y ruff-format limpios, build limpio.
+
+**Falta antes de mergear a `main` (fuera del alcance del revisor):** (a) migración aditiva de prod — **pendiente de autorización explícita del dueño, prod está en solo lectura**; (b) verificación manual en navegador; (c) veredicto del revisor: **HECHO, APROBADA** — el `done` de `feature_list.json` es suyo, no del implementador.
+
+### Qué corrió el revisor de verdad (2026-08-13, sesión propia)
+
+- `bash init.sh` → **3 pasos en rojo, los 3 de entorno y reproducidos sobre archivos que la feature no toca**: (1) `python3` es el alias del Microsoft Store, no un intérprete, así que "feature_list.json inválido" y "seed.py falló" son falsos — con `.venv/Scripts/python.exe` ambos dan exit 0; (2) `black` se niega por el bug de CPython 3.12.5, idéntico sobre `scripts/seed.py` y `services/geo.py`; (3) `init.sh:47` asume `.venv/bin/activate` (Linux). Todo lo demás en verde: **183 tests de Python + 110 de web**, ruff ✓, npm lint ✓, build ✓.
+- Sustituto de `black`: `ruff format --check` sobre `src/api api scripts embeddings` → *32 files already formatted*. (`tests/` nunca estuvo bajo black en este repo; los 3 archivos sin formatear son pre-existentes e intactos por esta feature.)
+- **Fuzz de la propiedad clave**: `ordenar_coincidencias` de `2ee0a37` contra la nueva, en **2000 escenarios aleatorios sin vectores** → *0 diferencias de orden, 0 de conjunto, 0 de distancias*. "Sin embeddings el orden es el de antes" quedó comprobado, no asumido. Matiz para el futuro: el desempate pasó de estabilidad (orden de llegada) a `id`; coincide siempre porque el `select` devuelve orden de PK, y el nuevo es más determinista.
+- **La suite no toca torch ni la red**: `pytest` con un plugin que revienta ante cualquier import de `torch/transformers/PIL` y ante `connect`/`getaddrinfo` fuera de loopback → **183 passed**. Importa porque torch 2.9.1 y transformers 4.57.1 **sí están instalados** en este venv: correr la suite a secas no probaba nada.
+- Consistencia con ADRs: 0012 ↔ código verificado línea a línea (incluido su §6, que ya documenta la guarda por vector `>= 0.9999` y no por URL); 0005 §4 supersedido explícitamente; 0007 (la API no gana dependencias; `.vercelignore` excluye `crawler/` y `embeddings/`); 0010 (patrón de proceso aparte). Sin chat interno, sin librerías de mapas nuevas, tono "activo"/"reunido" intacto.
+- Acceptance uno por uno: **a1** ADR 0012; **a2** `embeddings/ejemplos/calibracion.json` + `tests/embeddings/test_calibracion.py`, que atan los dos pares del acceptance (falso positivo 0.8854 → **0.4605**, verdadero positivo 0.9999 → **0.997**) y la regla p99 negativos < 0.80 < 0.90 < p10 positivos; **a3** cubierto por `test_sin_embeddings_...`, los tests de degradación del worker y el fuzz; **a4** solo bloqueado por entorno.
+
+**Falta antes de mergear a `main` — fuera del alcance de esta sesión:** (a) migración aditiva de prod (`embedding`, `embedding_modelo`) + backfill del worker — **pendiente de autorización explícita del dueño; prod está congelada en solo lectura**, y la regla dura del repo exige el ALTER ANTES del merge; (b) verificación manual en navegador. La aprobación es del código y su evidencia, no del despliegue.
+
+**Observaciones menores que NO bloquean** (registradas para no perderlas): las fotos sin animal detectable se reintentan en cada corrida del worker (3 de 251 hoy, ya documentado en su README), y el `control_positivo.min` de la calibración es 0.0502 — hay al menos una variante sintética que el detector recorta mal; irrelevante para los umbrales (que se leen del p10), pero es la punta de un caso real.
+
+**Cómo probar sin tocar prod** (queda documentado porque sirve para cualquier feature futura): `scratchpad/construir_replica.py` carga el snapshot público en una SQLite aparte, se apunta `DATABASE_URL` ahí y se corre el worker y el endpoint contra esa réplica. Así se ensayaron migración, backfill y ranking completos.
+
+**Decisión de diseño que conviene no perder**: el parecido visual **solo suma, nunca resta**. El modelo tiene ~72% de top-1, así que un parecido bajo es ausencia de evidencia, no evidencia en contra. Efecto colateral buscado: sin embeddings el orden queda idéntico al de antes del ADR, por aritmética y no por un `if`.
+
+**Dato para el dueño**: producción tiene **150 reportes (141 con foto)**, no los ~29 que decía esta bitácora. Y la calibración levantó un par plausible que la app no está resaltando hoy: **#66 "Sasha" (gata calicó perdida, Cali) ↔ #78 (calicó encontrada, en la clínica Dr Piedrahita)**, similitud 0.915 — el par más alto de toda la base. Merece revisión humana ya.
+
+⚠️ **Entorno**: en esta máquina (Windows, Python 3.12.5) `black` se niega a correr por un bug conocido de CPython — falla igual sobre archivos no tocados, así que `bash init.sh` no puede quedar 100% verde aquí hasta instalar Python 3.12.6+ o 3.12.4. `ruff` y `pytest` sí corren.
+
 ## Próximo paso
 
-Tomar la siguiente feature del backlog (`20`-`24`) con el patrón líder→implementador→revisor, o ejecutar el checklist `25` (dueño). Regla dura vigente: nunca `seed.py` contra prod; migraciones aditivas ANTES de mergear a `main` si hay esquema nuevo.
+**Feature 24: APROBADA por el revisor** (`bash init.sh` corrido en esta sesión; los 3 pasos en rojo son de entorno y están explicados arriba).
+Feature 24 **aprobada y en `done`**. Antes de mergear `ruiz/ai-search` a `main`: pedirle al dueño autorización para el `ALTER TABLE reports ADD COLUMN embedding JSON` + `embedding_modelo VARCHAR(80)` y correr el backfill (`python -m embeddings.cli --escribir`) — con `SKIP_DB_CREATE_ALL=1` las columnas **no se crean solas** en el deploy. Después, tomar del backlog `22`, `23` o el checklist `25` (dueño) con el patrón líder→implementador→revisor. Regla dura vigente: nunca `seed.py` contra prod; migraciones aditivas ANTES de mergear a `main`.
 
 ## Hecho en la feature 19
 

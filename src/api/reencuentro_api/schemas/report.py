@@ -111,7 +111,11 @@ class ReportIn(BaseModel):
     color: str | None = None
     tamano: Tamano | None = None
     descripcion: str
-    foto_url: str | None = None
+    # max_length calcado del String(300) del modelo: sin él una URL más larga
+    # pasa la validación y revienta en Postgres con un 500 (SQLite la trunca en
+    # silencio, que es peor). Es además la superficie por donde entra una
+    # foto_url arbitraria al worker de embeddings.
+    foto_url: str | None = Field(default=None, max_length=300)
     # Hasta 2 fotos adicionales (feature 41); la principal sigue en foto_url.
     fotos_extra: list[str] = Field(default_factory=list, max_length=2)
     zona: str
@@ -195,7 +199,11 @@ class ReportUpdate(BaseModel):
     user_id: int
     nombre_mascota: str | None = None
     descripcion: str | None = None
-    foto_url: str | None = None
+    # max_length calcado del String(300) del modelo: sin él una URL más larga
+    # pasa la validación y revienta en Postgres con un 500 (SQLite la trunca en
+    # silencio, que es peor). Es además la superficie por donde entra una
+    # foto_url arbitraria al worker de embeddings.
+    foto_url: str | None = Field(default=None, max_length=300)
     barrio: str | None = None
     telefono_contacto: str | None = None
     instagram: str | None = None
@@ -254,11 +262,22 @@ class ReportOut(BaseModel):
 
 
 class CoincidenciaOut(ReportOut):
-    """Un candidato a ser la misma mascota, con su distancia geográfica real
-    y las razones legibles de por qué coincide (feature 37)."""
+    """Un candidato a ser la misma mascota, con su distancia geográfica real,
+    las razones legibles de por qué coincide (feature 37) y el parecido visual
+    de la foto (ADR 0012).
+
+    `parecido_foto` es una banda ("alto" | "medio" | None), nunca un porcentaje:
+    el modelo no da una probabilidad y un número alto y equivocado llevaría a
+    entregarle una mascota a quien no es. Se llama así y no `parecido` a
+    propósito: `BusquedaResultadoOut.parecido` ya existe y es un entero 0-100 de
+    otra cosa (feature 38) — dos campos con el mismo nombre y distinto
+    significado son una trampa. El vector no se expone: son 384 floats que a
+    nadie le sirven en el cliente.
+    """
 
     distancia_km: float
     razones: list[str]
+    parecido_foto: str | None = None
 
 
 class BusquedaResultadoOut(ReportOut):
