@@ -50,6 +50,12 @@ python -m crawler.cli pantallazos/ --publicar
   seguro: el CLI reutiliza la extracción registrada (nunca vuelve al LLM, que
   no es determinista) y la API devuelve los reportes ya creados (200) en vez
   de duplicarlos.
+- **Dedup por teléfono (v0)**: antes de publicar, cada payload se compara
+  contra los reportes ya existentes en la API destino (y contra los de la
+  misma corrida). La lógica vive en el sistema aparte [`dedup/`](../dedup/README.md)
+  — los duplicados son un problema de la plataforma, no solo del crawler. Con
+  `--publicar` los marcados se omiten; `--incluir-duplicados` los publica tras
+  revisarlos.
 - `--ciudad` es el fallback de zona cuando los posts no la dicen (quien
   recolecta pantallazos de un grupo local sabe de qué ciudad son).
 - `--foto-url` adjunta una URL pública de foto al reporte (subirla antes con el

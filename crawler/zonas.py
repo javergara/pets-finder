@@ -16,7 +16,7 @@ CENTROS: dict[str, tuple[float, float]] = {
 CENTRO_COLOMBIA: tuple[float, float] = (COLOMBIA["centro_lat"], COLOMBIA["centro_lng"])
 
 
-def _normalizar(texto: str) -> str:
+def normalizar_texto(texto: str) -> str:
     sin_tildes = unicodedata.normalize("NFD", texto)
     sin_tildes = "".join(c for c in sin_tildes if unicodedata.category(c) != "Mn")
     return sin_tildes.strip().lower()
@@ -31,9 +31,9 @@ def resolver_zona(ciudad_texto: str | None) -> tuple[str, str | None, float, flo
     reporte cae en "Otro" / "Colombia" sobre el mapa nacional.
     """
     if ciudad_texto and ciudad_texto.strip():
-        buscado = _normalizar(ciudad_texto)
+        buscado = normalizar_texto(ciudad_texto)
         for zona, (lat, lng) in CENTROS.items():
-            if _normalizar(zona) == buscado:
+            if normalizar_texto(zona) == buscado:
                 return zona, None, lat, lng
         lat, lng = CENTRO_COLOMBIA
         return ZONA_OTRO, ciudad_texto.strip(), lat, lng

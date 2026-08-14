@@ -21,6 +21,8 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+import requests
+from dedup.deteccion import posibles_duplicados
 from pydantic import ValidationError
 
 from . import dedup, extractor, publicador
@@ -77,6 +79,8 @@ def procesar_imagen(
     publicar: bool,
     ciudad: str | None = None,
     post_extraido: PostExtraido | Exception | None = None,
+    existentes: list | None = None,
+    incluir_duplicados: bool = False,
 ) -> None:
     clave = dedup.clave_de(url_post, imagen)
     entrada = dedup.obtener(clave)
@@ -138,13 +142,36 @@ def procesar_imagen(
 
     print(json.dumps(publicador.a_json(payloads), indent=2, ensure_ascii=False))
 
+    # Dedup v0 por teléfono (revisión humana, nunca descarte automático): se
+    # compara contra la API destino y contra lo ya visto en esta corrida.
+    duplicados = []
+    if existentes is not None:
+        for payload_json in publicador.a_json(payloads):
+            for dup in posibles_duplicados(payload_json, existentes):
+                ref = f"#{dup['id']}" if dup["id"] is not None else "otro post de esta corrida"
+                print(f"[{imagen.name}] ⚠️ {dup['nivel']} duplicado de {ref}: {dup['razon']}")
+                duplicados.append(dup)
+
     if not publicar:
+        if existentes is not None:
+            existentes.extend({"id": None, **p} for p in publicador.a_json(payloads))
         print(f"[{imagen.name}] dry-run: nada publicado. Añade --publicar para crear los reportes.")
+        return
+
+    if duplicados and not incluir_duplicados:
+        print(
+            f"[{imagen.name}] omitido por posibles duplicados — revísalos y re-corre con "
+            "--incluir-duplicados si son casos distintos."
+        )
         return
 
     api_url = os.environ.get("PETFINDER_API_URL", "http://127.0.0.1:8000")
     ids = publicador.publicar(payloads, api_url=api_url)
     dedup.marcar_publicado(clave, ids)
+    if existentes is not None:
+        existentes.extend(
+            {"id": rid, **p} for rid, p in zip(ids, publicador.a_json(payloads), strict=False)
+        )
     print(f"[{imagen.name}] publicados {len(ids)} reporte(s) en {api_url}: {ids}")
 
 
@@ -167,6 +194,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--publicar", action="store_true", help="Publica de verdad (sin esto: dry-run)"
     )
+    parser.add_argument(
+        "--incluir-duplicados",
+        action="store_true",
+        help="Publica también los marcados como posibles duplicados (tras revisarlos)",
+    )
     args = parser.parse_args(argv)
 
     if not args.entrada.exists():
@@ -188,6 +220,16 @@ def main(argv: list[str] | None = None) -> int:
         print("Falta CRAWLER_USER_ID en el entorno (usuario sistema del crawler)", file=sys.stderr)
         return 2
 
+    # Dedup por teléfono: una consulta a la API destino por corrida. Si la API
+    # no responde (p. ej. dry-run sin servidor local), se sigue sin chequeo.
+    api_url = os.environ.get("PETFINDER_API_URL", "http://127.0.0.1:8000")
+    try:
+        existentes = publicador.cargar_existentes(api_url)
+        print(f"dedup: {len(existentes)} reportes existentes en {api_url}")
+    except requests.RequestException as exc:
+        existentes = None
+        print(f"⚠️ sin chequeo de duplicados — no se pudo leer {api_url}: {exc}")
+
     # Fase concurrente: solo las llamadas al LLM. Todo lo demás (dedup,
     # impresión, publicación) sigue secuencial y en orden estable.
     posts = extraer_concurrente(imagenes, args.url_post)
@@ -199,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
             publicar=args.publicar,
             ciudad=args.ciudad,
             post_extraido=posts.get(imagen),
+            existentes=existentes,
+            incluir_duplicados=args.incluir_duplicados,
         )
     return 0
 
