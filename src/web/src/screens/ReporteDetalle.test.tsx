@@ -3,8 +3,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Reporte } from '../api/types';
+import * as cartel from '../lib/cartel';
 import { ZONAS } from '../lib/ciudades';
 import { ReporteDetalle } from './ReporteDetalle';
+
+vi.mock('../lib/cartel', () => ({ descargarCartel: vi.fn() }));
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
@@ -166,6 +169,17 @@ describe('ReporteDetalle', () => {
       'https://facebook.com/ana',
     );
     expect(screen.getByText(/nadie debe pedirte dinero/)).toBeInTheDocument();
+  });
+
+  it('el botón de cartel genera la descarga con el reporte (feature 44)', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+
+    renderDetalle();
+    fireEvent.click(await screen.findByRole('button', { name: /Descargar cartel/ }));
+
+    expect(cartel.descargarCartel).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 1, nombre_mascota: 'Rocky' }),
+    );
   });
 
   it('la caja de novedades suscribe el correo y confirma (feature 39)', async () => {

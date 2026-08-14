@@ -16,6 +16,7 @@ import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { urlPerfilPlataforma } from '../lib/contacto';
+import { descargarCartel } from '../lib/cartel';
 import { getActiveUserId } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 import { tituloReporte } from '../lib/titulo';
@@ -171,6 +172,15 @@ export function ReporteDetalle() {
           className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
         >
           Compartir este reporte
+        </button>
+        {/* Cartel para postes y grupos de WhatsApp (feature 44): el QR trae
+            a la gente de la calle al reporte. */}
+        <button
+          type="button"
+          onClick={() => descargarCartel(reporte)}
+          className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+        >
+          🖨️ Descargar cartel
         </button>
         {avisoCompartir && <span className="text-sm text-forest">{avisoCompartir}</span>}
       </div>

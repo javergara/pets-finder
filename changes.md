@@ -589,3 +589,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-14 — Feature 43: radar de reencuentros (plan de impacto Cali, frente B1)
 
 - Las coincidencias dejan de ser pasivas: GET/POST /api/radar (503 sin CRON_SECRET, 401 con token malo) que Vercel Cron corre a diario (11:00 UTC) — perdidos activos × candidatos con el motor existente, tope 3 por reporte y umbral de puntaje, correo al autor + suscritos (deduplicados) con título compuesto, razones y links, y registro en la tabla nueva `radar_avisos` para no re-avisar jamás (verificado: segunda corrida = 0). `correos_enviados` cuenta solo éxitos (fix del revisor). +6 tests. Aprobada por el revisor (171 API + 139 web) condicionada a la migración de radar_avisos antes del merge.
+
+## 2026-08-14 — Feature 44: cartel imprimible con QR (plan de impacto Cali, frente C1)
+
+- Botón "🖨️ Descargar cartel" en el detalle: canvas 1080x1350 con banda SE BUSCA/ENCONTRADA del color del tipo, foto (contain, crossOrigin), título compuesto, barrio·zona, teléfono en grande, QR al reporte (dependencia `qrcode`) y marca. `textoCartel()` pura con tests; +1 test del botón. Sin backend ni migración. Aprobada por el revisor (171 API + 143 web).
+- Gotcha resuelto en la verificación visual (navegador real): Chrome reusaba la entrada de caché de la foto SIN header CORS (cacheada por el `<img>` del detalle) y bloqueaba la carga con crossOrigin — el cartel salía sin foto. Fix: cache-bust con query param `?cartel=1` en la carga para el canvas. Cartel final verificado con foto, QR y composición correcta.

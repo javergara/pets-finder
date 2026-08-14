@@ -574,6 +574,19 @@
         "Correr el radar dos veces seguidas no re-avisa ninguna pareja (test)",
         "bash init.sh en verde; tabla radar_avisos creada en prod antes del merge a main"
       ]
+    },
+    {
+      "id": "44-cartel-imprimible",
+      "title": "Cartel imprimible con QR por reporte",
+      "description": "Plan de impacto Cali (frente C1): botón 'Descargar cartel' en el detalle del reporte que genera en el navegador (canvas, mismo enfoque de comprimirImagen) una imagen lista para imprimir o mandar por WhatsApp: banda SE BUSCA/ENCONTRADA con el color del tipo, foto grande, título auto-compuesto (feature 36), barrio/zona, teléfono en grande y QR al reporte (dependencia qrcode) — el formato de flyer que la comunidad de Cali ya usa, pero con un QR que trae gente a la app. Sin backend: todo en lib/cartel.ts con textoCartel() como función pura testeable.",
+      "status": "done",
+      "depends_on": ["36-titulo-descriptivo"],
+      "acceptance": [
+        "textoCartel es una función pura con tests: encabezado por tipo (SE BUSCA/ENCONTRADA), título compuesto, lugar con barrio y zona/ciudad, contacto con teléfono o remitiendo al QR, y la URL del reporte",
+        "El botón 'Descargar cartel' del detalle genera y descarga el PNG (generación mockeada en el test del componente, invocada con el reporte)",
+        "El cartel incluye el QR con la URL del reporte y funciona también sin foto o sin teléfono (sin huecos rotos)",
+        "bash init.sh en verde; sin cambios de esquema"
+      ]
     }
   ]
 }
