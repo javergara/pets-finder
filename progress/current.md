@@ -439,3 +439,18 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Condición explícita**: columnas nuevas `reports.instagram`/`reports.facebook` — el merge a `main` exige el `ALTER TABLE ADD COLUMN` aditivo en Supabase Postgres, que irá en el **paquete conjunto 40-42 autorizado por el dueño** (con `SKIP_DB_CREATE_ALL=1` nada se crea solo). El merge no ocurre hasta entonces, como declara el plan.
 
 Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 40 en `changes.md` con su hash.
+
+## Veredicto del revisor — feature 41 (2026-08-13): APROBADA, condicionada al paquete de migración de prod (40-42) antes del merge a main
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `56ab37d`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4 (primera mitad)**: `bash init.sh` corrido de verdad — **verde completo, 160/160 tests de API + 133/133 de web**.
+- **Acceptance 1**: 5 tests de API (orden principal-primero en POST y GET, 422 con 3 extras vía `max_length=2`, solo principal, sin fotos → `[]`, DELETE borra extras con `borrar_foto` monkeypatcheado y el orden aseverado) **+ E2E en vivo del revisor con fotos reales**: subí 3 JPEGs por `/api/uploads`, creé el reporte (principal + 2 extras), `fotos` volvió en orden exacto, 422 con 3 extras, y el **DELETE borró los 3 archivos del disco** (verificado por existencia física antes/después). Uploads y seed limpios al final.
+- **Acceptance 2**: test de `FotoUpload` multi (acumula, notifica la lista completa, contador "2/3 fotos — la primera es la principal", quitar re-notifica) — cada foto pasa por el mismo flujo de recorte/compresión (converge en `subir()`, leído); tests del detalle (miniaturas cambian la foto grande por `src`; con una sola foto no hay miniaturas). `ReportarMascota` deriva todo de la lista (`fotos[0]` → principal, resto → `fotos_extra`, y quitar todas deja el payload sin foto — sin estado obsoleto, leído).
+- **Acceptance 3 (compatibilidad)**: `foto_url` intacto en tarjetas/mapa/og — verificado en vivo que `og:image` aparece **una sola vez** y con la principal; los tests existentes de tarjetas/og no se tocaron (el diff no los incluye); `Reporte.fotos` opcional en types con fallback a `foto_url` (fixtures viejos sin tocar); los reportes del seed responden `fotos = [principal]` vía la property.
+- Diseño consistente: `maxFotos` default 1 conserva el comportamiento exacto anterior (EditarReporte sigue mono-foto, fuera de alcance); relationship con `cascade delete-orphan` + `lazy selectin` (sin N+1 en listados); property `fotos` como única fuente del contrato de salida; tabla con FK indexada y tipos portables.
+- `feature_list.json`: `41-fotos-multiples` a `done` — línea 541 por número exacto; diff `todo`→`done`, único cambio de status; `validate_feature_list.py` → exit 0. La 42 sigue en `todo`.
+
+**Condición explícita**: tabla nueva `report_fotos` — va en el **paquete conjunto de migración 40-42** (ALTER de la 40 + CREATE TABLE de la 41/42) autorizado por el dueño ANTES del merge a `main`; con `SKIP_DB_CREATE_ALL=1` en prod nada se crea solo.
+
+Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 41 en `changes.md` con su hash. Menor: `lazy="selectin"` dispara una query extra por página del listado (aceptable hoy; si el listado crece, medir).

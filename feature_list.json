@@ -538,7 +538,7 @@
       "id": "41-fotos-multiples",
       "title": "Hasta 3 fotos por reporte con galería en el detalle",
       "description": "Benchmark Patas en Cali: un reporte puede llevar hasta 3 fotos (el flyer + fotos reales de la mascota). Tabla nueva report_fotos (report_id, foto_url, orden); Report.foto_url sigue siendo la principal (tarjetas y og intactos). ReportIn acepta fotos_extra (máx 2), ReportOut expone fotos (principal primero). FotoUpload permite añadir más fotos tras la primera; el detalle muestra galería (foto grande + miniaturas clicables). Migración prod: CREATE TABLE report_fotos ANTES del merge, con autorización.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["40-seguridad-y-contacto-multicanal"],
       "acceptance": [
         "POST /api/reports con fotos_extra guarda las fotos adicionales y GET las devuelve en orden (principal primero); más de 2 extra es 422",

@@ -2,6 +2,7 @@ from .base import Base, SessionLocal, engine
 from .necesidad import Necesidad
 from .organizacion import Organizacion
 from .report import Report
+from .report_foto import ReportFoto
 from .sighting import Sighting
 from .suscripcion import Suscripcion
 from .user import User
@@ -16,4 +17,5 @@ __all__ = [
     "Organizacion",
     "Necesidad",
     "Suscripcion",
+    "ReportFoto",
 ]

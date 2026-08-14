@@ -561,3 +561,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-13 — Feature 40: avisos de seguridad, cámara directa y contacto multicanal
 
 - `AvisoSeguridad` (publicar/contactar) en reportar, registrar organización, detalle de reporte y de organización — copy anti-estafas del benchmark Patas en Cali (§10). FotoUpload con dos accesos: "📷 Tomar foto" (capture=environment) y galería, ambos al flujo de recorte/compresión. Columnas nuevas `reports.instagram` (normalizado sin @, también en ReportUpdate por sugerencia del revisor) y `reports.facebook`, campos opcionales al reportar y botones en el detalle. +3 tests API, +3 web. Aprobada por el revisor (155 API + 130 web), migración en el paquete 40-42.
+
+## 2026-08-13 — Feature 41: hasta 3 fotos por reporte
+
+- Tabla nueva `report_fotos` (report_id, foto_url, orden) + relationship con cascade y property `Report.fotos` (principal primero) expuesta en ReportOut. `ReportIn.fotos_extra` (máx 2, 422 con más). foto_url intacta: tarjetas/mapa/og sin cambios. DELETE borra también las extras del bucket.
+- FotoUpload con `maxFotos`/`onFotosSubidas` (default 1 = comportamiento previo): miniaturas con quitar, picker que vuelve hasta el máximo, contador. ReportarMascota sube hasta 3; detalle con galería de miniaturas. +5 tests API, +3 web. Aprobada por el revisor (160 API + 133 web), migración en el paquete 40-42.

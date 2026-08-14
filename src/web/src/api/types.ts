@@ -31,6 +31,9 @@ export type Reporte = {
   tamano: 'pequeño' | 'mediano' | 'grande' | null;
   descripcion: string;
   foto_url: string | null;
+  // Todas las fotos, la principal primero (feature 41). Opcional para no
+  // obligar a cada fixture: la UI cae a foto_url si falta.
+  fotos?: string[];
   zona: string;
   ciudad_texto: string | null;
   barrio: string | null;
@@ -79,6 +82,7 @@ export type ReporteIn = {
   tamano?: 'pequeño' | 'mediano' | 'grande';
   descripcion: string;
   foto_url?: string;
+  fotos_extra?: string[];
   zona: string;
   ciudad_texto?: string;
   barrio?: string;

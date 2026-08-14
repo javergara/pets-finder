@@ -1,9 +1,10 @@
 from datetime import date, datetime, timezone
 
 from sqlalchemy import JSON, Date, DateTime, Float, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
+from .report_foto import ReportFoto
 
 
 class Report(Base):
@@ -49,6 +50,18 @@ class Report(Base):
     # nombre/URL de perfil de Facebook — el teléfono sigue siendo el principal.
     instagram: Mapped[str | None] = mapped_column(String(120), nullable=True)
     facebook: Mapped[str | None] = mapped_column(String(200), nullable=True)
+
+    # Fotos adicionales (feature 41): hasta 2 extras además de foto_url.
+    fotos_adicionales: Mapped[list["ReportFoto"]] = relationship(
+        "ReportFoto", order_by="ReportFoto.orden", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    @property
+    def fotos(self) -> list[str]:
+        """Todas las fotos, la principal primero — lo que expone ReportOut."""
+        principal = [self.foto_url] if self.foto_url else []
+        return principal + [f.foto_url for f in self.fotos_adicionales]
+
     # Procedencia del reporte (ADR 0010): "manual" (formulario) o "crawl" (el
     # rastreador de redes publica vía la API). JSON es portable: nativo en
     # Postgres y TEXT serializado en SQLite — única excepción a la regla de

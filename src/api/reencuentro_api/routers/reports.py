@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..media import borrar_foto
 from ..models.report import Report
+from ..models.report_foto import ReportFoto
 from ..models.sighting import Sighting
 from ..models.suscripcion import Suscripcion
 from ..models.user import User
@@ -54,7 +55,10 @@ def crear_reporte(
         response.status_code = status.HTTP_200_OK
         return ReportOut.model_validate(previo)
 
-    report = Report(**payload.model_dump())
+    report = Report(**payload.model_dump(exclude={"fotos_extra"}))
+    report.fotos_adicionales = [
+        ReportFoto(foto_url=url, orden=n) for n, url in enumerate(payload.fotos_extra)
+    ]
     session.add(report)
     try:
         session.commit()
@@ -398,6 +402,8 @@ def eliminar_reporte(report_id: int, user_id: int, session: Session = Depends(ge
         raise HTTPException(403, "Solo quien creó el reporte puede eliminarlo")
 
     borrar_foto(report.foto_url)
+    for foto in report.fotos_adicionales:
+        borrar_foto(foto.foto_url)
     session.delete(report)
     session.commit()
 

@@ -141,6 +141,35 @@ describe('FotoUpload', () => {
     expect(client.subirFoto).not.toHaveBeenCalled();
   });
 
+  it('con maxFotos acumula subidas, notifica la lista y permite quitar (feature 41)', async () => {
+    vi.mocked(client.subirFoto)
+      .mockResolvedValueOnce({ foto_url: '/media/uploads/uno.jpg' })
+      .mockResolvedValueOnce({ foto_url: '/media/uploads/dos.jpg' });
+    const onFotosSubidas = vi.fn();
+
+    render(<FotoUpload onFotoSubida={vi.fn()} maxFotos={3} onFotosSubidas={onFotosSubidas} />);
+
+    elegirArchivo();
+    fireEvent.click(screen.getByRole('button', { name: 'Subir foto' }));
+    await waitFor(() =>
+      expect(onFotosSubidas).toHaveBeenLastCalledWith(['/media/uploads/uno.jpg']),
+    );
+
+    // El picker vuelve para la siguiente foto.
+    elegirArchivo();
+    fireEvent.click(screen.getByRole('button', { name: 'Subir foto' }));
+    await waitFor(() =>
+      expect(onFotosSubidas).toHaveBeenLastCalledWith([
+        '/media/uploads/uno.jpg',
+        '/media/uploads/dos.jpg',
+      ]),
+    );
+    expect(screen.getByText('2/3 fotos — la primera es la principal.')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar foto 1' }));
+    expect(onFotosSubidas).toHaveBeenLastCalledWith(['/media/uploads/dos.jpg']);
+  });
+
   it('muestra el mensaje del backend si la subida falla y no entrega foto_url', async () => {
     vi.mocked(client.subirFoto).mockRejectedValue(
       new client.ApiError('La foto supera el tamaño máximo de 5 MB.'),

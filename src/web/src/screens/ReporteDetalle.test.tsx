@@ -125,6 +125,31 @@ describe('ReporteDetalle', () => {
     expect(screen.getByText('La tiene resguardada quien la reportó')).toBeInTheDocument();
   });
 
+  it('con varias fotos muestra la galería y las miniaturas cambian la grande (feature 41)', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({
+        fotos: ['/media/uploads/a.jpg', '/media/uploads/b.jpg'],
+      }),
+    );
+
+    renderDetalle();
+
+    const grande = await screen.findByAltText('Foto del reporte de Rocky');
+    expect(grande.getAttribute('src')).toContain('/media/uploads/a.jpg');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver foto 2' }));
+    expect(grande.getAttribute('src')).toContain('/media/uploads/b.jpg');
+  });
+
+  it('con una sola foto no hay miniaturas', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+
+    renderDetalle();
+
+    await screen.findByAltText('Foto del reporte de Rocky');
+    expect(screen.queryByRole('button', { name: /Ver foto/ })).not.toBeInTheDocument();
+  });
+
   it('muestra Instagram/Facebook opcionales y el aviso de seguridad (feature 40)', async () => {
     vi.mocked(client.obtenerReporte).mockResolvedValue(
       crearReporte({ instagram: 'micuenta', facebook: 'https://facebook.com/ana' }),

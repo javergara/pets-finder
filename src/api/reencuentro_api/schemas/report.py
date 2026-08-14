@@ -112,6 +112,8 @@ class ReportIn(BaseModel):
     tamano: Tamano | None = None
     descripcion: str
     foto_url: str | None = None
+    # Hasta 2 fotos adicionales (feature 41); la principal sigue en foto_url.
+    fotos_extra: list[str] = Field(default_factory=list, max_length=2)
     zona: str
     ciudad_texto: str | None = None
     barrio: str | None = None
@@ -232,6 +234,7 @@ class ReportOut(BaseModel):
     tamano: str | None
     descripcion: str
     foto_url: str | None
+    fotos: list[str]
     zona: str
     ciudad_texto: str | None
     barrio: str | None

@@ -46,7 +46,7 @@ export function ReportarMascota({ tipo }: Props) {
     const caja = cajaDeZona('');
     return { lat: caja.centroLat, lng: caja.centroLng };
   });
-  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<string[]>([]);
   const [fechaEvento, setFechaEvento] = useState('2026-08-10');
   const [telefono, setTelefono] = useState('');
   const [instagram, setInstagram] = useState('');
@@ -104,7 +104,8 @@ export function ReportarMascota({ tipo }: Props) {
         color: color || undefined,
         tamano: (tamano || undefined) as 'pequeño' | 'mediano' | 'grande' | undefined,
         descripcion: descripcion.trim(),
-        foto_url: fotoUrl ?? undefined,
+        foto_url: fotos[0] ?? undefined,
+        ...(fotos.length > 1 ? { fotos_extra: fotos.slice(1) } : {}),
         zona,
         ciudad_texto: zona === ZONA_OTRO ? ciudadTexto.trim() : undefined,
         barrio: barrio.trim() || undefined,
@@ -284,7 +285,7 @@ export function ReportarMascota({ tipo }: Props) {
           />
         </div>
 
-        <FotoUpload onFotoSubida={setFotoUrl} />
+        <FotoUpload onFotoSubida={() => {}} maxFotos={3} onFotosSubidas={setFotos} />
 
         <div>
           <label htmlFor="selector-zona" className="text-sm font-medium text-ink-soft">
