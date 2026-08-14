@@ -67,12 +67,22 @@ describe('LandingEmergencia', () => {
     ).toHaveAttribute('href', '/ayudar');
   });
 
+  it('cada ciudad enlaza su landing de zona (feature 46)', () => {
+    renderLanding();
+
+    expect(screen.getByRole('link', { name: 'Cali' })).toHaveAttribute('href', '/cali');
+    expect(screen.getByRole('link', { name: 'Quibdó' })).toHaveAttribute('href', '/quibdo');
+  });
+
   it('nombra las zonas cubiertas incluyendo Cali y Quibdó', () => {
     renderLanding();
 
-    expect(
-      screen.getByText(/Armenia · Pereira · Manizales · Cali · Quibdó · Bogotá/),
-    ).toBeInTheDocument();
+    // Las ciudades ahora son links individuales (feature 46): se asevera que
+    // todas están presentes y que el pie sigue nombrando el resto del país.
+    for (const zona of ['Armenia', 'Pereira', 'Manizales', 'Cali', 'Quibdó', 'Bogotá']) {
+      expect(screen.getByRole('link', { name: zona })).toBeInTheDocument();
+    }
+    expect(screen.getByText(/y cualquier lugar de Colombia/)).toBeInTheDocument();
   });
 
   it('muestra la franja de reencuentros con el contador y la mini-galería', async () => {

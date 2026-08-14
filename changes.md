@@ -594,3 +594,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Botón "🖨️ Descargar cartel" en el detalle: canvas 1080x1350 con banda SE BUSCA/ENCONTRADA del color del tipo, foto (contain, crossOrigin), título compuesto, barrio·zona, teléfono en grande, QR al reporte (dependencia `qrcode`) y marca. `textoCartel()` pura con tests; +1 test del botón. Sin backend ni migración. Aprobada por el revisor (171 API + 143 web).
 - Gotcha resuelto en la verificación visual (navegador real): Chrome reusaba la entrada de caché de la foto SIN header CORS (cacheada por el `<img>` del detalle) y bloqueaba la carga con crossOrigin — el cartel salía sin foto. Fix: cache-bust con query param `?cartel=1` en la carga para el canvas. Cartel final verificado con foto, QR y composición correcta.
+
+## 2026-08-14 — Feature 46: landing por zona con SEO (plan de impacto Cali, frente C3)
+
+- Rutas /cali, /armenia, /pereira, /manizales, /quibdo, /bogota y /medellin → pantalla ZonaLanding: título y document.title propios, conteos de la zona (GET /api/reports/conteos?zona= — param aditivo), 6 reportes recientes, CTAs y columnas de veterinarias (badge 24 horas) y red de apoyo de la zona. Ciudades de la landing principal ahora enlazan su landing.
+- Para bots: routers/paginas.py registra los 7 slugs como rutas explícitas (sin catch-all) con og:title/description usando los conteos vivos; vercel.json extiende el rewrite por user-agent (patrón ADR 0009). +3 tests API, +4 web. Aprobada por el revisor (174 API + 147 web). Sin migración.

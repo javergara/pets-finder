@@ -251,8 +251,8 @@ export function cubrirNecesidad(
   });
 }
 
-export function obtenerConteos(): Promise<Conteos> {
-  return request('/api/reports/conteos');
+export function obtenerConteos(zona?: string): Promise<Conteos> {
+  return request(`/api/reports/conteos${zona ? `?zona=${encodeURIComponent(zona)}` : ''}`);
 }
 
 /** Variante paginada del listado (feature 30): expone el total del header

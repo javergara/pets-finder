@@ -85,6 +85,18 @@ export const COLOMBIA: BoundingBox = {
 export const ZONA_OTRO = 'Otro';
 export const NOMBRES_ZONAS = Object.keys(ZONAS);
 
+// Landings por zona (feature 46): slug de URL → nombre de zona. Espejo del
+// SLUG_ZONAS del backend (routers/paginas.py).
+export const SLUGS_ZONA: Record<string, string> = {
+  cali: 'Cali',
+  armenia: 'Armenia',
+  pereira: 'Pereira',
+  manizales: 'Manizales',
+  quibdo: 'Quibdó',
+  bogota: 'Bogotá',
+  medellin: 'Medellín',
+};
+
 // Ciudades de Colombia para el registro (feature 17): las zonas con mapa propio
 // van primero en el select; este resto cubre todas las capitales departamentales
 // más las ciudades grandes que no son capital, en orden alfabético.

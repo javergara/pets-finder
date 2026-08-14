@@ -587,6 +587,20 @@
         "El cartel incluye el QR con la URL del reporte y funciona también sin foto o sin teléfono (sin huecos rotos)",
         "bash init.sh en verde; sin cambios de esquema"
       ]
+    },
+    {
+      "id": "46-landing-por-zona-seo",
+      "title": "Landing por zona con SEO (/cali y las demás zonas)",
+      "description": "Plan de impacto Cali (frente C3): capturar las búsquedas 'perro perdido Cali' que hoy no llegan a nadie. Rutas /cali, /armenia, /pereira, /manizales, /quibdo, /bogota y /medellin (slugs sin tilde, mapa en lib/ciudades) hacia una pantalla ZonaLanding: título y meta description propios (document.title), contadores de la zona (GET /api/reports/conteos gana el query param opcional zona — aditivo), reportes recientes de la zona (6, con ReporteCard), CTAs de reportar/buscar/mapa, y las veterinarias y fundaciones de la zona desde la Red de Apoyo. Para la vista previa al compartir: routers/paginas.py gana la página de bots por zona (og tags con el nombre de la zona y los conteos) y vercel.json extiende el rewrite por user-agent a los paths de zona. La línea de ciudades de la landing principal se vuelve links a las landings.",
+      "status": "done",
+      "depends_on": ["34-contadores-y-recencia"],
+      "acceptance": [
+        "GET /api/reports/conteos?zona=Cali cuenta solo esa zona y sin zona sigue contando todo (tests; sin cambio de esquema)",
+        "/cali muestra título propio de la zona, contadores, hasta 6 reportes recientes de la zona, CTAs y las organizaciones de la zona; document.title queda con la zona (tests del componente)",
+        "Los bots reciben en /cali un HTML con og:title/description propios de la zona (test de la API) y vercel.json enruta los paths de zona por user-agent",
+        "La landing principal enlaza cada ciudad a su landing de zona (test)",
+        "bash init.sh en verde; sin migración"
+      ]
     }
   ]
 }

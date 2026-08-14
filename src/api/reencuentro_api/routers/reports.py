@@ -203,16 +203,16 @@ def resumen_reunidos(session: Session = Depends(get_session)) -> ReunidosResumen
 
 # Ruta literal, también antes que las dinámicas (misma regla que /reunidos).
 @router.get("/conteos", response_model=ConteosOut)
-def conteos_activos(session: Session = Depends(get_session)) -> ConteosOut:
+def conteos_activos(zona: str | None = None, session: Session = Depends(get_session)) -> ConteosOut:
     """Cuántos reportes activos hay por tipo — prueba social del listado y la landing.
 
     Una sola query agregada; el cliente nunca cuenta arrays (feature 34).
+    `zona` opcional (feature 46): los conteos de una landing de zona.
     """
-    filas = dict(
-        session.execute(
-            select(Report.tipo, func.count()).where(Report.estado == "activo").group_by(Report.tipo)
-        ).all()
-    )
+    query = select(Report.tipo, func.count()).where(Report.estado == "activo")
+    if zona is not None:
+        query = query.where(Report.zona == zona)
+    filas = dict(session.execute(query.group_by(Report.tipo)).all())
     return ConteosOut(perdidos=filas.get("perdido", 0), encontrados=filas.get("encontrado", 0))
 
 

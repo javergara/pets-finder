@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { mediaUrl, obtenerConteos, obtenerReunidos } from '../api/client';
 import type { Conteos, ReunidosResumen } from '../api/types';
+import { SLUGS_ZONA } from '../lib/ciudades';
 
 // Landing de emergencia: dos caminos gigantes, decididos en dos segundos,
 // y la franja de reencuentros como métrica de esperanza.
@@ -120,8 +121,17 @@ export function LandingEmergencia() {
       )}
 
       <p className="max-w-md text-xs text-muted">
-        Armenia · Pereira · Manizales · Cali · Quibdó · Bogotá — y cualquier lugar de Colombia. Sin
-        costo, sin fricción: solo tu nombre y un teléfono de contacto.
+        {/* Cada ciudad enlaza su landing con SEO propio (feature 46). */}
+        {Object.entries(SLUGS_ZONA).map(([slug, zona], n) => (
+          <span key={slug}>
+            {n > 0 && ' · '}
+            <Link to={`/${slug}`} className="underline-offset-2 hover:underline">
+              {zona}
+            </Link>
+          </span>
+        ))}{' '}
+        — y cualquier lugar de Colombia. Sin costo, sin fricción: solo tu nombre y un teléfono de
+        contacto.
       </p>
     </div>
   );

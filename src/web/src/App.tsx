@@ -1,4 +1,5 @@
 import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
+import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
@@ -12,6 +13,7 @@ import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
 import { ReportarMascota } from './screens/ReportarMascota';
 import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
+import { ZonaLanding } from './screens/ZonaLanding';
 
 function Nav() {
   // shrink-0 + whitespace-nowrap + overflow-x-auto: en móvil la nav se desliza
@@ -81,6 +83,10 @@ function App() {
           <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
           <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
+          {/* Landings por zona con SEO propio (feature 46): /cali, /armenia, … */}
+          {Object.entries(SLUGS_ZONA).map(([slug, zona]) => (
+            <Route key={slug} path={`/${slug}`} element={<ZonaLanding zona={zona} />} />
+          ))}
         </Route>
       </Routes>
     </div>
