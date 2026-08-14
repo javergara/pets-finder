@@ -88,3 +88,18 @@ Evaluación de <https://www.encontradogs.co/> — competidor directo nacido del 
 - **Score visible y explicable en coincidencias** ("coincide en especie, zona y color") — confianza sin cambiar el motor.
 - **Título auto-compuesto en tarjetas sin nombre** ("Perro mediano café con blanco") — quick win puro de UI.
 - **Alertas por reporte** (correo "avísame si hay novedades de este reporte") — recorta el alcance de la 22 a algo shippeable sin decidir aún el mecanismo por zona.
+
+## 10. Benchmark: Patas en Cali (patitasencali.bolt.host, 2026-08-13)
+
+Tablero comunitario caleño del mismo terremoto (generado con Bolt, sin backend propio visible). Sin cuentas, sin mapa, sin coincidencias, sin alertas ni og por aviso — pero con decisiones de producto que valen la pena:
+
+**Su mecánica central son 4 flujos, no 2**: Perdí / Encontré / **"Necesito ayuda"** (urgencias: rescate, salud, comida) / **"Quiero ayudar"** (ofrezco servicios). Los dos últimos son un tablero de ayuda **entre personas**: "puedo recoger gatitos para hogar de paso", "ofrezco mi casa para animales perdidos", "tengo 2 sacos de comida". Nuestra red de apoyo (§7) solo modela *organizaciones con dirección física* — el particular que ofrece o necesita ayuda puntual no cabe en ella.
+
+**Otras mecánicas observadas**: hasta 3 fotos por aviso con botón "Tomar foto" (cámara directa) además de galería; contacto multicanal opcional (WhatsApp + Instagram + Facebook por aviso); ubicación por comuna de Cali + barrio/referencia en texto; "¿Resuelto?" mediante un código que te dan al publicar (autoría sin cuentas — nosotros ya lo resolvemos con la cuenta liviana); checkbox "mostrar resueltos también"; campo libre de "Logística" ("no se deja agarrar"); y dos **avisos de seguridad** excelentes: al publicar ("este tablero es público, no compartas claves ni cuentas bancarias") y al coordinar encuentros ("nadie debe pedirte dinero; acuerda puntos visibles y ve acompañado; este tablero no verifica los avisos").
+
+**Candidatas a adoptar (decisión del dueño)**:
+1. **Tablero de ayuda entre personas** ("necesito ayuda" / "ofrezco ayuda") integrado en /ayudar junto al directorio de organizaciones — la brecha más real: es el tercer flujo de una emergencia y hoy no tiene dónde vivir en la app.
+2. **Varias fotos por reporte** (hasta 3): flyer + fotos reales de la mascota (cambio de esquema).
+3. **Avisos de seguridad** al publicar y al contactar — puro copy, quick win, y las estafas con recompensas son un riesgo real documentado.
+4. **"Tomar foto" con cámara directa** en móvil (atributo `capture` del input) — trivial.
+5. Instagram/Facebook opcionales como canales de contacto en reportes manuales (hoy solo teléfono; los crawleados ya enlazan su post).
