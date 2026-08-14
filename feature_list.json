@@ -560,6 +560,20 @@
         "Los avisos de seguridad de la feature 40 también aplican en publicar/contactar de la Comunidad",
         "bash init.sh en verde; tabla avisos_ayuda creada en prod antes del merge a main"
       ]
+    },
+    {
+      "id": "43-radar-de-reencuentros",
+      "title": "Radar de reencuentros: cross-matching proactivo con aviso por correo",
+      "description": "Plan de impacto Cali (frente B1): hoy las coincidencias solo se ven si alguien entra al detalle. El radar las vuelve activas: un endpoint protegido (GET/POST /api/radar, Authorization Bearer CRON_SECRET; 503 si la env no está, 401 si el token no coincide) que Vercel Cron dispara a diario — recorre los reportes perdidos activos, calcula coincidencias nuevas con el motor existente (ordenar_coincidencias + razones_coincidencia), y avisa por correo (services/notificaciones, no-op sin Resend) al autor del reporte perdido y a sus suscritos. Tabla nueva radar_avisos (report_id, candidato_id, unique) para no avisar dos veces la misma pareja; tope de 3 candidatos nuevos por reporte por corrida y umbral de puntaje. vercel.json gana el bloque crons. Migración prod aditiva (radar_avisos, RLS) ANTES del merge, con autorización.",
+      "status": "done",
+      "depends_on": ["39-alertas-por-reporte"],
+      "acceptance": [
+        "La selección de parejas es una función pura con tests: solo candidatos no avisados antes, ordenados por puntaje, máximo 3 por reporte, y respeta el umbral",
+        "El endpoint exige el token (401 sin/incorrecto, 503 sin CRON_SECRET configurado), registra las parejas avisadas en radar_avisos y responde el resumen de la corrida",
+        "El correo de coincidencia llega al autor y a los suscritos del reporte perdido (emails deduplicados), con el título compuesto, las razones y el link al candidato (test con envío monkeypatcheado); el fallo del proveedor no rompe la corrida",
+        "Correr el radar dos veces seguidas no re-avisa ninguna pareja (test)",
+        "bash init.sh en verde; tabla radar_avisos creada en prod antes del merge a main"
+      ]
     }
   ]
 }

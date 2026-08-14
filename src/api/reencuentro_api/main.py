@@ -9,7 +9,16 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from .media import MEDIA_DIR
 from .models.base import Base, engine
-from .routers import avisos_ayuda, organizaciones, paginas, reports, suscripciones, uploads, users
+from .routers import (
+    avisos_ayuda,
+    organizaciones,
+    paginas,
+    radar,
+    reports,
+    suscripciones,
+    uploads,
+    users,
+)
 
 logger = logging.getLogger("reencuentro")
 
@@ -63,6 +72,7 @@ app.include_router(uploads.router)
 app.include_router(organizaciones.router)
 app.include_router(avisos_ayuda.router)
 app.include_router(suscripciones.router)
+app.include_router(radar.router)
 app.include_router(paginas.router)
 
 # En serverless (Vercel, ADR 0007) el filesystem es de solo lectura: si no se

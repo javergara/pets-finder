@@ -51,14 +51,10 @@ def test_publica_pido_y_ofrezco_y_lista_mas_reciente_primero(client, user_id):
 def test_filtra_por_tipo_categoria_y_zona(client, user_id):
     client.post("/api/avisos-ayuda", json=_payload(user_id))
     client.post("/api/avisos-ayuda", json=_payload(user_id, tipo="pido", categoria="salud"))
-    client.post(
-        "/api/avisos-ayuda", json=_payload(user_id, zona="Armenia", categoria="transporte")
-    )
+    client.post("/api/avisos-ayuda", json=_payload(user_id, zona="Armenia", categoria="transporte"))
 
     assert len(client.get("/api/avisos-ayuda", params={"tipo": "pido"}).json()) == 1
-    assert (
-        len(client.get("/api/avisos-ayuda", params={"categoria": "hogar_de_paso"}).json()) == 1
-    )
+    assert len(client.get("/api/avisos-ayuda", params={"categoria": "hogar_de_paso"}).json()) == 1
     assert len(client.get("/api/avisos-ayuda", params={"zona": "Cali"}).json()) == 2
 
 
@@ -82,9 +78,7 @@ def test_validaciones_zona_categoria_y_usuario(client, user_id):
 def test_resolver_solo_el_autor_y_solo_una_vez(client, user_id, otro_user_id):
     aviso = client.post("/api/avisos-ayuda", json=_payload(user_id)).json()
 
-    ajeno = client.post(
-        f"/api/avisos-ayuda/{aviso['id']}/resuelto", json={"user_id": otro_user_id}
-    )
+    ajeno = client.post(f"/api/avisos-ayuda/{aviso['id']}/resuelto", json={"user_id": otro_user_id})
     propio = client.post(f"/api/avisos-ayuda/{aviso['id']}/resuelto", json={"user_id": user_id})
     repetido = client.post(f"/api/avisos-ayuda/{aviso['id']}/resuelto", json={"user_id": user_id})
 

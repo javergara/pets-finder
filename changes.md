@@ -585,3 +585,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-14 — 11 veterinarias de Cali importadas a la Red de Apoyo
 
 - Búsqueda en línea (roxmar.pet, paperblog, sitios propios): 8 con urgencias 24 horas (Athenea, Alfa, Total Vet, Servivet, Dogspital, Arka, Pet Market, CMA) + 3 de horario limitado (Sanidad Animal, Sabuesos y Felinos, Tolimedic). Publicadas vía API de prod (orgs 18-28, usuario sistema 70) como tipo veterinaria, zona Cali, con dirección y teléfono reales, horario, pin aproximado por barrio y nota de confirmar por teléfono. Autorizado por el dueño ("las 11"). Script idempotente en scratchpad/importar_veterinarias.py.
+
+## 2026-08-14 — Feature 43: radar de reencuentros (plan de impacto Cali, frente B1)
+
+- Las coincidencias dejan de ser pasivas: GET/POST /api/radar (503 sin CRON_SECRET, 401 con token malo) que Vercel Cron corre a diario (11:00 UTC) — perdidos activos × candidatos con el motor existente, tope 3 por reporte y umbral de puntaje, correo al autor + suscritos (deduplicados) con título compuesto, razones y links, y registro en la tabla nueva `radar_avisos` para no re-avisar jamás (verificado: segunda corrida = 0). `correos_enviados` cuenta solo éxitos (fix del revisor). +6 tests. Aprobada por el revisor (171 API + 139 web) condicionada a la migración de radar_avisos antes del merge.

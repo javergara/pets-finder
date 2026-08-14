@@ -73,3 +73,37 @@ def notificar_novedad(report: Report, suscripciones: list[Suscripcion], novedad:
             _enviar_email(suscripcion.email, asunto, html)
         except Exception:  # noqa: BLE001 — el aviso jamás rompe el endpoint que lo dispara
             logger.exception("Fallo notificando a un suscrito del reporte %s", report.id)
+
+
+def notificar_coincidencia(
+    perdido: Report,
+    candidato: Report,
+    razones: list[str],
+    destinatarios: list[str],
+) -> int:
+    """Aviso del radar (feature 43): "apareció un candidato para tu mascota".
+
+    Devuelve cuántos correos se intentaron enviar. Best-effort como todo aquí.
+    """
+    sitio = _sitio()
+    titulo = titulo_reporte(perdido)
+    titulo_candidato = titulo_reporte(candidato)
+    asunto = f"Posible coincidencia para {titulo} — Pet Finder Col"
+    razones_html = " · ".join(escape(r) for r in razones)
+    html = (
+        f"<p>El radar de Pet Finder Col encontró un reporte que podría ser {escape(titulo)}: "
+        f"<strong>{escape(titulo_candidato)}</strong>.</p>"
+        f"<p>{razones_html}</p>"
+        f'<p><a href="{sitio}/reporte/{candidato.id}">Ver el reporte encontrado</a> · '
+        f'<a href="{sitio}/reporte/{perdido.id}">Tu reporte</a></p>'
+        f'<p style="color:#888;font-size:12px">Revisa las fotos y, si coincide, contacta '
+        f"directamente desde el reporte. Ojalá sea el reencuentro. 💚</p>"
+    )
+    enviados = 0
+    for correo in destinatarios:
+        try:
+            if _enviar_email(correo, asunto, html):
+                enviados += 1
+        except Exception:  # noqa: BLE001 — el aviso jamás rompe la corrida del radar
+            logger.exception("Fallo notificando coincidencia del reporte %s", perdido.id)
+    return enviados

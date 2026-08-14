@@ -2,6 +2,7 @@ from .aviso_ayuda import AvisoAyuda
 from .base import Base, SessionLocal, engine
 from .necesidad import Necesidad
 from .organizacion import Organizacion
+from .radar_aviso import RadarAviso
 from .report import Report
 from .report_foto import ReportFoto
 from .sighting import Sighting
@@ -20,4 +21,5 @@ __all__ = [
     "Suscripcion",
     "ReportFoto",
     "AvisoAyuda",
+    "RadarAviso",
 ]
