@@ -6,6 +6,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
 
+## [2.4.0] - 2026-08-14
+
+Lote del benchmark Patas en Cali (product-research §10) — 3 features revisadas y desplegadas.
+
+### Added
+- **`40-seguridad-y-contacto-multicanal`**: avisos de seguridad anti-estafas al publicar y al contactar, botón de cámara directa en móvil, e Instagram/Facebook opcionales como canales de contacto de los reportes.
+- **`41-fotos-multiples`**: hasta 3 fotos por reporte (tabla `report_fotos`) con galería de miniaturas en el detalle; la principal sigue mandando en tarjetas/mapa/og.
+- **`42-tablero-ayuda-p2p`**: /ayudar con pestañas Lugares/Comunidad — avisos de ayuda entre personas (necesito/ofrezco: hogar de paso, transporte, alimento, salud, rescate) con WhatsApp directo y cierre "Resuelto 💚" (tabla `avisos_ayuda`).
+
 ## [2.3.0] - 2026-08-13
 
 Jornada del benchmark encontradogs.co (product-research §9) — 5 features nuevas revisadas y desplegadas, más la primera ingesta masiva del crawler.
