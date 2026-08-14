@@ -167,14 +167,32 @@ export function FotoUpload({ onFotoSubida }: Props) {
         />
       )}
 
-      <input
-        id="foto-upload"
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={handleChange}
-        disabled={subiendo}
-        className="text-sm text-muted file:mr-3 file:rounded-full file:border file:border-line file:bg-surface file:px-4 file:py-2 file:font-medium file:text-ink"
-      />
+      {/* Dos caminos al mismo flujo (feature 40): la cámara directa en móvil
+          (capture) y la galería. Ambos pasan por el recorte y la compresión. */}
+      <div className="flex flex-wrap gap-2">
+        <label className="cursor-pointer rounded-full border border-line bg-surface px-4 py-2 text-sm font-medium text-ink">
+          📷 Tomar foto
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleChange}
+            disabled={subiendo}
+            className="hidden"
+          />
+        </label>
+        <label className="cursor-pointer rounded-full border border-line bg-surface px-4 py-2 text-sm font-medium text-ink">
+          Elegir de galería
+          <input
+            id="foto-upload"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleChange}
+            disabled={subiendo}
+            className="hidden"
+          />
+        </label>
+      </div>
       {subiendo && <p className="text-sm text-muted">Subiendo la foto…</p>}
       {subida && !subiendo && <p className="text-sm text-forest">Foto lista.</p>}
       {error && <p className="text-sm text-danger">{error}</p>}

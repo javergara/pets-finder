@@ -50,6 +50,8 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
     situacion: null,
     fecha_evento: '2026-08-10',
     telefono_contacto: '3001234561',
+    instagram: null,
+    facebook: null,
     fuente: 'manual',
     crawl_metadata: null,
     idempotency_id: null,
@@ -121,6 +123,24 @@ describe('ReporteDetalle', () => {
     expect(await screen.findByRole('heading', { name: 'Gato' })).toBeInTheDocument();
     expect(screen.getByText('Encontrada')).toBeInTheDocument();
     expect(screen.getByText('La tiene resguardada quien la reportó')).toBeInTheDocument();
+  });
+
+  it('muestra Instagram/Facebook opcionales y el aviso de seguridad (feature 40)', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({ instagram: 'micuenta', facebook: 'https://facebook.com/ana' }),
+    );
+
+    renderDetalle();
+
+    expect(await screen.findByRole('link', { name: 'Instagram' })).toHaveAttribute(
+      'href',
+      'https://www.instagram.com/micuenta/',
+    );
+    expect(screen.getByRole('link', { name: 'Facebook' })).toHaveAttribute(
+      'href',
+      'https://facebook.com/ana',
+    );
+    expect(screen.getByText(/nadie debe pedirte dinero/)).toBeInTheDocument();
   });
 
   it('la caja de novedades suscribe el correo y confirma (feature 39)', async () => {

@@ -520,6 +520,46 @@
         "Sin RESEND_API_KEY el envío es no-op con log y todo lo demás funciona (test)",
         "bash init.sh en verde; tabla suscripciones creada en prod antes del merge a main"
       ]
+    },
+    {
+      "id": "40-seguridad-y-contacto-multicanal",
+      "title": "Avisos de seguridad, cámara directa y contacto por Instagram/Facebook",
+      "description": "Benchmark Patas en Cali (product-research §10): (a) avisos de seguridad — al publicar ('espacio público: no compartas datos bancarios ni claves') y antes de contactar ('nadie debe pedirte dinero; punto de encuentro visible; ve acompañado; Pet Finder Col no verifica los reportes') — componente AvisoSeguridad reutilizable; (b) botón 'Tomar foto' con cámara directa en móvil (input capture) además de la galería, en FotoUpload; (c) columnas opcionales instagram/facebook en Report (reportes manuales) con botones de contacto en el detalle. Migración prod: ALTER TABLE reports ADD COLUMN (aditivo) ANTES del merge, con autorización.",
+      "status": "done",
+      "depends_on": ["35-marca-recorte-y-visibilidad"],
+      "acceptance": [
+        "Los formularios de reportar muestran el aviso de espacio público y el detalle muestra el aviso de seguridad junto a los botones de contacto (tests)",
+        "En FotoUpload hay dos accesos: Tomar foto (input con capture) y Elegir de galería, ambos pasando por el mismo flujo de recorte/compresión (test)",
+        "Un reporte manual puede llevar instagram y/o facebook opcionales y el detalle los muestra como botones con hrefs correctos (tests de API y UI)",
+        "bash init.sh en verde; columnas nuevas en prod antes del merge a main"
+      ]
+    },
+    {
+      "id": "41-fotos-multiples",
+      "title": "Hasta 3 fotos por reporte con galería en el detalle",
+      "description": "Benchmark Patas en Cali: un reporte puede llevar hasta 3 fotos (el flyer + fotos reales de la mascota). Tabla nueva report_fotos (report_id, foto_url, orden); Report.foto_url sigue siendo la principal (tarjetas y og intactos). ReportIn acepta fotos_extra (máx 2), ReportOut expone fotos (principal primero). FotoUpload permite añadir más fotos tras la primera; el detalle muestra galería (foto grande + miniaturas clicables). Migración prod: CREATE TABLE report_fotos ANTES del merge, con autorización.",
+      "status": "todo",
+      "depends_on": ["40-seguridad-y-contacto-multicanal"],
+      "acceptance": [
+        "POST /api/reports con fotos_extra guarda las fotos adicionales y GET las devuelve en orden (principal primero); más de 2 extra es 422",
+        "El formulario permite subir hasta 3 fotos (cada una con el flujo de recorte) y el detalle muestra la galería con miniaturas que cambian la foto grande (tests)",
+        "Tarjetas, mapa y og tags siguen usando la foto principal sin cambios (tests existentes intactos)",
+        "bash init.sh en verde; tabla report_fotos creada en prod antes del merge a main"
+      ]
+    },
+    {
+      "id": "42-tablero-ayuda-p2p",
+      "title": "Ayuda entre personas: necesito ayuda / ofrezco ayuda",
+      "description": "Benchmark Patas en Cali — su mejor idea: el tercer flujo de la emergencia es la ayuda puntual entre vecinos (hogar de paso, transporte, alimento, salud, rescate), que no cabe en el directorio de organizaciones. Modelo AvisoAyuda (user_id, tipo pido|ofrezco, categoria, titulo, descripcion, zona+ciudad_texto/barrio, telefono_contacto, estado activo|resuelto), CRUD /api/avisos-ayuda con los patrones existentes (403 no-autor, zona validada, resolver solo el autor con 409 doble), y /ayudar con dos pestañas: Lugares (directorio actual) y Comunidad (avisos P2P con chips pido/ofrezco + categoría, WhatsApp con mensaje propio, publicar con gate de cuenta, Resuelto 💚 del autor). Migración prod: CREATE TABLE avisos_ayuda ANTES del merge, con autorización.",
+      "status": "todo",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "Un usuario con cuenta publica un aviso (pido u ofrezco, con categoría y zona validada) y aparece en la pestaña Comunidad de /ayudar, filtrable por tipo, categoría y zona",
+        "Solo el autor resuelve o elimina su aviso (403 para otros, 409 si ya está resuelto); los resueltos salen del listado por defecto",
+        "El botón de WhatsApp del aviso lleva un mensaje propio de ayuda (href testeado)",
+        "Los avisos de seguridad de la feature 40 también aplican en publicar/contactar de la Comunidad",
+        "bash init.sh en verde; tabla avisos_ayuda creada en prod antes del merge a main"
+      ]
     }
   ]
 }

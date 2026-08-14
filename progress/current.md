@@ -423,3 +423,19 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Condición explícita (patrón 15/28/32/33)**: tabla nueva `suscripciones` — el merge/push a `main` exige ejecutar ANTES el `CREATE TABLE` aditivo (con el índice de `report_id` y los unique de `email`+`token`) en Supabase Postgres, con autorización del dueño. Con `SKIP_DB_CREATE_ALL=1` en prod la tabla NO se crea sola. Además, para que los correos salgan de verdad: cuenta de Resend + DNS del dominio + `RESEND_API_KEY`/`RESEND_FROM` en Vercel (mientras tanto, no-op con log — aceptable por diseño).
 
 Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 39 en `changes.md` con su hash. Menor: los `import secrets`/`import re` dentro de cuerpos de función funcionan pero lo idiomático es tenerlos arriba del módulo — nit de estilo, no bloquea.
+
+## Veredicto del revisor — feature 40 (2026-08-13): APROBADA, condicionada al paquete de migración de prod (40-42) antes del merge a main
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `47e6fcc`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4 (primera mitad)**: `bash init.sh` corrido de verdad — **verde completo, 155/155 tests de API + 130/130 de web**.
+- **Acceptance 1 (avisos)**: componente `AvisoSeguridad` puro (dos textos por contexto, tono correcto, estilo ochre de advertencia) con tests — "espacio público" en ReportarMascota y "nadie debe pedirte dinero" en ReporteDetalle; por diff también en RegistrarOrganizacion (publicar) y OrganizacionDetalle (contactar). En el detalle el aviso aparece solo en activos con canal de contacto (condición leída) — bien ubicado donde ocurren las estafas.
+- **Acceptance 2 (cámara)**: test del input con `capture="environment"` que entra al mismo flujo de recorte (asevera el encuadre); la galería conserva `id=foto-upload` y `accept` restrictivo; ambos convergen en `handleChange` → recorte de la 35 → compresión de la 19 (leído).
+- **Acceptance 3 (multicanal)**: 3 tests de API (normalización `" @MiCuenta "` → `MiCuenta`, opcionales null, `"@"` → null vía `field_validator`) + test de UI con hrefs exactos (`https://www.instagram.com/micuenta/` y la URL de Facebook http respetada tal cual) + el aviso en el mismo test. **E2E en vivo del revisor**: POST con redes normaliza y persiste, los reportes del seed sin las columnas siguen sirviendo (null), limpieza hecha. `target="_blank" rel="noreferrer"` en ambos botones.
+- **Verificación de la corrección del regex**: las dos expectativas de payload flagged (PUT de MisReportes y `crearOrganizacion` de RegistrarOrganizacion) están intactas en contenido y sin los campos nuevos (las organizaciones no los tienen) — solo quedó una sangría cosmética rara en `RegistrarOrganizacion.test.tsx:58` (sintácticamente válida; prettier del pre-commit la normalizará).
+- **Hallazgo menor del E2E (no bloquea)**: `ReportUpdate` no reusa el validator de normalización — un `PUT` por API puede guardar `"@otra"` con el arroba. Mitigado por partida doble: la pantalla de edición no expone estos campos y `urlPerfilPlataforma` limpia el `@` al construir el href (verificado en el código). Fix sugerido de una línea cuando se toque: aplicar el mismo `field_validator` en `ReportUpdate`.
+- `feature_list.json`: `40-seguridad-y-contacto-multicanal` a `done` — línea 528 por número exacto; los otros dos `+status: todo` del diff son las entradas nuevas 41-42 del líder, no ediciones del revisor; `validate_feature_list.py` → exit 0.
+
+**Condición explícita**: columnas nuevas `reports.instagram`/`reports.facebook` — el merge a `main` exige el `ALTER TABLE ADD COLUMN` aditivo en Supabase Postgres, que irá en el **paquete conjunto 40-42 autorizado por el dueño** (con `SKIP_DB_CREATE_ALL=1` nada se crea solo). El merge no ocurre hasta entonces, como declara el plan.
+
+Pendiente obligatorio al commitear (checkpoint #4): entrada de la feature 40 en `changes.md` con su hash.

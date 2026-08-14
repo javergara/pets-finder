@@ -8,6 +8,7 @@ import { SelectorCiudad } from '../components/SelectorCiudad';
 import { ZONA_OTRO, cajaDeZona } from '../lib/ciudades';
 import { ETIQUETA_TIPO_ORGANIZACION, TIPOS_ORGANIZACION } from '../lib/organizaciones';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
+import { AvisoSeguridad } from '../components/AvisoSeguridad';
 
 export function RegistrarOrganizacion() {
   const [tipo, setTipo] = useState<TipoOrganizacion>('centro_acopio');
@@ -285,6 +286,8 @@ export function RegistrarOrganizacion() {
         <FotoUpload onFotoSubida={setFotoUrl} />
 
         {error && <p className="text-sm text-danger">{error}</p>}
+
+        <AvisoSeguridad contexto="publicar" />
 
         <button
           type="submit"

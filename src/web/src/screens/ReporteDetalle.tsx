@@ -12,6 +12,7 @@ import {
   obtenerReporte,
 } from '../api/client';
 import type { Avistamiento, Coincidencia, Reporte } from '../api/types';
+import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { urlPerfilPlataforma } from '../lib/contacto';
@@ -395,11 +396,42 @@ export function ReporteDetalle() {
             </h2>
           )}
           {reporte.telefono_contacto ? (
-            <ContactoBotones
-              tipo={reporte.tipo}
-              etiqueta={titulo}
-              telefono={reporte.telefono_contacto}
-            />
+            <div className="flex flex-col gap-3">
+              <ContactoBotones
+                tipo={reporte.tipo}
+                etiqueta={titulo}
+                telefono={reporte.telefono_contacto}
+              />
+              {/* Canales opcionales (feature 40). */}
+              {(reporte.instagram || reporte.facebook) && (
+                <div className="flex flex-wrap gap-3">
+                  {reporte.instagram && (
+                    <a
+                      href={urlPerfilPlataforma('instagram', reporte.instagram) ?? '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+                    >
+                      Instagram
+                    </a>
+                  )}
+                  {reporte.facebook && (
+                    <a
+                      href={
+                        reporte.facebook.startsWith('http')
+                          ? reporte.facebook
+                          : urlPerfilPlataforma('facebook', reporte.facebook) ?? '#'
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+                    >
+                      Facebook
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           ) : enlaceOriginal ? (
             <a
               href={enlaceOriginal}
@@ -429,6 +461,10 @@ export function ReporteDetalle() {
             </p>
           )}
         </section>
+      )}
+
+      {reporte.estado === 'activo' && (reporte.telefono_contacto || enlaceOriginal) && (
+        <AvisoSeguridad contexto="contactar" />
       )}
 
       {/* Avísame si hay novedades (feature 39, ADR 0011): correo sin cuenta,

@@ -40,6 +40,9 @@ export type Reporte = {
   fecha_evento: string;
   // Null solo en reportes con fuente 'crawl': el contacto es el post original.
   telefono_contacto: string | null;
+  // Canales opcionales de contacto (feature 40).
+  instagram: string | null;
+  facebook: string | null;
   fuente: 'manual' | 'crawl';
   crawl_metadata: CrawlMetadata | null;
   idempotency_id: string | null;
@@ -84,6 +87,8 @@ export type ReporteIn = {
   situacion?: 'conmigo' | 'vista';
   fecha_evento: string;
   telefono_contacto: string;
+  instagram?: string;
+  facebook?: string;
 };
 
 export type UserProfile = {

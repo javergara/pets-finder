@@ -24,6 +24,7 @@ import {
   ETIQUETA_TIPO_ORGANIZACION,
 } from '../lib/organizaciones';
 import { getActiveUserId } from '../lib/session';
+import { AvisoSeguridad } from '../components/AvisoSeguridad';
 
 export function OrganizacionDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -333,6 +334,7 @@ export function OrganizacionDetalle() {
               Llamar
             </a>
           </div>
+          <AvisoSeguridad contexto="contactar" />
         </section>
       )}
 

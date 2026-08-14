@@ -557,3 +557,7 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 
 - Tabla nueva `suscripciones` (report_id FK, email, token único de baja, unique(report_id,email)). POST /api/reports/{id}/suscripciones (idempotente por correo normalizado, 422/404 en español, sin exponer email/token), GET /api/suscripciones/baja/{token} (HTML en español, 404 si ya no existe). Triggers: avistamiento nuevo y reencuentro avisan a los suscritos (asunto con el título de la 36, link de baja siempre en el correo).
 - Envío vía Resend (ADR 0011) detrás de RESEND_API_KEY/RESEND_FROM: sin key es no-op con log; el fallo del proveedor jamás rompe el endpoint. Caja "🔔 Avísame si hay novedades" en el detalle (solo reportes activos). +7 tests API, +2 web. Aprobada por el revisor (152 API + 127 web), condicionada a CREATE TABLE en prod antes del merge.
+
+## 2026-08-13 — Feature 40: avisos de seguridad, cámara directa y contacto multicanal
+
+- `AvisoSeguridad` (publicar/contactar) en reportar, registrar organización, detalle de reporte y de organización — copy anti-estafas del benchmark Patas en Cali (§10). FotoUpload con dos accesos: "📷 Tomar foto" (capture=environment) y galería, ambos al flujo de recorte/compresión. Columnas nuevas `reports.instagram` (normalizado sin @, también en ReportUpdate por sugerencia del revisor) y `reports.facebook`, campos opcionales al reportar y botones en el detalle. +3 tests API, +3 web. Aprobada por el revisor (155 API + 130 web), migración en el paquete 40-42.

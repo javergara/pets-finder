@@ -45,6 +45,10 @@ class Report(Base):
     # traer teléfono — el contacto es la publicación original (crawl_metadata).
     # Para fuente "manual" sigue siendo obligatorio (validación en el schema).
     telefono_contacto: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Canales opcionales de contacto (feature 40): handle de Instagram y
+    # nombre/URL de perfil de Facebook — el teléfono sigue siendo el principal.
+    instagram: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    facebook: Mapped[str | None] = mapped_column(String(200), nullable=True)
     # Procedencia del reporte (ADR 0010): "manual" (formulario) o "crawl" (el
     # rastreador de redes publica vía la API). JSON es portable: nativo en
     # Postgres y TEXT serializado en SQLite — única excepción a la regla de

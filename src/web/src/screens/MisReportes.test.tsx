@@ -40,6 +40,8 @@ function crearReporte(overrides: Partial<Reporte> = {}): Reporte {
     situacion: null,
     fecha_evento: '2026-08-10',
     telefono_contacto: '3001234561',
+    instagram: null,
+    facebook: null,
     fuente: 'manual',
     crawl_metadata: null,
     idempotency_id: null,

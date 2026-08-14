@@ -34,6 +34,8 @@ function crearResultado(overrides: Partial<Reporte> = {}) {
     situacion: 'conmigo' as const,
     fecha_evento: '2026-08-10',
     telefono_contacto: '3001234567',
+    instagram: null,
+    facebook: null,
     fuente: 'manual' as const,
     crawl_metadata: null,
     idempotency_id: null,

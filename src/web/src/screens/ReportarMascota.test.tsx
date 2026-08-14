@@ -42,6 +42,8 @@ function crearReporteRespuesta(overrides: Partial<Reporte> = {}): Reporte {
     situacion: null,
     fecha_evento: '2026-08-10',
     telefono_contacto: '3001234567',
+    instagram: null,
+    facebook: null,
     fuente: 'manual',
     crawl_metadata: null,
     idempotency_id: null,
@@ -65,6 +67,14 @@ function renderReportar(tipo: 'perdido' | 'encontrado') {
 }
 
 describe('ReportarMascota — campos condicionales', () => {
+  it('muestra el aviso de espacio público y los campos opcionales de redes (feature 40)', () => {
+    renderReportar('perdido');
+
+    expect(screen.getByText(/espacio público/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Instagram (opcional)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Facebook (opcional)')).toBeInTheDocument();
+  });
+
   it('en "perdido" muestra el nombre de la mascota y no la situación', () => {
     renderReportar('perdido');
 

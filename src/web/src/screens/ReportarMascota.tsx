@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ApiError, crearReporte } from '../api/client';
 import type { Reporte } from '../api/types';
+import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { FotoUpload } from '../components/FotoUpload';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { SelectorCiudad } from '../components/SelectorCiudad';
@@ -48,6 +49,8 @@ export function ReportarMascota({ tipo }: Props) {
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [fechaEvento, setFechaEvento] = useState('2026-08-10');
   const [telefono, setTelefono] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [facebook, setFacebook] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [avisoUbicacion, setAvisoUbicacion] = useState<string | null>(null);
   const [sugerenciaUbicacion, setSugerenciaUbicacion] = useState<{
@@ -110,6 +113,8 @@ export function ReportarMascota({ tipo }: Props) {
         situacion: tipo === 'encontrado' ? situacion : undefined,
         fecha_evento: fechaEvento,
         telefono_contacto: telefono.trim(),
+        ...(instagram.trim() ? { instagram: instagram.trim() } : {}),
+        ...(facebook.trim() ? { facebook: facebook.trim() } : {}),
       });
       setCreado(reporte);
     } catch (err) {
@@ -457,6 +462,38 @@ export function ReportarMascota({ tipo }: Props) {
             className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
           />
         </div>
+
+        {/* Canales opcionales (feature 40): quien prefiere DMs los deja aquí. */}
+        <div className="flex flex-wrap gap-3">
+          <div className="min-w-[12rem] flex-1">
+            <label htmlFor="reporte-instagram" className="text-sm font-medium text-ink-soft">
+              Instagram (opcional)
+            </label>
+            <input
+              id="reporte-instagram"
+              type="text"
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="@tucuenta"
+              className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+            />
+          </div>
+          <div className="min-w-[12rem] flex-1">
+            <label htmlFor="reporte-facebook" className="text-sm font-medium text-ink-soft">
+              Facebook (opcional)
+            </label>
+            <input
+              id="reporte-facebook"
+              type="text"
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              placeholder="Tu perfil o su link"
+              className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2 text-ink"
+            />
+          </div>
+        </div>
+
+        <AvisoSeguridad contexto="publicar" />
 
         {error && <p className="text-sm text-danger">{error}</p>}
 

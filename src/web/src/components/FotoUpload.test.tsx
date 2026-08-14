@@ -118,6 +118,19 @@ describe('FotoUpload', () => {
     expect(imagen.comprimirImagen).toHaveBeenCalledWith(original);
   });
 
+  it('la cámara directa es otro camino al mismo flujo de recorte (feature 40)', () => {
+    render(<FotoUpload onFotoSubida={vi.fn()} />);
+
+    const camara = screen.getByLabelText(/Tomar foto/) as HTMLInputElement;
+    expect(camara).toHaveAttribute('capture', 'environment');
+
+    fireEvent.change(camara, {
+      target: { files: [new File(['bytes'], 'cam.jpg', { type: 'image/jpeg' })] },
+    });
+
+    expect(screen.getByText('simular-encuadre')).toBeInTheDocument();
+  });
+
   it('cancelar cierra el paso de recorte sin subir nada', () => {
     render(<FotoUpload onFotoSubida={vi.fn()} />);
     elegirArchivo();

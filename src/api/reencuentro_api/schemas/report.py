@@ -120,7 +120,18 @@ class ReportIn(BaseModel):
     situacion: Situacion | None = None
     fecha_evento: date
     telefono_contacto: str | None = None
+    # Canales opcionales (feature 40): @handle de Instagram (se guarda sin @)
+    # y perfil de Facebook (nombre o URL).
+    instagram: str | None = Field(default=None, max_length=120)
+    facebook: str | None = Field(default=None, max_length=200)
     fuente: Fuente = "manual"
+
+    @field_validator("instagram")
+    @classmethod
+    def normalizar_instagram(cls, v: str | None) -> str | None:
+        limpio = (v or "").strip().lstrip("@")
+        return limpio or None
+
     crawl_metadata: CrawlMetadata | None = None
     # Clave de idempotencia opcional (ADR 0010): mismo valor → mismo reporte,
     # nunca un duplicado. La usa el crawler para que sus retries sean seguros.
@@ -185,7 +196,19 @@ class ReportUpdate(BaseModel):
     foto_url: str | None = None
     barrio: str | None = None
     telefono_contacto: str | None = None
+    instagram: str | None = None
+    facebook: str | None = None
     fecha_evento: date | None = None
+
+    @field_validator("instagram")
+    @classmethod
+    def normalizar_instagram(cls, v: str | None) -> str | None:
+        # Misma normalización que ReportIn: el handle se guarda sin @ ni espacios.
+        if v is None:
+            return None
+        limpio = v.strip().lstrip("@")
+        return limpio or None
+
     # Edición completa (feature 29): características y ubicación del pin.
     # La zona NO se edita (cambiaría el encuadre del mapa y las coincidencias;
     # para eso: eliminar y re-crear el reporte).
@@ -217,6 +240,8 @@ class ReportOut(BaseModel):
     situacion: str | None
     fecha_evento: date
     telefono_contacto: str | None
+    instagram: str | None
+    facebook: str | None
     fuente: str
     crawl_metadata: dict | None
     idempotency_id: str | None

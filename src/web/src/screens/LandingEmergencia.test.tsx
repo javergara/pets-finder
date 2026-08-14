@@ -98,6 +98,8 @@ describe('LandingEmergencia', () => {
           situacion: null,
           fecha_evento: '2026-08-10',
           telefono_contacto: '300',
+          instagram: null,
+          facebook: null,
           fuente: 'manual',
           crawl_metadata: null,
           idempotency_id: null,
