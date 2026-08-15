@@ -172,7 +172,7 @@ export function OrganizacionDetalle() {
 
           {organizacion.como_donar && (
             <section className="rounded-2xl border border-forest-tint-line bg-forest-tint p-6">
-              <h2 className="mb-2 font-display text-lg text-ink">Cómo donar</h2>
+              <h2 className="mb-2 font-display text-lg text-ink">Cómo apoyar</h2>
               <p className="text-ink-soft">{organizacion.como_donar}</p>
             </section>
           )}

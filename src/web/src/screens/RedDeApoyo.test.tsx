@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -204,6 +204,29 @@ describe('RedDeApoyo', () => {
     // Cada tarjeta navega al detalle.
     const links = screen.getAllByRole('link');
     expect(links.some((l) => l.getAttribute('href') === '/organizacion/1')).toBe(true);
+  });
+
+  it('el chip Entrenador filtra y su tarjeta muestra la etiqueta (feature 47)', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([
+      crearOrganizacion({
+        id: 9,
+        tipo: 'entrenador',
+        nombre: 'Camilo Adiestramiento Canino',
+        como_donar: 'Primera valoración gratuita',
+      }),
+    ]);
+
+    renderRed();
+    // El chip existe (filtro y leyenda a la vez) y re-consulta con el tipo.
+    fireEvent.click(await screen.findByRole('button', { name: /Entrenador/ }));
+    await waitFor(() =>
+      expect(client.listarOrganizaciones).toHaveBeenLastCalledWith({
+        tipo: 'entrenador',
+        zona: undefined,
+      }),
+    );
+    expect((await screen.findAllByText('Entrenador')).length).toBeGreaterThan(1);
+    expect(screen.getByText('Camilo Adiestramiento Canino')).toBeInTheDocument();
   });
 
   it('el chip de tipo re-consulta al backend con ese filtro', async () => {

@@ -627,6 +627,19 @@
         "Desde un reporte encontrado propio (situacion conmigo), 'Darla en adopción' pre-llena el form, publica con report_id enlazado y el reporte muestra el aviso con link a la ficha",
         "bash init.sh en verde; sin migración nueva (pets.report_id ya se creó con la tabla en AD-01)"
       ]
+    },
+    {
+      "id": "47-entrenadores",
+      "title": "Entrenadores de perros en la Red de Apoyo",
+      "description": "Pedido del dueño (2026-08-15): sección para entrenadores caninos, con dos propósitos — vitrina gratuita para conseguir clientes (contacto directo por WhatsApp) y recibir apoyo/donaciones como las fundaciones. Se integra como tipo nuevo 'entrenador' de Organizacion (columna String: SIN migración): Literal del schema, catálogo del frontend (etiqueta 'Entrenador', color forest-hover propio en MapaLienzo), chips de /ayudar y ZonaLanding automáticos, copy de /ayudar y del form de registro mencionando entrenadores (el campo como_donar se rotula 'Cómo apoyar' de forma genérica), y sección destacada de servicios en el detalle.",
+      "status": "done",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "POST /api/organizaciones acepta tipo 'entrenador' (y un tipo inventado sigue siendo 422); GET filtra por tipo=entrenador (tests)",
+        "El chip 'Entrenador' aparece en /ayudar con su color propio en la leyenda y el pin del mapa, y filtra el listado (test)",
+        "Se puede registrar un entrenador desde /ayudar/registrar y su detalle muestra el contacto por WhatsApp y la sección de apoyo (tests)",
+        "bash init.sh en verde; sin migración (la columna tipo es texto)"
+      ]
     }
   ]
 }

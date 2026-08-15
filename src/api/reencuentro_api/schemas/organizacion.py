@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..services.ciudades import ZONA_OTRO, zona_valida
 
-TipoOrganizacion = Literal["centro_acopio", "fundacion", "tienda", "veterinaria"]
+TipoOrganizacion = Literal["centro_acopio", "fundacion", "tienda", "veterinaria", "entrenador"]
 EstadoOrganizacion = Literal["activo", "cerrado"]
 
 

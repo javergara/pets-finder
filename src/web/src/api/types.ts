@@ -133,7 +133,12 @@ export type AvistamientoIn = {
   nombre?: string;
 };
 
-export type TipoOrganizacion = 'centro_acopio' | 'fundacion' | 'tienda' | 'veterinaria';
+export type TipoOrganizacion =
+  | 'centro_acopio'
+  | 'fundacion'
+  | 'tienda'
+  | 'veterinaria'
+  | 'entrenador';
 
 export type Organizacion = {
   id: number;
