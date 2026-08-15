@@ -128,4 +128,32 @@ describe('EditarReporte', () => {
     ).toBeInTheDocument();
     await waitFor(() => expect(client.editarReporte).not.toHaveBeenCalled());
   });
+
+  // Fix 2026-08-15: mismo bug que en ReporteDetalle — la carga iba sin `.catch`
+  // y un id inexistente dejaba el esqueleto para siempre.
+  it('si el reporte no existe muestra el mensaje del backend y la salida a /reportes, sin esqueleto', async () => {
+    vi.mocked(client.obtenerReporte).mockRejectedValue(
+      new client.ApiError('El reporte 999 no existe'),
+    );
+
+    renderEditar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El reporte 999 no existe');
+    expect(screen.getByRole('link', { name: /Ver todos los reportes/i })).toHaveAttribute(
+      'href',
+      '/reportes',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('un fallo de red también sale del esqueleto, con copy en español', async () => {
+    vi.mocked(client.obtenerReporte).mockRejectedValue(new Error('offline'));
+
+    renderEditar();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos cargar este reporte. Revisa tu conexión e intenta de nuevo.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
 });

@@ -530,4 +530,41 @@ describe('ReporteDetalle', () => {
       screen.getByText(/Encontrado en Facebook \(grupo Mascotas Perdidas Armenia\)/),
     ).toBeInTheDocument();
   });
+
+  // Fix 2026-08-15: la carga se hacía sin `.catch`, así que un /reporte/{id}
+  // inexistente (link viejo, id mal escrito, reporte eliminado por su autor)
+  // dejaba la pantalla en el esqueleto de carga para siempre.
+  it('si el reporte no existe muestra el mensaje del backend y la salida a /reportes, sin esqueleto', async () => {
+    vi.mocked(client.obtenerReporte).mockRejectedValue(
+      new client.ApiError('El reporte 999 no existe'),
+    );
+    // Con un id inexistente el backend responde 404 también en las secciones
+    // complementarias: ninguna de las tres promesas puede quedar sin atender.
+    vi.mocked(client.listarCoincidencias).mockRejectedValue(
+      new client.ApiError('El reporte 999 no existe'),
+    );
+    vi.mocked(client.listarAvistamientos).mockRejectedValue(
+      new client.ApiError('El reporte 999 no existe'),
+    );
+
+    renderDetalle(999);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('El reporte 999 no existe');
+    expect(screen.getByRole('link', { name: /Ver todos los reportes/i })).toHaveAttribute(
+      'href',
+      '/reportes',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('un fallo de red también sale del esqueleto, con copy en español', async () => {
+    vi.mocked(client.obtenerReporte).mockRejectedValue(new Error('offline'));
+
+    renderDetalle();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos cargar este reporte. Revisa tu conexión e intenta de nuevo.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
 });

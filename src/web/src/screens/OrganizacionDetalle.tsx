@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ApiError,
   crearNecesidad,
@@ -26,6 +26,10 @@ import {
 import { getActiveUserId } from '../lib/session';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 
+// Fix 2026-08-15: la carga iba sin `.catch` (mismo bug que en `ReporteDetalle`),
+// así que una organización inexistente o eliminada dejaba el esqueleto para siempre.
+const MENSAJE_ERROR_CARGA = 'No pudimos cargar este lugar. Revisa tu conexión e intenta de nuevo.';
+
 export function OrganizacionDetalle() {
   const { id } = useParams<{ id: string }>();
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
@@ -43,16 +47,53 @@ export function OrganizacionDetalle() {
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
-    obtenerOrganizacion(Number(id)).then(setOrganizacion);
-    listarNecesidades(Number(id)).then(setNecesidades);
+    setErrorCarga(null);
+    obtenerOrganizacion(Number(id))
+      .then(setOrganizacion)
+      // El backend responde en español ("La organización 7 no existe"): copy de
+      // producto, se muestra tal cual.
+      .catch((err) => setErrorCarga(err instanceof ApiError ? err.message : MENSAJE_ERROR_CARGA));
+    // Las necesidades son una sección complementaria: si fallan (con un id
+    // inexistente el backend responde 404 también aquí) la pantalla sigue en pie,
+    // pero la promesa hay que atenderla o queda un rechazo sin manejar en consola.
+    listarNecesidades(Number(id))
+      .then(setNecesidades)
+      .catch(() => setNecesidades([]));
   }, [id]);
 
+  if (errorCarga) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-6 text-center">
+        <h1 className="font-display text-2xl text-ink">No pudimos mostrar este lugar</h1>
+        <p
+          role="alert"
+          className="rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft"
+        >
+          {errorCarga}
+        </p>
+        <Link
+          to="/ayudar"
+          className="inline-block rounded-full bg-forest px-5 py-2 font-medium text-bg"
+        >
+          Ver los centros de ayuda
+        </Link>
+      </div>
+    );
+  }
+
   if (!organizacion) {
-    return <div className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt" />;
+    return (
+      <div
+        role="status"
+        aria-label="Cargando la información del lugar"
+        className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt"
+      />
+    );
   }
 
   const etiqueta = ETIQUETA_TIPO_ORGANIZACION[organizacion.tipo];

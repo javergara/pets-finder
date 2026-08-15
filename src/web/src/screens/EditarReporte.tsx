@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, editarReporte, mediaUrl, obtenerReporte } from '../api/client';
 import type { Reporte } from '../api/types';
 import { FotoUpload } from '../components/FotoUpload';
@@ -10,6 +10,12 @@ import { getActiveUserId } from '../lib/session';
 // Edición completa (feature 29): mismos campos del formulario de creación,
 // precargados. La zona y la especie no se editan (cambiarían el encuadre y las
 // coincidencias — para eso, eliminar y re-crear).
+//
+// Fix 2026-08-15: la carga iba sin `.catch` (mismo bug que en `ReporteDetalle`),
+// así que editar un reporte ya eliminado dejaba el esqueleto para siempre.
+const MENSAJE_ERROR_CARGA =
+  'No pudimos cargar este reporte. Revisa tu conexión e intenta de nuevo.';
+
 export function EditarReporte() {
   const { id } = useParams<{ id: string }>();
   const [reporte, setReporte] = useState<Reporte | null>(null);
@@ -23,31 +29,63 @@ export function EditarReporte() {
   const [pin, setPin] = useState<{ lat: number; lng: number } | null>(null);
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
-    obtenerReporte(Number(id)).then((r) => {
-      // Solo el autor edita; cualquier otro vuelve al detalle.
-      if (r.user_id !== getActiveUserId()) {
-        navigate(`/reporte/${r.id}`, { replace: true });
-        return;
-      }
-      setReporte(r);
-      setDescripcion(r.descripcion);
-      setTelefono(r.telefono_contacto ?? '');
-      setBarrio(r.barrio ?? '');
-      setFechaEvento(r.fecha_evento);
-      setRaza(r.raza ?? '');
-      setColor(r.color ?? '');
-      setTamano(r.tamano ?? '');
-      setPin({ lat: r.lat, lng: r.lng });
-    });
+    setErrorCarga(null);
+    obtenerReporte(Number(id))
+      .then((r) => {
+        // Solo el autor edita; cualquier otro vuelve al detalle.
+        if (r.user_id !== getActiveUserId()) {
+          navigate(`/reporte/${r.id}`, { replace: true });
+          return;
+        }
+        setReporte(r);
+        setDescripcion(r.descripcion);
+        setTelefono(r.telefono_contacto ?? '');
+        setBarrio(r.barrio ?? '');
+        setFechaEvento(r.fecha_evento);
+        setRaza(r.raza ?? '');
+        setColor(r.color ?? '');
+        setTamano(r.tamano ?? '');
+        setPin({ lat: r.lat, lng: r.lng });
+      })
+      // El backend responde en español ("El reporte 7 no existe"): copy de
+      // producto, se muestra tal cual.
+      .catch((err) => setErrorCarga(err instanceof ApiError ? err.message : MENSAJE_ERROR_CARGA));
   }, [id, navigate]);
 
+  if (errorCarga) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-6 text-center">
+        <h1 className="font-display text-2xl text-ink">No pudimos abrir este reporte</h1>
+        <p
+          role="alert"
+          className="rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft"
+        >
+          {errorCarga}
+        </p>
+        <Link
+          to="/reportes"
+          className="inline-block rounded-full bg-forest px-5 py-2 font-medium text-bg"
+        >
+          Ver todos los reportes
+        </Link>
+      </div>
+    );
+  }
+
   if (!reporte) {
-    return <div className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt" />;
+    return (
+      <div
+        role="status"
+        aria-label="Cargando el reporte"
+        className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt"
+      />
+    );
   }
 
   const razasDisponibles = razasPorEspecie(reporte.especie);

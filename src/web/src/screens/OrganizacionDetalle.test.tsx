@@ -234,4 +234,35 @@ describe('OrganizacionDetalle', () => {
     await screen.findByText('Red stub');
     expect(client.eliminarOrganizacion).toHaveBeenCalledWith(1, 1);
   });
+
+  // Fix 2026-08-15: mismo bug que en ReporteDetalle — la carga iba sin `.catch`
+  // y una organización inexistente (o eliminada) dejaba el esqueleto para siempre.
+  it('si la organización no existe muestra el mensaje del backend y la salida a /ayudar, sin esqueleto', async () => {
+    vi.mocked(client.obtenerOrganizacion).mockRejectedValue(
+      new client.ApiError('La organización 999 no existe'),
+    );
+    vi.mocked(client.listarNecesidades).mockRejectedValue(
+      new client.ApiError('La organización 999 no existe'),
+    );
+
+    renderDetalle();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La organización 999 no existe');
+    expect(screen.getByRole('link', { name: /Ver los centros de ayuda/i })).toHaveAttribute(
+      'href',
+      '/ayudar',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('un fallo de red también sale del esqueleto, con copy en español', async () => {
+    vi.mocked(client.obtenerOrganizacion).mockRejectedValue(new Error('offline'));
+
+    renderDetalle();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No pudimos cargar este lugar. Revisa tu conexión e intenta de nuevo.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
 });

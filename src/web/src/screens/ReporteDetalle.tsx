@@ -52,12 +52,20 @@ function hoyISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Fix 2026-08-15: la carga se hacía con `.then(setReporte)` a secas, así que un
+// `/reporte/{id}` que ya no existe —un link viejo, un id mal escrito, un reporte
+// que su autor eliminó (feature 18)— dejaba la pantalla en el esqueleto de carga
+// para siempre, sin decir nada ni ofrecer salida. Mismo patrón que `MascotaDetalle`.
+const MENSAJE_ERROR_CARGA =
+  'No pudimos cargar este reporte. Revisa tu conexión e intenta de nuevo.';
+
 export function ReporteDetalle() {
   const { id } = useParams<{ id: string }>();
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
   const [avistamientos, setAvistamientos] = useState<Avistamiento[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [confirmandoEliminar, setConfirmandoEliminar] = useState(false);
   const [eliminando, setEliminando] = useState(false);
   const [errorEliminar, setErrorEliminar] = useState<string | null>(null);
@@ -77,13 +85,52 @@ export function ReporteDetalle() {
 
   useEffect(() => {
     if (!id) return;
-    obtenerReporte(Number(id)).then(setReporte);
-    listarCoincidencias(Number(id)).then(setCoincidencias);
-    listarAvistamientos(Number(id)).then(setAvistamientos);
+    setErrorCarga(null);
+    obtenerReporte(Number(id))
+      .then(setReporte)
+      // El backend ya responde en español ("El reporte 7 no existe"): ese texto es
+      // copy de producto, no un detalle técnico, así que se muestra tal cual.
+      .catch((err) => setErrorCarga(err instanceof ApiError ? err.message : MENSAJE_ERROR_CARGA));
+    // Coincidencias y avistamientos son secciones complementarias: si fallan (con
+    // un id inexistente el backend responde 404 también aquí), la pantalla sigue
+    // en pie con la lista vacía — pero la promesa hay que atenderla igual, o queda
+    // un rechazo sin manejar en la consola del usuario.
+    listarCoincidencias(Number(id))
+      .then(setCoincidencias)
+      .catch(() => setCoincidencias([]));
+    listarAvistamientos(Number(id))
+      .then(setAvistamientos)
+      .catch(() => setAvistamientos([]));
   }, [id]);
 
+  if (errorCarga) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4 p-6 text-center">
+        <h1 className="font-display text-2xl text-ink">No pudimos mostrar este reporte</h1>
+        <p
+          role="alert"
+          className="rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft"
+        >
+          {errorCarga}
+        </p>
+        <Link
+          to="/reportes"
+          className="inline-block rounded-full bg-forest px-5 py-2 font-medium text-bg"
+        >
+          Ver todos los reportes
+        </Link>
+      </div>
+    );
+  }
+
   if (!reporte) {
-    return <div className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt" />;
+    return (
+      <div
+        role="status"
+        aria-label="Cargando el reporte"
+        className="mx-auto mt-8 h-96 max-w-2xl animate-pulse rounded-2xl bg-surface-alt"
+      />
+    );
   }
 
   const fotos = reporte.fotos?.length ? reporte.fotos : reporte.foto_url ? [reporte.foto_url] : [];
