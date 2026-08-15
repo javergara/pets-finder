@@ -632,6 +632,117 @@ def test_listado_combina_filtros(client, db_session, otro_usuario, organizacion)
     assert client.get("/api/pets?especie=gato&zona=Armenia").json() == []
 
 
+# --- Filtros multivalor (paso 6b): OR dentro del criterio, AND entre criterios --
+#
+# Los chips de `/adoptar` son de selección múltiple: el cliente manda el mismo
+# parámetro repetido (`?especie=perro&especie=gato`). Mientras el router los
+# declaró como `str | None`, Starlette entregaba **solo el último** y el catálogo
+# filtraba por un valor, sin error y sin aviso. Estos tests son la red contra esa
+# regresión silenciosa.
+
+
+def _sembrar_loro(db_session, organizacion, **overrides) -> Pet:
+    """Una tercera especie fuera del par perro/gato.
+
+    Sin ella, un filtro "perro + gato" no distingue entre "trae la unión" y
+    "trae todo el catálogo". Va aparte de `_sembrar_catalogo` a propósito: los
+    tests del paso 6 cuentan filas y no se les mueve ni un número.
+    """
+    campos = {
+        "organizacion_id": organizacion.id,
+        "nombre": "Kiwi",
+        "especie": "otro",
+        "sexo": "macho",
+        "tamano": "pequeño",
+        "energia": "baja",
+        "zona": "Armenia",
+        "publicado_en": datetime(2026, 8, 9, 9, 0),
+    }
+    campos.update(overrides)
+    loro = _pet(**campos)
+    db_session.add(loro)
+    db_session.commit()
+    return loro
+
+
+def test_listado_filtra_por_varias_especies(client, db_session, otro_usuario, organizacion):
+    """`?especie=perro&especie=gato` devuelve las dos especies, no la última."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    _sembrar_loro(db_session, organizacion)
+
+    nombres = _nombres(client.get("/api/pets?especie=perro&especie=gato"))
+
+    assert sorted(nombres) == ["Canela", "Mishi", "Rocky"]
+    assert "Kiwi" not in nombres
+
+
+def test_listado_filtra_por_varios_tamanos(client, db_session, otro_usuario, organizacion):
+    """Pequeño + grande traen la unión; el mediano (Canela) queda fuera."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    nombres = _nombres(client.get("/api/pets?tamano=pequeño&tamano=grande"))
+
+    assert sorted(nombres) == ["Mishi", "Rocky"]
+
+
+def test_listado_filtra_por_varias_energias(client, db_session, otro_usuario, organizacion):
+    """Baja + alta traen la unión; la media (Canela) queda fuera."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    nombres = _nombres(client.get("/api/pets?energia=baja&energia=alta"))
+
+    assert sorted(nombres) == ["Mishi", "Rocky"]
+
+
+def test_listado_filtra_por_varios_sexos(client, db_session, otro_usuario, organizacion):
+    """`SexoPet` solo tiene dos valores, así que la unión es todo el catálogo
+    disponible — y es justo el caso que el bug del último valor amputaba
+    (devolvía los machos y se comía a Canela)."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    nombres = _nombres(client.get("/api/pets?sexo=hembra&sexo=macho"))
+
+    assert sorted(nombres) == ["Canela", "Mishi", "Rocky"]
+
+
+def test_listado_combina_dos_filtros_multivalor(client, db_session, otro_usuario, organizacion):
+    """Dos criterios multivalor se cruzan: OR dentro de cada uno, AND entre ellos."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    # Grande, pero ni perro ni gato: prueba que el AND entre criterios existe.
+    _sembrar_loro(db_session, organizacion, tamano="grande")
+
+    grandes = _nombres(client.get("/api/pets?especie=perro&especie=gato&tamano=grande"))
+    assert grandes == ["Rocky"]
+
+    mezcla = _nombres(
+        client.get("/api/pets?especie=perro&especie=gato&tamano=grande&tamano=pequeño")
+    )
+    assert sorted(mezcla) == ["Mishi", "Rocky"]
+
+
+def test_listado_con_un_solo_valor_conserva_el_contrato(
+    client, db_session, otro_usuario, organizacion
+):
+    """Regresión: aceptar listas no cambia nada para quien manda un valor único
+    (así llaman hoy el resto de pantallas y el propio `listarMascotas`)."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert sorted(_nombres(client.get("/api/pets?especie=perro"))) == ["Canela", "Rocky"]
+    assert _nombres(client.get("/api/pets?tamano=grande")) == ["Rocky"]
+    assert _nombres(client.get("/api/pets?energia=baja")) == ["Mishi"]
+    assert _nombres(client.get("/api/pets?sexo=hembra")) == ["Canela"]
+
+
+def test_listado_sin_filtros_multivalor_no_restringe(
+    client, db_session, otro_usuario, organizacion
+):
+    """Ausencia de parámetro = sin restricción (mismo criterio que `estado=todos`)."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    _sembrar_loro(db_session, organizacion)
+
+    assert sorted(_nombres(client.get("/api/pets"))) == ["Canela", "Kiwi", "Mishi", "Rocky"]
+
+
 def test_listado_excluye_adoptadas_por_defecto(client, db_session, otro_usuario, organizacion):
     """El catálogo muestra lo adoptable: ni las adoptadas ni las en proceso."""
     _sembrar_catalogo(db_session, otro_usuario, organizacion)

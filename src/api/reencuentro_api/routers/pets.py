@@ -184,10 +184,10 @@ def publicar_mascota(payload: PetIn, session: Session = Depends(get_session)) ->
 @router.get("", response_model=list[PetOut])
 def listar_mascotas(
     response: Response,
-    especie: str | None = Query(default=None),
-    tamano: str | None = Query(default=None),
-    energia: str | None = Query(default=None),
-    sexo: str | None = Query(default=None),
+    especie: list[str] | None = Query(default=None),
+    tamano: list[str] | None = Query(default=None),
+    energia: list[str] | None = Query(default=None),
+    sexo: list[str] | None = Query(default=None),
     zona: str | None = None,
     estado: str = "disponible",
     organizacion_id: int | None = None,
@@ -198,6 +198,23 @@ def listar_mascotas(
     session: Session = Depends(get_session),
 ) -> list[PetOut]:
     """Catálogo de adopción, lo más recién publicado primero.
+
+    **`especie`, `tamano`, `energia` y `sexo` son multivalor**: se repite el
+    parámetro (`?especie=perro&especie=gato`) y se aplica **OR dentro de cada
+    criterio y AND entre criterios** — "perros o gatos, y además grandes". Sin el
+    parámetro (o con la lista vacía) el criterio no restringe nada, igual que
+    `estado=todos`. Declararlos como `str` en vez de `list[str]` hacía que
+    Starlette entregara **solo el último** valor repetido: el catálogo filtraba
+    por uno y descartaba el resto en silencio, sin error (defecto del paso 6,
+    corregido en el 6b).
+
+    `zona` sí es de valor único a propósito: el selector de zona lo es en toda la
+    app (`SelectorCiudad`), y "Todo Colombia" se pide omitiendo el parámetro.
+
+    ⚠️ Este listado **todavía no filtra por edad**: `edad_categoria`
+    (cachorra/joven/adulta/senior) es un tramo derivado de `edad_meses`, no una
+    columna, y su dueño es `services/filtros.py` en AD-03. Si llega en la query
+    se ignora — la UI no debe ofrecer ese chip hasta entonces.
 
     `estado` por defecto es "disponible": una mascota adoptada o en proceso sale
     del catálogo — se piden explícitamente (`estado=adoptado`) o todas con
@@ -221,14 +238,16 @@ def listar_mascotas(
     query = select(Pet)
     if estado != "todos":
         query = query.where(Pet.estado == estado)
-    if especie is not None:
-        query = query.where(Pet.especie == especie)
-    if tamano is not None:
-        query = query.where(Pet.tamano == tamano)
-    if energia is not None:
-        query = query.where(Pet.energia == energia)
-    if sexo is not None:
-        query = query.where(Pet.sexo == sexo)
+    # `if lista:` y no `is not None`: una lista vacía (ningún chip marcado) no
+    # restringe, en vez de generar un `IN ()` que no devolvería nada.
+    if especie:
+        query = query.where(Pet.especie.in_(especie))
+    if tamano:
+        query = query.where(Pet.tamano.in_(tamano))
+    if energia:
+        query = query.where(Pet.energia.in_(energia))
+    if sexo:
+        query = query.where(Pet.sexo.in_(sexo))
     if zona is not None:
         query = query.where(Pet.zona == zona)
     if organizacion_id is not None:
