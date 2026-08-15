@@ -1,7 +1,8 @@
-"""Mascotas en adopción (AD-01): modelo `Pet` y schemas.
+"""Mascotas en adopción (AD-01): modelo `Pet`, schemas y `POST /api/pets`.
 
-El router llega en los pasos 5-6 del plan; aquí solo se ejercitan el invariante
-del CHECK a nivel de DB y las reglas del `model_validator` de `PetIn`.
+Las lecturas (`GET`) llegan en el paso 6 del plan; aquí se ejercitan el
+invariante del CHECK a nivel de DB, las reglas del `model_validator` de `PetIn`
+y la publicación por HTTP.
 
 ⚠️ `Pet` se importa a nivel de módulo a propósito: el fixture `db_session` hace
 `create_all` con lo que esté registrado en `Base.metadata` en ese instante, y un
@@ -9,7 +10,7 @@ import perezoso produce un `no such table: pets` intermitente según el orden de
 colección de pytest.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 from pydantic import ValidationError
@@ -17,7 +18,9 @@ from sqlalchemy.exc import IntegrityError
 
 from reencuentro_api.models.organizacion import Organizacion
 from reencuentro_api.models.pet import Pet
+from reencuentro_api.models.report import Report
 from reencuentro_api.models.user import User
+from reencuentro_api.routers import pets as router_pets
 from reencuentro_api.schemas.pet import PetIn
 
 
@@ -27,6 +30,34 @@ def usuario(db_session):
     db_session.add(user)
     db_session.commit()
     return user
+
+
+@pytest.fixture()
+def otro_usuario(db_session):
+    user = User(nombre="Carlos", email="carlos@example.co", ciudad="Pereira")
+    db_session.add(user)
+    db_session.commit()
+    return user
+
+
+@pytest.fixture()
+def reporte(db_session, usuario):
+    """Un "encontrado" que nadie reclamó: el puente hacia adopción (AD-02)."""
+    report = Report(
+        user_id=usuario.id,
+        tipo="encontrado",
+        especie="perro",
+        descripcion="Perra encontrada cerca del Parque Sucre, la tengo conmigo.",
+        zona="Armenia",
+        lat=4.535,
+        lng=-75.68,
+        situacion="conmigo",
+        fecha_evento=date(2026, 8, 11),
+        telefono_contacto="3001112233",
+    )
+    db_session.add(report)
+    db_session.commit()
+    return report
 
 
 @pytest.fixture()
@@ -217,3 +248,245 @@ def test_petin_de_rescatista_valida():
     assert pet.rescatista_id == 1
     assert pet.organizacion_id is None
     assert pet.ciudad_texto == "Tuluá"
+
+
+# --- POST /api/pets (paso 5) ---------------------------------------------------
+
+
+def test_publicar_mascota_de_organizacion_devuelve_201(client, usuario, organizacion):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=organizacion.id),
+    )
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["organizacion_id"] == organizacion.id
+    assert cuerpo["user_id"] is None
+    assert cuerpo["nombre"] == "Canela"
+    assert cuerpo["estado"] == "disponible"
+    assert cuerpo["fotos"] == []
+    assert cuerpo["tags"] == []
+
+
+def test_publicar_mascota_de_rescatista_guarda_el_dueno_en_user_id(client, usuario, db_session):
+    """La trampa de la colisión: el dueño viaja como `rescatista_id` en el
+    payload y tiene que quedar guardado en la columna `Pet.user_id`."""
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(
+            user_id=usuario.id,
+            organizacion_id=None,
+            rescatista_id=usuario.id,
+            telefono_contacto="3001112233",
+        ),
+    )
+
+    assert respuesta.status_code == 201
+    cuerpo = respuesta.json()
+    assert cuerpo["user_id"] == usuario.id
+    assert cuerpo["organizacion_id"] is None
+
+    guardada = db_session.get(Pet, cuerpo["id"])
+    assert guardada.user_id == usuario.id
+    assert guardada.organizacion_id is None
+    assert guardada.telefono_contacto == "3001112233"
+
+
+def test_publicar_con_ambos_duenos_devuelve_422(client, usuario, organizacion):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(
+            user_id=usuario.id,
+            organizacion_id=organizacion.id,
+            rescatista_id=usuario.id,
+            telefono_contacto="3001112233",
+        ),
+    )
+
+    assert respuesta.status_code == 422
+    assert "exactamente uno" in str(respuesta.json())
+
+
+def test_publicar_sin_dueno_devuelve_422(client, usuario):
+    respuesta = client.post("/api/pets", json=_payload(user_id=usuario.id, organizacion_id=None))
+
+    assert respuesta.status_code == 422
+    assert "exactamente uno" in str(respuesta.json())
+
+
+def test_publicar_a_nombre_de_otro_rescatista_devuelve_422(client, usuario, otro_usuario):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(
+            user_id=usuario.id,
+            organizacion_id=None,
+            rescatista_id=otro_usuario.id,
+            telefono_contacto="3001112233",
+        ),
+    )
+
+    assert respuesta.status_code == 422
+    assert "a su propio nombre" in str(respuesta.json())
+
+
+def test_publicar_como_rescatista_sin_telefono_devuelve_422(client, usuario):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=None, rescatista_id=usuario.id),
+    )
+
+    assert respuesta.status_code == 422
+    assert "teléfono de contacto" in str(respuesta.json())
+
+
+def test_publicar_en_organizacion_inexistente_devuelve_404(client, usuario):
+    respuesta = client.post("/api/pets", json=_payload(user_id=usuario.id, organizacion_id=9999))
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
+
+
+def test_publicar_con_rescatista_inexistente_devuelve_404(client, db_session):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(
+            user_id=9999,
+            organizacion_id=None,
+            rescatista_id=9999,
+            telefono_contacto="3001112233",
+        ),
+    )
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
+
+
+def test_publicar_en_organizacion_ajena_devuelve_403(client, organizacion, otro_usuario):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=otro_usuario.id, organizacion_id=organizacion.id),
+    )
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == (
+        "Solo quien registró la organización puede publicar mascotas en adopción"
+    )
+
+
+def test_publicar_con_reporte_inexistente_devuelve_404(client, usuario, organizacion):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=organizacion.id, report_id=9999),
+    )
+
+    assert respuesta.status_code == 404
+    assert "9999" in respuesta.json()["detail"]
+
+
+def test_publicar_dos_veces_el_mismo_reporte_devuelve_409(client, usuario, organizacion, reporte):
+    cuerpo = _payload(user_id=usuario.id, organizacion_id=organizacion.id, report_id=reporte.id)
+
+    primera = client.post("/api/pets", json=cuerpo)
+    segunda = client.post("/api/pets", json=cuerpo)
+
+    assert primera.status_code == 201
+    assert primera.json()["report_id"] == reporte.id
+    assert segunda.status_code == 409
+    assert segunda.json()["detail"] == "Este reporte ya tiene una mascota publicada en adopción"
+
+
+def test_carrera_por_el_mismo_reporte_devuelve_409(
+    client, usuario, organizacion, reporte, monkeypatch
+):
+    """El select previo ciego (como en una carrera real entre dos requests): el
+    índice único de `report_id` es quien rechaza el insert, y sin atrapar el
+    `IntegrityError` eso sería un 500 con traza en vez de un 409 de producto."""
+    cuerpo = _payload(user_id=usuario.id, organizacion_id=organizacion.id, report_id=reporte.id)
+    assert client.post("/api/pets", json=cuerpo).status_code == 201
+
+    consulta_real = router_pets._mascota_del_reporte
+    llamadas = []
+
+    def _ciego_la_primera_vez(session, report_id):
+        llamadas.append(report_id)
+        return None if len(llamadas) == 1 else consulta_real(session, report_id)
+
+    monkeypatch.setattr(router_pets, "_mascota_del_reporte", _ciego_la_primera_vez)
+
+    respuesta = client.post("/api/pets", json=cuerpo)
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"] == "Este reporte ya tiene una mascota publicada en adopción"
+    # El select previo Y el de después del rollback: la segunda consulta es la
+    # que convierte el error de DB en el mensaje de producto.
+    assert len(llamadas) == 2
+
+
+@pytest.mark.parametrize(
+    ("campo", "valor"),
+    [
+        ("especie", "dragón"),
+        ("sexo", "macha"),
+        ("tamano", "gigante"),
+        ("energia", "altísima"),
+    ],
+)
+def test_publicar_con_literal_invalido_devuelve_422(client, usuario, organizacion, campo, valor):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=organizacion.id, **{campo: valor}),
+    )
+
+    assert respuesta.status_code == 422
+
+
+def test_publicar_con_zona_desconocida_devuelve_422(client, usuario, organizacion):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=organizacion.id, zona="Palmira"),
+    )
+
+    assert respuesta.status_code == 422
+    assert "Zona desconocida" in str(respuesta.json())
+
+
+def test_publicar_con_zona_otro_sin_ciudad_texto_devuelve_422(client, usuario, organizacion):
+    respuesta = client.post(
+        "/api/pets",
+        json=_payload(user_id=usuario.id, organizacion_id=organizacion.id, zona="Otro"),
+    )
+
+    assert respuesta.status_code == 422
+    assert "ciudad_texto" in str(respuesta.json())
+
+
+# --- Helper de autoría, que reusan las lecturas (paso 6) y AD-02 ---------------
+
+
+def test_dueno_de_mascota_de_organizacion_es_quien_la_registro(db_session, usuario, organizacion):
+    pet = _pet(organizacion_id=organizacion.id)
+    db_session.add(pet)
+    db_session.commit()
+
+    assert router_pets._dueno_user_id(db_session, pet) == usuario.id
+
+
+def test_dueno_de_mascota_de_rescatista_es_el_rescatista(db_session, usuario):
+    pet = _pet(user_id=usuario.id, telefono_contacto="3001112233")
+    db_session.add(pet)
+    db_session.commit()
+
+    assert router_pets._dueno_user_id(db_session, pet) == usuario.id
+
+
+def test_dueno_de_mascota_con_organizacion_borrada_es_nadie(db_session, organizacion):
+    """Si la organización se elimina (feature 32), la mascota queda sin nadie
+    que pueda gestionarla — mejor eso que un 500 o un 403 que autorice de más."""
+    pet = _pet(organizacion_id=organizacion.id)
+    db_session.add(pet)
+    db_session.commit()
+    db_session.delete(organizacion)
+    db_session.commit()
+
+    assert router_pets._dueno_user_id(db_session, pet) is None

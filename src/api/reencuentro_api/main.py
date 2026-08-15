@@ -13,6 +13,7 @@ from .routers import (
     avisos_ayuda,
     organizaciones,
     paginas,
+    pets,
     radar,
     reports,
     suscripciones,
@@ -73,6 +74,9 @@ app.include_router(organizaciones.router)
 app.include_router(avisos_ayuda.router)
 app.include_router(suscripciones.router)
 app.include_router(radar.router)
+app.include_router(pets.router)
+# `paginas` va SIEMPRE último: registra rutas de raíz (/reporte/{id}, /zona/…)
+# sin prefijo, así que cualquier router nuevo se monta antes que él.
 app.include_router(paginas.router)
 
 # En serverless (Vercel, ADR 0007) el filesystem es de solo lectura: si no se
