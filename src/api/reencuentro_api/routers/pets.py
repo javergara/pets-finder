@@ -7,13 +7,15 @@ de `/{pet_id}`, FastAPI intentaría parsearla como int y respondería 422 (misma
 regla que ya sigue `routers/reports.py`).
 """
 
+import math
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import false, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..media import borrar_foto
 from ..models.organizacion import Organizacion
@@ -29,6 +31,7 @@ from ..schemas.pet import (
     PublicadorOut,
 )
 from ..services.db import get_session
+from ..services.filtros import EDAD_CATEGORIA_RANGOS
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -52,6 +55,36 @@ def _dueno_user_id(session: Session, pet: Pet) -> int | None:
         organizacion = session.get(Organizacion, pet.organizacion_id)
         return organizacion.user_id if organizacion is not None else None
     return pet.user_id
+
+
+def _condicion_edad(categorias: Sequence[str]) -> ColumnElement[bool]:
+    """Traduce los tramos de edad (`cachorro`/`joven`/`adulto`/`senior`) a un
+    `OR` de rangos sobre `Pet.edad_meses`, a partir de `EDAD_CATEGORIA_RANGOS`.
+
+    ⚠️ **Tiene que ser SQL, no un filtro en Python.** `listar_mascotas` cuenta el
+    total con la query sin paginar y recién después aplica el `LIMIT`: recortar
+    tramos de edad sobre la página ya traída haría que `X-Total-Count` mintiera
+    (diría 40 y la UI pintaría 3), y además dejaría páginas de tamaño irregular.
+
+    Los cortes no se repiten aquí: salen del diccionario de `services/filtros.py`,
+    que es la fuente de verdad única (y que ya importa el 84 de `descubrir.py`).
+    Una categoría fuera de catálogo no encuentra a nadie —mismo trato que
+    `?especie=dinosaurio`—, en vez de ignorarse y devolver el catálogo entero como
+    si el filtro hubiera funcionado.
+    """
+    condiciones: list[ColumnElement[bool]] = []
+    for categoria in categorias:
+        rango = EDAD_CATEGORIA_RANGOS.get(categoria)
+        if rango is None:
+            continue
+        minimo, maximo = rango
+        if math.isinf(maximo):
+            condiciones.append(Pet.edad_meses >= minimo)
+        else:
+            condiciones.append(Pet.edad_meses.between(minimo, int(maximo)))
+    if not condiciones:
+        return false()
+    return or_(*condiciones)
 
 
 def _mascota_del_reporte(session: Session, report_id: int) -> Pet | None:
@@ -209,6 +242,7 @@ def listar_mascotas(
     tamano: list[str] | None = Query(default=None),
     energia: list[str] | None = Query(default=None),
     sexo: list[str] | None = Query(default=None),
+    edad_categoria: list[str] | None = Query(default=None),
     zona: str | None = None,
     estado: str = "disponible",
     organizacion_id: int | None = None,
@@ -220,11 +254,11 @@ def listar_mascotas(
 ) -> list[PetOut]:
     """Catálogo de adopción, lo más recién publicado primero.
 
-    **`especie`, `tamano`, `energia` y `sexo` son multivalor**: se repite el
-    parámetro (`?especie=perro&especie=gato`) y se aplica **OR dentro de cada
-    criterio y AND entre criterios** — "perros o gatos, y además grandes". Sin el
-    parámetro (o con la lista vacía) el criterio no restringe nada, igual que
-    `estado=todos`. Declararlos como `str` en vez de `list[str]` hacía que
+    **`especie`, `tamano`, `energia`, `sexo` y `edad_categoria` son multivalor**:
+    se repite el parámetro (`?especie=perro&especie=gato`) y se aplica **OR dentro
+    de cada criterio y AND entre criterios** — "perros o gatos, y además grandes".
+    Sin el parámetro (o con la lista vacía) el criterio no restringe nada, igual
+    que `estado=todos`. Declararlos como `str` en vez de `list[str]` hacía que
     Starlette entregara **solo el último** valor repetido: el catálogo filtraba
     por uno y descartaba el resto en silencio, sin error (defecto del paso 6,
     corregido en el 6b).
@@ -232,10 +266,11 @@ def listar_mascotas(
     `zona` sí es de valor único a propósito: el selector de zona lo es en toda la
     app (`SelectorCiudad`), y "Todo Colombia" se pide omitiendo el parámetro.
 
-    ⚠️ Este listado **todavía no filtra por edad**: `edad_categoria`
-    (cachorra/joven/adulta/senior) es un tramo derivado de `edad_meses`, no una
-    columna, y su dueño es `services/filtros.py` en AD-03. Si llega en la query
-    se ignora — la UI no debe ofrecer ese chip hasta entonces.
+    `edad_categoria` (cachorro/joven/adulto/senior) es un tramo derivado de
+    `edad_meses`, no una columna: lo traduce a SQL `_condicion_edad` con los
+    cortes de `services/filtros.py`. ⚠️ Se filtra en la base **antes** de contar y
+    paginar, nunca en Python sobre la página ya traída — ver el aviso de ese
+    helper: el `X-Total-Count` de abajo mentiría.
 
     `estado` por defecto es "disponible": una mascota adoptada o en proceso sale
     del catálogo — se piden explícitamente (`estado=adoptado`) o todas con
@@ -253,8 +288,9 @@ def listar_mascotas(
     la respuesta es la lista completa (patrón de `listar_reportes`).
 
     `tags` no se filtra aquí: la columna es JSON (TEXT en SQLite, `json` en
-    Postgres) y ni `LIKE` ni `->>` son portables entre las dos — ese filtro llega
-    en AD-03, en Python, con `services/filtros.py`.
+    Postgres) y ni `LIKE` ni `->>` son portables entre las dos. Ese criterio vive
+    en Python, en `services/filtros.py`, y solo lo usa el deck — por eso tampoco
+    se ofrece como chip en el catálogo.
     """
     query = select(Pet)
     if estado != "todos":
@@ -269,6 +305,8 @@ def listar_mascotas(
         query = query.where(Pet.energia.in_(energia))
     if sexo:
         query = query.where(Pet.sexo.in_(sexo))
+    if edad_categoria:
+        query = query.where(_condicion_edad(edad_categoria))
     if zona is not None:
         query = query.where(Pet.zona == zona)
     if organizacion_id is not None:

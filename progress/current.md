@@ -72,7 +72,7 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 2. ✅ **HECHO (2026-08-15)** — **`models/home_profile.py` + perfil en el seed.** ⚠️ Trampa que rompe el arranque entero: adopta-v1 declara `relationship(back_populates="home_profile")` y el `User` de este repo no tiene ese atributo → `InvalidRequestError` al configurar mappers, falla el *import*. **Se borra la relación al portar.** `presupuesto_mensual_cop` nullable. Test de guard: `from reencuentro_api.main import app` no lanza. Ver "Resultado del paso 2".
 3. ✅ **HECHO (2026-08-15)** — **`services/afinidad.py`** — port con cinco cambios exactos: imports, `razones: tuple[str, ...]` (tuple, no list, el dataclass es `frozen`), `_razones()` nueva con ≥2 frases, el literal `84` repetido con comentario (**no importar de `descubrir.py`**: invertiría la capa modelos→schemas), y `presupuesto None` → solo experiencia (sin esa línea, `None >= costo` es `TypeError` y revienta el deck de quien no dé el dato). Pesos y reglas duras intactos.
 4. ✅ **HECHO (2026-08-15)** — **`services/descubrir.py`** — port sin cambios de lógica. Conservar `datetime.now(timezone.utc).replace(tzinfo=None)`: `publicado_en` es `timestamp without time zone` en ambos motores. Caso nuevo: `ordenar_deck` con todas las afinidades en `None`, que es el camino por defecto de AD-03.
-5. **`services/filtros.py`** + el catálogo honra `edad_categoria`. `distancia_km` pierde el default `15.0` (escondía resultados en silencio: aquí muchas mascotas no tienen pin). ⚠️ El tramo de edad se traduce a **SQL**, no se filtra en Python después del `LIMIT`, o `X-Total-Count` miente. `tags` sí en Python (JSON no es portable en SQL) y por eso no se ofrece como chip.
+5. ✅ **HECHO (2026-08-15)** — **`services/filtros.py`** + el catálogo honra `edad_categoria`. `distancia_km` pierde el default `15.0` (escondía resultados en silencio: aquí muchas mascotas no tienen pin). ⚠️ El tramo de edad se traduce a **SQL**, no se filtra en Python después del `LIMIT`, o `X-Total-Count` miente. `tags` sí en Python (JSON no es portable en SQL) y por eso no se ofrece como chip. Ver "Resultado del paso 5".
 6. **`Swipe` + `POST /api/swipes`** idempotente. ⚠️ **`Swipe.user_id` es el ADOPTANTE**, al revés que en `pets`. `UniqueConstraint` nuevo respecto a adopta-v1 + select previo **Y** `IntegrityError` con `rollback()` (en serverless dos requests corren a la vez). Los 404 salen de comprobaciones **en el código**: SQLite no fuerza las FK.
 7. **`GET /api/pets/deck`** — declarado **entre `/adopciones` y `/{pet_id}`**, o "deck" se parsea como id y da 422. `ordenar_deck` se llama **siempre**, también sin perfil (adopta-v1 solo ordenaba con `home`, y sin eso las difíciles no se intercalan para la mayoría). Test de query-count con `expunge_all()` y publicadores distintos por fila.
 8. **Los dos `.sql` + test anti-drift** calcado del de AD-01. No se ejecuta nada aquí.
@@ -81,7 +81,7 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 11. **`DescubrirMascotas`** en `/adoptar/descubrir`. Carta quitada optimistamente con `slice(1)` y **sin refetch**; un fallo de red no la revierte. Sin cuenta, "Me interesa" lleva a `/registro`. **No se porta `RequiereHomeProfile`**: un guard bloqueante contradice la cuenta liviana.
 12. **Cierre**: `init.sh` >292/>285, build, recorrido en Chrome real, 360px, DB al seed.
 
-**Paso actual: 5.**
+**Paso actual: 6.**
 
 ### Resultado del paso 1 (2026-08-15)
 
@@ -122,6 +122,17 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 - **La constante `AHORA` de módulo del original es ahora la función `_ahora()`**: un instante calculado una vez en la importación es una fecha-bomba latente — misma lección que `Reportes.test.tsx` en la feature 35.
 - **Mutación verificada de verdad**: cambiar el naive por `datetime.now(timezone.utc)` deja en rojo **5 de 7** con `TypeError: can't subtract offset-naive and offset-aware datetimes`. Los dos que siguen verdes (senior y "necesita experiencia") retornan antes de la resta — justo por eso hacía falta un caso que llegue hasta ahí. Restaurado con el mismo md5 (`45d9c7c713d15241c846bc6f7eeccca9`, `diff` vacío).
 - Verificado en esta sesión: `.venv/bin/pytest tests/api/test_descubrir.py -v` 7/7; `pytest tests/api` **322/322**; ruff + black limpios; `bash init.sh` exit 0 con **322 API + 285 web** (315 antes). `feature_list.json` sin tocar; sin `filtros.py` (paso 5) ni el modelo `Swipe` (paso 6).
+
+### Resultado del paso 5 (2026-08-15)
+
+- `src/api/reencuentro_api/services/filtros.py` — nuevo (port de `origin/adopta-v1:.../services/filters.py`), función pura sobre `PetOut` con la firma de `aplicar_filtros(pets, filtros, user_lat, user_lng)` **intacta** y tres cambios: `FiltrosDeck` gana `zona` y `tags`, `distancia_km` pasa a `None`, y `EDAD_CATEGORIA_RANGOS` queda como fuente de verdad única de los tramos.
+- **`distancia_km` sin default de 15 km**: era herencia de un producto urbano de Bogotá con coordenadas en todas las fichas; aquí escondía resultados en silencio. La degradación elegante (sin lat/lng no se excluye a nadie, `distancia_km=None`) sobrevive con sus tres tests, y `test_sin_distancia_km_no_excluye_nada` fija el default nuevo.
+- **`tags` se filtra en Python** (JSON = TEXT en SQLite y `json` en Postgres; ni `LIKE` ni `->>` son portables) y por eso **no** se ofrece como chip; solo lo usará el deck del paso 7.
+- `src/api/reencuentro_api/routers/pets.py` — `listar_mascotas` acepta `edad_categoria` multivalor y lo traduce a SQL con `_condicion_edad` (un `or_()` de rangos leído de `EDAD_CATEGORIA_RANGOS`, `math.inf` = sin tope). El aviso de "todavía no filtra por edad" del docstring se reemplazó por el porqué del SQL. Tramo fuera de catálogo → `false()`, nadie, como `?especie=dinosaurio`.
+- `tests/api/test_filtros.py` — nuevo, 19 tests (los 15 de adopta-v1 con las coordenadas de `test_geo.py`, sin inventar distancias, + zona, zona vacía, tags y el default). **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.services.filtros'`.
+- `tests/api/test_pets.py` — **solo adiciones** (+5 tests, +`_sembrar_edades`, `git diff --numstat`: `125 0` antes del formateo). **Rojo inicial**: 5 fallos.
+- **Mutación verificada de verdad**: filtrar el tramo en Python después del `LIMIT` deja en rojo `test_total_count_refleja_el_filtro_de_edad` (`assert '4' == '2'`); los otros tres tests de edad siguen verdes bajo esa mutación, que es justo por qué hacía falta uno que paginara. Router restaurado con el mismo md5 (`ba2f6315ded8beffde4eec1574bcff96`).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_filtros.py tests/api/test_pets.py -v` 88/88; `pytest tests/api` **346/346**; ruff + black limpios; `bash init.sh` exit 0 con **346 API + 285 web** (322 antes). `feature_list.json` sin tocar; sin `Swipe` (paso 6), sin `GET /api/pets/deck` (paso 7) y sin frontend (los cortes de `lib/adopcion.ts` no cambiaron).
 
 ---
 

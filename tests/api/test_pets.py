@@ -979,3 +979,128 @@ def test_detalle_de_mascota_inexistente_devuelve_404(client, db_session):
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "La mascota 9999 no existe"
+
+
+# --- Filtro por tramo de edad (AD-03 paso 5) -----------------------------------
+#
+# `edad_categoria` es un tramo derivado de `edad_meses`, no una columna. Sus
+# cortes viven en `EDAD_CATEGORIA_RANGOS` (`services/filtros.py`) y el listado los
+# traduce a SQL. La alternativa —filtrar en Python la página ya recortada por el
+# `LIMIT`— haría **mentir a `X-Total-Count`**, que se calcula antes de paginar: el
+# frontend pintaría "5 resultados" y mostraría dos. De ahí el tercer test.
+
+
+def _sembrar_edades(db_session, organizacion) -> dict[str, Pet]:
+    """Una mascota por tramo, con las dos cachorras que necesita el test del
+    total. Va aparte de `_sembrar_catalogo` (donde todas tienen 18 meses) para no
+    moverle ni un número a los tests del paso 6."""
+    mascotas = {
+        "cachorra": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Pelusa",
+            edad_meses=5,
+            publicado_en=datetime(2026, 8, 14, 9, 0),
+        ),
+        "cachorro": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Tomás",
+            edad_meses=11,
+            publicado_en=datetime(2026, 8, 13, 9, 0),
+        ),
+        "adulta": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Luna",
+            edad_meses=48,
+            publicado_en=datetime(2026, 8, 12, 9, 0),
+        ),
+        "senior": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Abuelo",
+            edad_meses=100,
+            publicado_en=datetime(2026, 8, 11, 9, 0),
+        ),
+    }
+    db_session.add_all(mascotas.values())
+    db_session.commit()
+    return mascotas
+
+
+def test_listado_filtra_por_edad_categoria(client, db_session, organizacion):
+    _sembrar_edades(db_session, organizacion)
+
+    assert _nombres(client.get("/api/pets?edad_categoria=cachorro")) == ["Pelusa", "Tomás"]
+    assert _nombres(client.get("/api/pets?edad_categoria=adulto")) == ["Luna"]
+    assert _nombres(client.get("/api/pets?edad_categoria=senior")) == ["Abuelo"]
+    # El tramo sin mascotas no arrastra a las demás.
+    assert client.get("/api/pets?edad_categoria=joven").json() == []
+
+
+def test_listado_combina_dos_tramos_de_edad_con_or(client, db_session, organizacion):
+    """Multivalor como el resto de los chips: OR dentro del criterio."""
+    _sembrar_edades(db_session, organizacion)
+
+    respuesta = client.get("/api/pets?edad_categoria=cachorro&edad_categoria=senior")
+
+    assert _nombres(respuesta) == ["Pelusa", "Tomás", "Abuelo"]
+
+
+def test_listado_combina_edad_con_los_demas_filtros(client, db_session, organizacion):
+    """AND entre criterios: el tramo de edad no anula los otros chips ni al revés.
+
+    Los dos gatos son la red del test: con uno solo, filtrar por especie ya daría
+    la respuesta correcta aunque la edad se ignorara.
+    """
+    _sembrar_edades(db_session, organizacion)
+    db_session.add_all(
+        [
+            _pet(
+                organizacion_id=organizacion.id,
+                nombre="Michi bebé",
+                especie="gato",
+                edad_meses=4,
+                publicado_en=datetime(2026, 8, 15, 9, 0),
+            ),
+            _pet(
+                organizacion_id=organizacion.id,
+                nombre="Michi adulto",
+                especie="gato",
+                edad_meses=60,
+                publicado_en=datetime(2026, 8, 15, 8, 0),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    assert _nombres(client.get("/api/pets?edad_categoria=cachorro&especie=gato")) == ["Michi bebé"]
+    assert _nombres(client.get("/api/pets?edad_categoria=cachorro")) == [
+        "Michi bebé",
+        "Pelusa",
+        "Tomás",
+    ]
+
+
+def test_total_count_refleja_el_filtro_de_edad(client, db_session, organizacion):
+    """El total viaja en el header y se calcula **sin paginar**: si el tramo de
+    edad se aplicara en Python después del `LIMIT`, diría 4 en vez de 2."""
+    _sembrar_edades(db_session, organizacion)
+
+    pagina = client.get("/api/pets?edad_categoria=cachorro&limit=1")
+
+    assert pagina.headers["X-Total-Count"] == "2"
+    assert _nombres(pagina) == ["Pelusa"]
+    assert client.get("/api/pets?edad_categoria=senior").headers["X-Total-Count"] == "1"
+    assert client.get("/api/pets").headers["X-Total-Count"] == "4"
+
+
+def test_listado_con_tramo_de_edad_desconocido_no_devuelve_nada(client, db_session, organizacion):
+    """Mismo trato que `?especie=dinosaurio`: un valor fuera de catálogo no
+    encuentra a nadie. Ignorarlo devolvería el catálogo entero como si el filtro
+    hubiera funcionado — el fallo silencioso que este endpoint ya sufrió con los
+    multivalor (paso 6b)."""
+    _sembrar_edades(db_session, organizacion)
+
+    respuesta = client.get("/api/pets?edad_categoria=viejito")
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == []
+    assert respuesta.headers["X-Total-Count"] == "0"
