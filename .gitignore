@@ -36,3 +36,6 @@ crawler/estado/
 # Logs
 *.log
 npm-debug.log*
+
+# Datos personales de exports externos — nunca al repo (pedido del dueño 2026-08-15)
+pets_info/
