@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEMO_USER_ID } from './constants';
-import { getActiveUserId, hasActiveUser, setActiveUserId } from './session';
+import { esUsuarioActivo, getActiveUserId, hasActiveUser, setActiveUserId } from './session';
 
 afterEach(() => {
   localStorage.clear();
@@ -33,5 +33,33 @@ describe('session', () => {
     setActiveUserId(DEMO_USER_ID);
 
     expect(hasActiveUser()).toBe(true);
+  });
+});
+
+// Fix 2026-08-15 (bug de autoría sin cuenta): comparar a mano contra
+// getActiveUserId() convertía a cualquier visitante anónimo en el usuario
+// DEMO_USER_ID, que es una persona real en producción. Este es el caso que
+// ninguna pantalla debe volver a resolver por su cuenta.
+describe('esUsuarioActivo', () => {
+  it('sin cuenta es false, incluso para el DEMO_USER_ID al que cae getActiveUserId', () => {
+    expect(getActiveUserId()).toBe(DEMO_USER_ID);
+
+    expect(esUsuarioActivo(DEMO_USER_ID)).toBe(false);
+  });
+
+  it('con cuenta, es true solo para su propio id', () => {
+    setActiveUserId(7);
+
+    expect(esUsuarioActivo(7)).toBe(true);
+  });
+
+  it('con cuenta, el id de otra persona es false', () => {
+    setActiveUserId(7);
+
+    expect(esUsuarioActivo(2)).toBe(false);
+    // null/undefined llegan de recursos sin dueño (una organización eliminada);
+    // nadie es su autor.
+    expect(esUsuarioActivo(null)).toBe(false);
+    expect(esUsuarioActivo(undefined)).toBe(false);
   });
 });

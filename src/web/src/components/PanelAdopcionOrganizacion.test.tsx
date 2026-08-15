@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Mascota } from '../api/types';
-import { setActiveUserId } from '../lib/session';
+import { esUsuarioActivo, setActiveUserId } from '../lib/session';
 import { PanelAdopcionOrganizacion } from './PanelAdopcionOrganizacion';
 
 vi.mock('../api/client', async () => {
@@ -238,5 +238,21 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
       'No pudimos cargar las mascotas en adopción de este lugar.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // Fix 2026-08-15 (bug de autoría sin cuenta). El panel recibe `esAutor` ya
+  // calculado, así que el caso se ejercita con el mismo cálculo que hace
+  // OrganizacionDetalle: `esUsuarioActivo(user_id del lugar)`. Antes esa cuenta
+  // era `1 === getActiveUserId()`, que sin cuenta da `true` y abría el panel del
+  // usuario demo a cualquier visitante.
+  it('sin cuenta, el lugar del usuario demo no da ninguna acción de escritura', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+
+    renderPanel(esUsuarioActivo(1));
+
+    expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Publicar una mascota' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Estado de Nala')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
   });
 });

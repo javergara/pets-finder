@@ -14,7 +14,7 @@ import { CATEGORIAS_AVISO, ETIQUETA_CATEGORIA_AVISO, ETIQUETA_TIPO_AVISO } from 
 import { NOMBRES_ZONAS } from '../lib/ciudades';
 import { urlWhatsApp } from '../lib/contacto';
 import { ETIQUETA_TIPO_ORGANIZACION, TIPOS_ORGANIZACION } from '../lib/organizaciones';
-import { getActiveUserId } from '../lib/session';
+import { esUsuarioActivo, getActiveUserId } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 
 export function RedDeApoyo() {
@@ -206,7 +206,7 @@ export function RedDeApoyo() {
                       >
                         WhatsApp
                       </a>
-                      {a.user_id === getActiveUserId() && (
+                      {esUsuarioActivo(a.user_id) && (
                         <>
                           <button
                             type="button"

@@ -5,7 +5,13 @@ import * as client from '../api/client';
 import type { Reporte } from '../api/types';
 import * as cartel from '../lib/cartel';
 import { ZONAS } from '../lib/ciudades';
+import { setActiveUserId } from '../lib/session';
 import { ReporteDetalle } from './ReporteDetalle';
+
+// Fix 2026-08-15 (bug de autoría sin cuenta): los casos que ejercitan al autor
+// del reporte declaran su cuenta con `setActiveUserId(1)`. Antes no la declaraban
+// y pasaban igual, porque sin nada en localStorage `getActiveUserId()` cae al
+// usuario demo (id 1) y la pantalla lo daba por autor — fijaban el bug.
 
 vi.mock('../lib/cartel', () => ({ descargarCartel: vi.fn() }));
 
@@ -261,7 +267,7 @@ describe('ReporteDetalle', () => {
   });
 
   it('el botón de marcar reunida solo aparece para el autor, y al usarlo celebra', async () => {
-    // Sin nada en localStorage getActiveUserId() cae a DEMO_USER_ID=1 == user_id del reporte.
+    setActiveUserId(1);
     vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
     vi.mocked(client.marcarReunido).mockResolvedValue(
       crearReporte({ estado: 'reunido', resuelto_en: '2026-08-12T15:00:00' }),
@@ -288,7 +294,7 @@ describe('ReporteDetalle', () => {
   });
 
   it('eliminar exige confirmar en dos pasos, llama al API y navega al listado', async () => {
-    // getActiveUserId() cae a DEMO_USER_ID=1 == user_id del reporte: es el autor.
+    setActiveUserId(1);
     vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
     vi.mocked(client.eliminarReporte).mockResolvedValue(undefined);
 
@@ -582,5 +588,24 @@ describe('ReporteDetalle', () => {
       'href',
       '/adoptar/mascota/55',
     );
+  });
+});
+
+// Fix 2026-08-15 (bug de autoría sin cuenta): el reporte del usuario demo es el
+// que delata el fallo, porque es el id al que cae `getActiveUserId()` cuando no
+// hay nadie registrado. Un visitante anónimo podía cerrar o borrar el reporte de
+// una persona real; el contacto público, en cambio, no depende de tener cuenta.
+describe('ReporteDetalle sin cuenta', () => {
+  it('no ofrece marcar reunida, editar ni eliminar el reporte del usuario demo', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
+
+    renderDetalle();
+
+    expect(await screen.findByRole('heading', { name: 'Rocky' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Contactar por WhatsApp' })).toBeInTheDocument();
+
+    expect(screen.queryByRole('button', { name: 'Marcar como reunida' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar este reporte' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
   });
 });

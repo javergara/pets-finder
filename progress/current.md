@@ -28,15 +28,28 @@ Plan maestro aprobado por el dueño en `/Users/frandak2/.claude/plans/hola-te-to
 
 **Línea base verde: 174 tests de API + 148 de web.** Al cerrar AD-01 ambos números deben ser mayores.
 
-## 2026-08-15 — Bug de seguridad de autoría en la UI: DETECTADO, BLOQUEADO (no es una feature)
+## 2026-08-15 — Bug de seguridad de autoría en la UI: SALDADO (commit `PENDIENTE_HASH`)
 
 Aparte de AD-02 y sin tocar `feature_list.json`. **Un visitante sin cuenta es tratado como el usuario 1** y ve/usa los controles de escritura de lo que pertenezca a esa persona: `getActiveUserId()` cae al `DEMO_USER_ID = 1` y varias pantallas comparan contra ese valor sin `hasActiveUser()` delante. Reproducido en navegador real en `/organizacion/1` con `localStorage` vacío ("Editar información", "Eliminar este lugar", CTA de publicar, selectores de estado). El backend acepta esas escrituras porque el `user_id` que manda el cliente **coincide de verdad** con el autor.
 
 Sitios afectados (5 pantallas): `OrganizacionDetalle.tsx:80` (y con él `SeccionNecesidades`/`AdministrarOrganizacion`/`PanelAdopcionOrganizacion`, que reciben `esAutor` como prop), `RedDeApoyo.tsx:209`, `ReporteDetalle.tsx:215` y `:626`, `EditarReporte.tsx:42` y `MisReportes.tsx:14` (esta no compara: **consulta** por el id activo y pinta "Editar"/"Marcar como reunida"). Ya estaban bien protegidos `MascotaDetalle`, `PuenteAdopcion`, `PublicarMascota`, `EditarMascota`, `PublicarAvisoAyuda`, `RegistrarOrganizacion` y `ReportarMascota`; `CatalogoAdopcion` y `ZonaLanding` no escriben.
 
-**Bloqueado a la espera de decisión del líder**: el arreglo (helper `esUsuarioActivo()` en `lib/session.ts` + su uso en los 6 sitios) deja en rojo **14 tests existentes** repartidos en 5 archivos, que fijan justamente el comportamiento inseguro — usan fixtures con `user_id: 1` y **nunca** llaman a `setActiveUserId`, así que asertan que sin cuenta se ven los controles de autor. Medido de verdad: línea base 276/276 verde → con el arreglo `14 failed | 262 passed`. Desglose: `OrganizacionDetalle.test.tsx` 4 (líneas 124, 145, 198, 238), `MisReportes.test.tsx` 4 (todos), `EditarReporte.test.tsx` 3 (61, 79, 116), `ReporteDetalle.test.tsx` 2 (263, 290), `RedDeApoyo.test.tsx` 1 (102). El encargo prohibía tocar tests existentes, así que **no se commiteó código de producto**: el árbol quedó limpio y verde.
+**Desbloqueado y arreglado (2026-08-15)** con autorización explícita del dueño para tocar los 14 tests existentes ("no es debilitar un test para que pase el fix — es corregir su premisa, que era el bug"). Qué quedó:
+
+- `lib/session.ts` — `esUsuarioActivo(userId)` = `hasActiveUser() && userId === getActiveUserId()`, con el porqué en su docstring. Es la única forma correcta de calcular autoría en la UI.
+- Usado en `OrganizacionDetalle.tsx`, `RedDeApoyo.tsx`, `ReporteDetalle.tsx` (×2) y `EditarReporte.tsx`. `MisReportes.tsx` va aparte: no compara, **consulta** por el id activo, así que sin cuenta **redirige** a `/registro?volver=/mis-reportes` (patrón de `PublicarAvisoAyuda`/`PublicarMascota`) y no pide reportes de nadie. La decisión queda explicada en el comentario de cabecera del archivo.
+- **Los 14 tests existentes, ajuste puramente aditivo**: `setActiveUserId(1)` por test (OrganizacionDetalle, ReporteDetalle, RedDeApoyo) o en un `beforeEach` del `describe` (MisReportes, EditarReporte) + el import. `git diff --numstat` de los 5: `27 1` EditarReporte, `49 2` MisReportes, `36 1` OrganizacionDetalle, `25 1` RedDeApoyo, `27 2` ReporteDetalle. Las **7 líneas eliminadas** son 3 imports ampliados y 4 comentarios que enunciaban la premisa del bug; **ninguna aserción se borró**. `setActiveUserId` **no** se puso en `src/test/setup.ts`: global rompería los gates de `PublicarMascota`, `EditarMascota`, `MascotaDetalle` y `PuenteAdopcion`, que dependen de que no haya cuenta.
+- **+9 tests nuevos**: 3 de `esUsuarioActivo` en `lib/session.test.ts` y uno de "sin cuenta, sobre un recurso del usuario 1, ningún control de escritura" en `OrganizacionDetalle`, `PanelAdopcionOrganizacion` (con `esUsuarioActivo(1)` como prop `esAutor`, que es como lo calcula su pantalla), `ReporteDetalle`, `RedDeApoyo`, `EditarReporte` (redirige) y `MisReportes` (redirige, con el `?volver=` exacto y `listarReportes` no llamada).
+- **Tres mutaciones verificadas**: revertir el guard de `RedDeApoyo`, el de eliminar de `ReporteDetalle` y desactivar el gate de `MisReportes` dejan en rojo **solo** su caso nuevo; los tres archivos restaurados con el mismo md5.
+- Verificado en esta sesión: `bash init.sh` exit 0 con **292 API + 285 web** (276 antes); `npx tsc -b`, oxlint y el prettier del pre-commit limpios. Backend y `feature_list.json` sin tocar.
+
+Corrección al dato de origen: el patrón no nace en la feature 32 sino en la **09** (`59f5918`, marcar reencuentros y "Mis reportes"), y se repite en la 18, la 32 y la 42. Sigue siendo cierto lo esencial —es **preexistente**, el módulo de adopción no lo introdujo—, pero es un año-luz más viejo de lo que decía la nota.
 
 Alcance real en producción (dato del líder): las 27 organizaciones importadas son del usuario sistema id 70 y los 204 reportes del crawler del id 49 — nada de eso es alcanzable. El riesgo vive en cualquier organización, reporte o aviso cuyo autor sea el usuario 1.
+
+### Deuda de fondo que queda abierta (para el dueño, no es un parche)
+
+**La UI es hoy la única barrera de autoría de toda la app.** El backend acepta estas escrituras porque el `user_id` que manda el cliente **es** el del autor: nada impide que alguien llame al endpoint a mano con el id correcto. `esUsuarioActivo()` cierra la puerta que se abría sola en el navegador, pero no cambia eso. Es deuda directa del "registro mínimo sin contraseña" (ADR 0005) y **merece un ADR propio** que decida el mecanismo (token de sesión firmado, magic link por email, o aceptar el riesgo por escrito con su alcance). No se implementa nada de esto aquí.
 
 ## Feature activa: AD-02-publicar-en-adopcion (in_progress)
 

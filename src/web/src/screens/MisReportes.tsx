@@ -1,22 +1,33 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { ApiError, editarReporte, listarReportes, marcarReunido, mediaUrl } from '../api/client';
 import type { Reporte } from '../api/types';
-import { getActiveUserId } from '../lib/session';
+import { getActiveUserId, hasActiveUser } from '../lib/session';
 import { tituloReporte } from '../lib/titulo';
 
+// ⚠️ Pantalla de escritura (editar, marcar reunida): sin el gate de cuenta,
+// `getActiveUserId()` cae al usuario demo (id 1) y un visitante anónimo vería
+// —y podría cerrar— los reportes de esa persona real.
+//
+// A diferencia del resto de pantallas, esta no compara autoría: *consulta* por
+// el id activo, así que no basta con esconder botones. Sin cuenta se redirige a
+// `/registro?volver=/mis-reportes` (mismo patrón que PublicarAvisoAyuda y
+// PublicarMascota) en vez de pintar una lista vacía: quien llega aquí quiere
+// ver sus reportes, y para tenerlos hace falta cuenta.
 export function MisReportes() {
   const [reportes, setReportes] = useState<Reporte[] | null>(null);
   const [editando, setEditando] = useState<Reporte | null>(null);
   const [descripcion, setDescripcion] = useState('');
   const [telefono, setTelefono] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const conCuenta = hasActiveUser();
   const userId = getActiveUserId();
 
   const cargar = useCallback(() => {
+    if (!conCuenta) return;
     // estado=todos: aquí sí se ven los reunidos propios (son la buena noticia).
     listarReportes({ userId, estado: 'todos' }).then(setReportes);
-  }, [userId]);
+  }, [conCuenta, userId]);
 
   useEffect(() => {
     cargar();
@@ -59,6 +70,10 @@ export function MisReportes() {
         err instanceof ApiError ? err.message : 'No pudimos guardar los cambios. Intenta de nuevo.',
       );
     }
+  }
+
+  if (!conCuenta) {
+    return <Navigate to={`/registro?volver=${encodeURIComponent('/mis-reportes')}`} replace />;
   }
 
   if (reportes === null) {

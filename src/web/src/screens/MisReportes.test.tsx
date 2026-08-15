@@ -1,8 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Reporte } from '../api/types';
+import { setActiveUserId } from '../lib/session';
 import { MisReportes } from './MisReportes';
 
 vi.mock('../api/client', async () => {
@@ -60,7 +61,33 @@ function renderMisReportes() {
   );
 }
 
+// Stub que imprime la ruta completa: sin cuenta la pantalla no solo tiene que
+// redirigir, tiene que llevar el `?volver=` para regresar aquí tras registrarse.
+function RegistroStub() {
+  const { pathname, search } = useLocation();
+  return <p>{`registro ${pathname}${search}`}</p>;
+}
+
+function renderMisReportesConRutas() {
+  return render(
+    <MemoryRouter initialEntries={['/mis-reportes']}>
+      <Routes>
+        <Route path="/mis-reportes" element={<MisReportes />} />
+        <Route path="/registro" element={<RegistroStub />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe('MisReportes', () => {
+  // Fix 2026-08-15 (bug de autoría sin cuenta): esta pantalla no compara autoría,
+  // *consulta* por el id activo. Sin declarar la cuenta, `getActiveUserId()` caía
+  // al usuario demo (id 1) y estos casos fijaban que un visitante anónimo viera y
+  // cerrara los reportes de esa persona real.
+  beforeEach(() => {
+    setActiveUserId(1);
+  });
+
   it('lista mis reportes (incluidos los reunidos) pidiendo estado=todos', async () => {
     vi.mocked(client.listarReportes).mockResolvedValue([
       crearReporte(),
@@ -122,5 +149,25 @@ describe('MisReportes', () => {
     await screen.findByText('Reunida 💚');
     expect(screen.queryByRole('button', { name: 'Marcar como reunida' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+  });
+});
+
+// Fix 2026-08-15 (bug de autoría sin cuenta). Aquí no basta con esconder botones:
+// la pantalla consulta por el id activo, que sin cuenta es el usuario demo (1),
+// así que un visitante anónimo veía la lista de reportes de esa persona real con
+// "Editar" y "Marcar como reunida". Sin cuenta se manda al registro.
+describe('MisReportes sin cuenta', () => {
+  it('redirige al registro con el volver, sin pedir reportes de nadie', async () => {
+    vi.mocked(client.listarReportes).mockResolvedValue([crearReporte()]);
+
+    renderMisReportesConRutas();
+
+    expect(
+      await screen.findByText('registro /registro?volver=%2Fmis-reportes'),
+    ).toBeInTheDocument();
+    expect(client.listarReportes).not.toHaveBeenCalled();
+    expect(screen.queryByText('Rocky')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Marcar como reunida' })).not.toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ import type { Reporte } from '../api/types';
 import { FotoUpload } from '../components/FotoUpload';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { COLORES, TAMANOS, razasPorEspecie } from '../lib/caracteristicas';
-import { getActiveUserId } from '../lib/session';
+import { esUsuarioActivo, getActiveUserId } from '../lib/session';
 
 // Edición completa (feature 29): mismos campos del formulario de creación,
 // precargados. La zona y la especie no se editan (cambiarían el encuadre y las
@@ -39,7 +39,7 @@ export function EditarReporte() {
     obtenerReporte(Number(id))
       .then((r) => {
         // Solo el autor edita; cualquier otro vuelve al detalle.
-        if (r.user_id !== getActiveUserId()) {
+        if (!esUsuarioActivo(r.user_id)) {
           navigate(`/reporte/${r.id}`, { replace: true });
           return;
         }

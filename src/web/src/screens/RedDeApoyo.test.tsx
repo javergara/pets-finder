@@ -3,7 +3,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Organizacion } from '../api/types';
+import { setActiveUserId } from '../lib/session';
 import { RedDeApoyo } from './RedDeApoyo';
+
+// Fix 2026-08-15 (bug de autoría sin cuenta): el caso del autor declara su cuenta
+// con `setActiveUserId(1)`. Antes no la declaraba y pasaba igual, porque sin nada
+// en localStorage `getActiveUserId()` cae al usuario demo (id 1) y la pantalla lo
+// daba por autor del aviso — fijaba el bug.
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
@@ -100,7 +106,7 @@ describe('RedDeApoyo — Comunidad (feature 42)', () => {
   });
 
   it('el autor puede marcar resuelto; otros no ven los controles', async () => {
-    // Sin localStorage, getActiveUserId() = 1.
+    setActiveUserId(1);
     vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
     vi.mocked(client.listarAvisosAyuda).mockResolvedValue([
       crearAviso({ id: 2, user_id: 1, titulo: 'Mi propio aviso' }),
@@ -121,6 +127,24 @@ describe('RedDeApoyo — Comunidad (feature 42)', () => {
     fireEvent.click(botones[0]);
     expect(await screen.findByText('Resuelto 💚')).toBeInTheDocument();
     expect(client.resolverAvisoAyuda).toHaveBeenCalledWith(2, 1);
+  });
+
+  // Fix 2026-08-15 (bug de autoría sin cuenta): sin nadie registrado, el aviso del
+  // usuario demo (id 1) no tiene autor presente, así que no se puede resolver ni
+  // eliminar. Leer los avisos y escribir por WhatsApp sí sigue siendo público.
+  it('sin cuenta, el aviso del usuario demo no ofrece resolver ni eliminar', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+    vi.mocked(client.listarAvisosAyuda).mockResolvedValue([
+      crearAviso({ id: 2, user_id: 1, titulo: 'Aviso del usuario demo' }),
+    ]);
+
+    renderRed();
+    fireEvent.click(screen.getByRole('button', { name: 'Comunidad' }));
+
+    expect(await screen.findByText('Aviso del usuario demo')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'WhatsApp' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Marcar resuelto 💚' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar' })).not.toBeInTheDocument();
   });
 
   it('los botones de publicar llevan a /ayudar/publicar-aviso con el tipo', async () => {

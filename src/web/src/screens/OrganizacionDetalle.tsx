@@ -5,7 +5,7 @@ import type { Necesidad, Organizacion } from '../api/types';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { mensajeAyudaOrganizacion, urlTelefono, urlWhatsApp } from '../lib/contacto';
 import { ETIQUETA_TIPO_ORGANIZACION } from '../lib/organizaciones';
-import { getActiveUserId } from '../lib/session';
+import { esUsuarioActivo } from '../lib/session';
 import { AdministrarOrganizacion } from '../components/AdministrarOrganizacion';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { PanelAdopcionOrganizacion } from '../components/PanelAdopcionOrganizacion';
@@ -77,7 +77,7 @@ export function OrganizacionDetalle() {
   const etiqueta = ETIQUETA_TIPO_ORGANIZACION[organizacion.tipo];
   const lugar =
     organizacion.zona === 'Otro' ? organizacion.ciudad_texto ?? 'Colombia' : organizacion.zona;
-  const esAutor = organizacion.user_id === getActiveUserId();
+  const esAutor = esUsuarioActivo(organizacion.user_id);
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6 pb-24">

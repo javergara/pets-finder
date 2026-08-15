@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Reporte } from '../api/types';
 import { ZONAS } from '../lib/ciudades';
+import { setActiveUserId } from '../lib/session';
 import { EditarReporte } from './EditarReporte';
 
 vi.mock('../api/client', async () => {
@@ -58,6 +59,14 @@ function renderEditar() {
 }
 
 describe('EditarReporte', () => {
+  // Fix 2026-08-15 (bug de autoría sin cuenta): estos casos ejercitan al autor
+  // del reporte (user_id 1). Sin declarar la cuenta, `getActiveUserId()` caía al
+  // usuario demo (id 1) y el test fijaba que un visitante anónimo pudiera editar
+  // el reporte de esa persona real.
+  beforeEach(() => {
+    setActiveUserId(1);
+  });
+
   it('llega precargado con los valores actuales del reporte', async () => {
     vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
 
@@ -155,5 +164,22 @@ describe('EditarReporte', () => {
       'No pudimos cargar este reporte. Revisa tu conexión e intenta de nuevo.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+// Fix 2026-08-15 (bug de autoría sin cuenta): un formulario de edición servido a
+// quien no tiene cuenta es el caso más grave, porque no hay que esconder un botón
+// sino no entregar la pantalla. La salida es la misma que para un tercero: al
+// detalle, sin formulario.
+describe('EditarReporte sin cuenta', () => {
+  it('devuelve al detalle aunque el reporte sea del usuario demo', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte({ user_id: 1 }));
+
+    renderEditar();
+
+    await screen.findByText('Detalle stub');
+    expect(screen.queryByLabelText('Descripción y señas')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Guardar cambios' })).not.toBeInTheDocument();
+    await waitFor(() => expect(client.editarReporte).not.toHaveBeenCalled());
   });
 });

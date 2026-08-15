@@ -19,7 +19,7 @@ import { MapaLienzo } from '../components/MapaLienzo';
 import { PuenteAdopcion } from '../components/PuenteAdopcion';
 import { urlPerfilPlataforma } from '../lib/contacto';
 import { descargarCartel } from '../lib/cartel';
-import { getActiveUserId } from '../lib/session';
+import { esUsuarioActivo, getActiveUserId } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 import { tituloReporte } from '../lib/titulo';
 
@@ -212,7 +212,7 @@ export function ReporteDetalle() {
       )}
 
       {/* El final feliz lo declara solo el autor (validado también en el backend). */}
-      {reporte.estado === 'activo' && reporte.user_id === getActiveUserId() && (
+      {reporte.estado === 'activo' && esUsuarioActivo(reporte.user_id) && (
         <div className="rounded-2xl border border-forest-tint-line bg-forest-tint p-4">
           <p className="mb-3 text-sm text-ink-soft">
             ¿Ya se reencontraron? Márcalo para celebrarlo y dejar de recibir contactos.
@@ -623,7 +623,7 @@ export function ReporteDetalle() {
 
       {/* Borrado definitivo, solo autor, con confirmación en dos pasos dentro de
           la página (window.confirm bloquearía y desentona con el resto de la UI). */}
-      {reporte.user_id === getActiveUserId() && (
+      {esUsuarioActivo(reporte.user_id) && (
         <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-line bg-surface p-6">
           <Link
             to={`/reporte/${reporte.id}/editar`}
