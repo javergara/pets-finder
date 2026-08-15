@@ -829,3 +829,9 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 ## 2026-08-15 — Feature 47: entrenadores de perros en la Red de Apoyo
 
 - Quinto tipo de organización: 'entrenador' — vitrina gratuita con WhatsApp directo y apoyo/donaciones. Cambio mínimo gracias al catálogo único de la 32: Literal del schema + entrada en lib/organizaciones (etiqueta 'Entrenador', color forest-hover en el mapa) + copy de /ayudar; los rótulos "Cómo donar" pasan a "Cómo apoyar" (sirven para fundaciones y entrenadores). +1 test API, +1 web. Sin migración (columna tipo es texto). Aprobada por el revisor (175 API + 148 web).
+
+## 2026-08-15 — Módulo de adopción (AD-01+AD-02) + feature 47 desplegados
+
+- Revisión independiente del revisor (checklist de docs/revision-modulo-adopcion.md): APTO — 293 API + 286 web en verde, los 8 acceptance mapeados a tests reales, prueba de mutación del SQL anti-drift (3 mutaciones → rojo correcto), guard de autoría sin huecos, cero dependencias nuevas, adopta-v1 intacta. Observaciones menores anotadas en progress/current.md (conteos de la guía desactualizados; 2 comparaciones inline de autoría que conviene migrar a esUsuarioActivo()).
+- Migración ejecutada con autorización del dueño ANTES del merge: migrations/AD-01-pets.sql en el SQL Editor de Supabase — verificado contra information_schema/pg_constraint/pg_class (30 columnas, ck_pets_publicador_exclusivo, RLS true).
+- Deploy conjunto: módulo de adopción (/adoptar, fichas, publicar por 3 caminos, puente desde encontrados) + feature 47 (entrenadores).
