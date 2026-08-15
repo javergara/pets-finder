@@ -11,13 +11,15 @@ fixture `db_session` hace `create_all` con lo que esté registrado en
 pets` intermitente según el orden de colección de pytest.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 import pytest
 
 from reencuentro_api.models.organizacion import Organizacion
 from reencuentro_api.models.pet import Pet
+from reencuentro_api.models.report import Report
 from reencuentro_api.models.user import User
+from reencuentro_api.routers import pets as pets_router
 
 
 @pytest.fixture()
@@ -52,6 +54,32 @@ def organizacion(db_session, usuario):
     db_session.add(org)
     db_session.commit()
     return org
+
+
+@pytest.fixture()
+def reporte(db_session, usuario):
+    """Un "encontrado" que el autor tiene consigo: el puente hacia adopción.
+
+    Trae foto propia porque el caso delicado del `DELETE` es justo ese: si la
+    mascota nació de este reporte, sus fotos **son** las del reporte, que sigue
+    vivo en la app.
+    """
+    report = Report(
+        user_id=usuario.id,
+        tipo="encontrado",
+        especie="perro",
+        descripcion="Perra encontrada cerca del Parque Sucre, la tengo conmigo.",
+        foto_url="/media/uploads/reporte-principal.jpg",
+        zona="Armenia",
+        lat=4.535,
+        lng=-75.68,
+        situacion="conmigo",
+        fecha_evento=date(2026, 8, 11),
+        telefono_contacto="3001112233",
+    )
+    db_session.add(report)
+    db_session.commit()
+    return report
 
 
 def _pet(**overrides) -> Pet:
@@ -311,3 +339,196 @@ def test_editar_con_estado_invalido_devuelve_422(client, db_session, organizacio
 
     db_session.expire_all()
     assert db_session.get(Pet, pet.id).estado == "disponible"
+
+
+# --- DELETE /api/pets/{pet_id} (paso 2) ----------------------------------------
+
+
+@pytest.fixture()
+def fotos_borradas(monkeypatch):
+    """Lista-espía sobre `borrar_foto`, con las URLs en el orden en que se pidió
+    borrarlas (patrón de `tests/api/test_borrado_fotos.py`).
+
+    Sin espía estos tests no valdrían nada: `borrar_foto` **nunca lanza** (es
+    tolerante a fallos por diseño, feature 20), así que un 204 sale igual de
+    limpio borrando las fotos que no debía. Se parchea el nombre importado en el
+    router —que es al que llega la llamada—, no el de `reencuentro_api.media`.
+    """
+    llamadas: list[str] = []
+    monkeypatch.setattr(pets_router, "borrar_foto", llamadas.append)
+    return llamadas
+
+
+def _payload_publicar(**overrides) -> dict:
+    payload = {
+        "nombre": "Canela",
+        "especie": "perro",
+        "sexo": "hembra",
+        "tamano": "mediano",
+        "energia": "media",
+        "edad_meses": 18,
+        "historia": "Rescatada en Armenia tras el sismo, busca hogar.",
+        "zona": "Armenia",
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_despublicar_como_autor_de_la_organizacion_devuelve_204(
+    client, db_session, organizacion, usuario
+):
+    pet = _guardar(db_session, organizacion_id=organizacion.id)
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 204
+    assert client.get(f"/api/pets/{pet.id}").status_code == 404
+    assert client.get("/api/pets").json() == []
+
+    db_session.expire_all()
+    assert db_session.get(Pet, pet.id) is None
+
+
+def test_despublicar_como_rescatista_dueno_devuelve_204(client, db_session, otro_usuario):
+    pet = _guardar(db_session, user_id=otro_usuario.id, telefono_contacto="3105558899")
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={otro_usuario.id}")
+
+    assert respuesta.status_code == 204
+
+    db_session.expire_all()
+    assert db_session.get(Pet, pet.id) is None
+
+
+def test_despublicar_mascota_ajena_devuelve_403_y_no_borra_nada(
+    client, db_session, organizacion, otro_usuario, fotos_borradas
+):
+    pet = _guardar(db_session, organizacion_id=organizacion.id, fotos=["/media/uploads/canela.jpg"])
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={otro_usuario.id}")
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Solo quien publicó la mascota puede despublicarla"
+    # Ni la fila ni las fotos: el 403 tiene que cortar antes de tocar el bucket.
+    assert fotos_borradas == []
+
+    db_session.expire_all()
+    assert db_session.get(Pet, pet.id) is not None
+
+
+def test_despublicar_mascota_de_rescatista_ajeno_devuelve_403(
+    client, db_session, usuario, otro_usuario
+):
+    pet = _guardar(db_session, user_id=otro_usuario.id, telefono_contacto="3105558899")
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 403
+
+    db_session.expire_all()
+    assert db_session.get(Pet, pet.id) is not None
+
+
+def test_despublicar_mascota_de_organizacion_eliminada_devuelve_403(
+    client, db_session, organizacion, usuario
+):
+    """Mismo criterio que el `PUT`: `_dueno_user_id` devuelve `None` cuando la
+    organización ya no existe (se puede eliminar, feature 32) y entonces no queda
+    nadie autorizado — 403 en español, jamás un 500."""
+    pet = _guardar(db_session, organizacion_id=organizacion.id)
+    db_session.delete(organizacion)
+    db_session.commit()
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == "Solo quien publicó la mascota puede despublicarla"
+
+
+def test_despublicar_mascota_inexistente_devuelve_404(client, db_session, usuario):
+    respuesta = client.delete(f"/api/pets/9999?user_id={usuario.id}")
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "La mascota 9999 no existe"
+
+
+def test_despublicar_borra_una_vez_cada_foto_propia(
+    client, db_session, organizacion, usuario, fotos_borradas
+):
+    """Mascota publicada desde cero (`report_id is None`): sus fotos son suyas y
+    no las usa nadie más, así que se van con ella."""
+    fotos = [
+        "/media/uploads/canela-1.jpg",
+        "https://abc123.supabase.co/storage/v1/object/public/fotos/canela-2.jpg",
+        "/media/uploads/canela-3.jpg",
+    ]
+    pet = _guardar(db_session, organizacion_id=organizacion.id, fotos=fotos)
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 204
+    assert fotos_borradas == fotos
+
+
+def test_despublicar_mascota_que_vino_de_un_reporte_no_borra_sus_fotos(
+    client, db_session, usuario, reporte, fotos_borradas
+):
+    """El punto delicado del paso: esas fotos son **del reporte**, que sigue vivo.
+
+    Borrarlas dejaría el reporte con imágenes rotas en producción. Y como
+    `borrar_foto` no lanza, el 204 saldría igual de verde: la única forma de
+    detectarlo es contar las llamadas.
+    """
+    pet = _guardar(
+        db_session,
+        user_id=usuario.id,
+        telefono_contacto="3001112233",
+        report_id=reporte.id,
+        fotos=[reporte.foto_url],
+    )
+
+    respuesta = client.delete(f"/api/pets/{pet.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 204
+    assert fotos_borradas == []
+
+    # La mascota se fue; el reporte y su foto siguen enteros.
+    assert client.get(f"/api/pets/{pet.id}").status_code == 404
+    cuerpo = client.get(f"/api/reports/{reporte.id}").json()
+    assert cuerpo["foto_url"] == "/media/uploads/reporte-principal.jpg"
+    assert cuerpo["fotos"] == ["/media/uploads/reporte-principal.jpg"]
+
+
+def test_tras_despublicar_el_mismo_reporte_se_puede_volver_a_publicar(
+    client, db_session, usuario, reporte
+):
+    """El `unique` de `report_id` se libera al borrar la fila: quien se arrepiente
+    de despublicar puede volver a dar en adopción el mismo encontrado (201, no el
+    409 de "este reporte ya tiene una mascota publicada")."""
+    primera = client.post(
+        "/api/pets",
+        json=_payload_publicar(
+            user_id=usuario.id,
+            rescatista_id=usuario.id,
+            telefono_contacto="3001112233",
+            report_id=reporte.id,
+        ),
+    )
+    assert primera.status_code == 201
+
+    assert (
+        client.delete(f"/api/pets/{primera.json()['id']}?user_id={usuario.id}").status_code == 204
+    )
+
+    segunda = client.post(
+        "/api/pets",
+        json=_payload_publicar(
+            user_id=usuario.id,
+            rescatista_id=usuario.id,
+            telefono_contacto="3001112233",
+            report_id=reporte.id,
+        ),
+    )
+
+    assert segunda.status_code == 201
+    assert segunda.json()["report_id"] == reporte.id

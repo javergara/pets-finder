@@ -2,9 +2,9 @@
 
 ⚠️ Orden obligatorio de las rutas en este archivo: **literal antes que
 dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"` →
-`PUT "/{pet_id}"`. Si `/adopciones` se registrara después de `/{pet_id}`,
-FastAPI intentaría parsearla como int y respondería 422 (misma regla que ya
-sigue `routers/reports.py`).
+`PUT "/{pet_id}"` → `DELETE "/{pet_id}"`. Si `/adopciones` se registrara después
+de `/{pet_id}`, FastAPI intentaría parsearla como int y respondería 422 (misma
+regla que ya sigue `routers/reports.py`).
 """
 
 from collections.abc import Sequence
@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from ..media import borrar_foto
 from ..models.organizacion import Organizacion
 from ..models.pet import Pet
 from ..models.report import Report
@@ -358,3 +359,38 @@ def editar_mascota(
     session.refresh(pet)
 
     return _pet_out(pet, _publicadores_por_pet(session, [pet]))
+
+
+@router.delete("/{pet_id}", status_code=status.HTTP_204_NO_CONTENT)
+def despublicar_mascota(pet_id: int, user_id: int, session: Session = Depends(get_session)) -> None:
+    """Despublica (borra) una mascota, solo por quien la publicó.
+
+    `user_id` viaja como **query param**, no en el body: es la convención del
+    repo para los DELETE (`eliminar_reporte`, `eliminar_organizacion`). La
+    autoría la resuelve `_dueno_user_id`, igual que el `PUT`, incluido su caso
+    `None` (organización eliminada) → 403 y nunca un 500.
+
+    ⚠️ Las fotos solo se borran si la mascota **no** vino de un reporte. Cuando
+    `report_id` no es nulo, esas URLs son las del reporte de "encontrada", que
+    sigue vivo en la app: borrarlas del bucket dejaría al reporte con imágenes
+    rotas en producción. Y no se notaría desde aquí, porque `borrar_foto` nunca
+    lanza (tolerante a fallos por diseño, feature 20) — el 204 saldría igual de
+    limpio. De ahí que el test espíe las llamadas en vez de mirar solo el
+    status. El costo asumido es el simétrico: si la mascota se copió las fotos y
+    después se borra el reporte, quedan huérfanas en el bucket (feature 20 ya
+    acepta ese trueque; una foto huérfana es barata, una rota no).
+
+    Al borrar la fila se libera el `unique` de `report_id`: el mismo reporte se
+    puede volver a dar en adopción sin chocar con el 409.
+    """
+    pet = session.get(Pet, pet_id)
+    if pet is None:
+        raise HTTPException(404, f"La mascota {pet_id} no existe")
+    if user_id != _dueno_user_id(session, pet):
+        raise HTTPException(403, "Solo quien publicó la mascota puede despublicarla")
+
+    if pet.report_id is None:
+        for foto in pet.fotos:
+            borrar_foto(foto)
+    session.delete(pet)
+    session.commit()
