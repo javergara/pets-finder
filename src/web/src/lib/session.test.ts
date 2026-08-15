@@ -7,6 +7,16 @@ afterEach(() => {
 });
 
 describe('session', () => {
+  // Guarda del entorno de tests: en Node 22.4+ el `localStorage` nativo (sin
+  // --localstorage-file) es un objeto sin métodos y le gana al Storage de jsdom.
+  // src/test/setup.ts lo repara; si esa reparación se cae, este test lo dice en una
+  // línea en vez de dejar 147 tests rojos con un TypeError críptico.
+  it('el entorno de tests expone un localStorage utilizable', () => {
+    expect(typeof localStorage.getItem).toBe('function');
+    expect(typeof localStorage.setItem).toBe('function');
+    expect(typeof localStorage.clear).toBe('function');
+  });
+
   it('sin nada en localStorage, devuelve DEMO_USER_ID como fallback', () => {
     expect(getActiveUserId()).toBe(DEMO_USER_ID);
   });
