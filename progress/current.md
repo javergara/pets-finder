@@ -28,7 +28,40 @@ Plan maestro aprobado por el dueño en `/Users/frandak2/.claude/plans/hola-te-to
 
 **Línea base verde: 174 tests de API + 148 de web.** Al cerrar AD-01 ambos números deben ser mayores.
 
-## Feature activa: AD-01-modelo-pet-y-catalogo (in_progress)
+## Feature activa: AD-02-publicar-en-adopcion (in_progress)
+
+Línea base heredada de AD-01 + el fix de esqueletos: **260 tests de API + 211 de web**, `init.sh` en verde. Al cerrar AD-02 ambos números deben subir. Cada paso = un commit, test en rojo primero; no se commitea en rojo. El `done` lo decide el revisor.
+
+⚠️ **AD-01 no está mergeada a `main` y `migrations/AD-01-pets.sql` NO se ha ejecutado en prod.** El dueño del repo (Javier Vergara) es quien tiene acceso a Supabase; se le pidió ejecutarlo. AD-02 **no puede desplegarse antes que AD-01** y no necesita migración propia (`pets.report_id` ya viajó en ese SQL).
+
+Dos datos que el líder corrigió respecto al plan maestro, porque el fix de esqueletos (`81d45ee`) engordó los archivos: **`OrganizacionDetalle.tsx` son 533 líneas** (no 492) y **`ReporteDetalle.tsx` 681** (no 662). Además, el seed tiene un encontrado `situacion="conmigo"` del usuario activo id 1 ("Gatita carey juvenil"), que es el caso de demo del puente.
+
+Acceptance (literal):
+- **A1** — "El autor de una organización publica una mascota desde su panel y aparece en /adoptar; otro usuario recibe 403 al intentarlo en esa organización"
+- **A2** — "Un usuario con cuenta publica como rescatista individual y la ficha lo muestra como contacto"
+- **A3** — "Desde un reporte encontrado propio (situacion conmigo), 'Darla en adopción' pre-llena el form, publica con report_id enlazado y el reporte muestra el aviso con link a la ficha"
+- **A4** — "bash init.sh en verde; sin migración nueva (pets.report_id ya se creó con la tabla en AD-01)"
+
+### Pasos de AD-02
+
+1. **`PUT /api/pets/{pet_id}`** (A1) — ruta después de `GET "/{pet_id}"`. 404 / 403 por `_dueno_user_id` (incluido el caso `None`) / `exclude_none=True`; `estado="adoptado"` setea `adoptado_en` y volver atrás lo limpia. Tests en `tests/api/test_pets_publicar.py`, incluido **el de re-fetch que fija que `fotos`/`tags` se reasignan como lista completa** (sin `MutableList`, un `.append` no se persiste) y el de que mandar `zona`/publicador en el body no cambia nada.
+2. **`DELETE /api/pets/{pet_id}?user_id=`** (A1, A3) — 204/403/404, y `borrar_foto` por cada foto **solo si `report_id is None`**: si vino de un reporte, esas fotos son del reporte vivo. Espiar las llamadas con monkeypatch (patrón de `test_borrado_fotos.py`); `borrar_foto` nunca lanza, así que un test que solo mire el 204 no detecta nada. Mutación obligatoria: quitar el guard debe poner el test en rojo.
+3. **Puente, lado backend** (A3) — orden exacto de validación del `report_id`: 404 inexistente → **422** si no es encontrado+conmigo → **403** si no es del autor → **409** si ya se publicó. `ReportOut.adopcion_pet_id` llenado **solo** en el detalle (en el listado sería N+1 contra el pooler). `eliminar_reporte` con mascota enlazada → **409 antes de borrar fotos** (si no, borra y luego falla). `tests/api/test_reports.py` no se modifica.
+4. **Refactor previo: adelgazar `OrganizacionDetalle.tsx`** (533 → ≤260) extrayendo `SeccionNecesidades` y `AdministrarOrganizacion`. Commit `refactor:` propio. **Prohibido tocar `OrganizacionDetalle.test.tsx`**: es la red de seguridad. Conservar el `errorCarga`/`role="alert"` y el `role="status"` del commit `81d45ee` al mover bloques.
+5. **Contrato de escritura del frontend** (A1-A3) — `MascotaUpdate` (sin `zona` ni `ciudad_texto`), `Reporte.adopcion_pet_id`, y `crearMascota`/`editarMascota`/`eliminarMascota` con la URL exacta testeada: `user_id` en el body del PUT, **query param** en el DELETE, y **ninguna manda `adoptante_id`**.
+6. **`/adoptar/publicar` — rescatista individual** (A2) — gate `hasActiveUser()` **antes de leer ningún id**, `FotoUpload maxFotos={3}`, `AvisoSeguridad contexto="publicar"`. Extraer `OpcionCard`/`OpcionesSiNo` (en adopta-v1 estaban duplicados). Repuntar el CTA vacío de `CatalogoAdopcion` de `/ayudar` a `/adoptar/publicar`.
+7. **Camino organización** (A1) — `PanelAdopcionOrganizacion.tsx` con todo el contenido; `OrganizacionDetalle.tsx` crece **≤30 líneas** con la pestaña `?tab=adopcion` (patrón de `RedDeApoyo`). El no autor ve el grid pero ni CTA ni selector de estado.
+8. **Camino puente** (A3) — `PuenteAdopcion.tsx` decide todo dentro y devuelve `null` en el caso común; `ReporteDetalle.tsx` crece **3 líneas + import**. Con `adopcion_pet_id` la franja se ve **para todos**; el CTA solo para el autor con cuenta. `?reporte=12` precarga campos y fotos, con `maxFotos={3 - fotos.length}`.
+9. **Editar y despublicar** (A1, A2) — `/adoptar/mascota/:id/editar` con el patrón `errorCarga`/`role="status"` obligatorio; acciones del dueño solo si `hasActiveUser() && publicador.tipo === 'rescatista' && publicador.id === getActiveUserId()`; despublicar en dos pasos sin `window.confirm`.
+10. **Cierre** (A4) — `init.sh` >260/>211, `npm run build`, recorrido manual en Chrome real con los tres caminos y el 409 del reporte enlazado, consola limpia, 360px sin desbordes, DB devuelta al seed.
+
+**Riesgos transversales**: `getActiveUserId()` cae a `DEMO_USER_ID = 1` (toda escritura pasa por `hasActiveUser()`); `user_id` = quien publica y `adoptante_id` = quien mira, jamás mezclados; columnas JSON reasignadas, nunca mutadas; fotos compartidas reporte↔mascota; rutas literales antes que dinámicas; `timezone.utc` nunca `datetime.UTC`; cero dependencias nuevas; `danger` reservado a "perdido".
+
+**Paso actual: 1.**
+
+---
+
+## Feature cerrada: AD-01-modelo-pet-y-catalogo (done, 2026-08-15)
 
 Cada paso = un commit y deja `bash init.sh` pasable. Dentro de un paso: **primero el test en rojo, después el código hasta verde**; no se commitea en rojo. El código portado se lee siempre con `git show origin/adopta-v1:<ruta>` (la rama local no existe). El `done` lo decide el revisor, nunca el implementador.
 
