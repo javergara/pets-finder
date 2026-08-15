@@ -20,6 +20,7 @@ from reencuentro_api.models.pet import Pet
 from reencuentro_api.models.report import Report
 from reencuentro_api.models.user import User
 from reencuentro_api.routers import pets as pets_router
+from reencuentro_api.routers import reports as reports_router
 
 
 @pytest.fixture()
@@ -532,3 +533,217 @@ def test_tras_despublicar_el_mismo_reporte_se_puede_volver_a_publicar(
 
     assert segunda.status_code == 201
     assert segunda.json()["report_id"] == reporte.id
+
+
+# --- El puente reporte encontrado ↔ adopción (paso 3) --------------------------
+
+MENSAJE_NO_ES_ENCONTRADA_CONMIGO = (
+    "Solo se puede dar en adopción una mascota encontrada que tengas contigo"
+)
+MENSAJE_NO_ES_TU_REPORTE = "Solo quien publicó el reporte puede darla en adopción"
+MENSAJE_REPORTE_CON_MASCOTA = (
+    "Este reporte tiene una mascota publicada en adopción: despublícala primero"
+)
+
+
+@pytest.fixture()
+def reporte_perdido(db_session, usuario):
+    report = Report(
+        user_id=usuario.id,
+        tipo="perdido",
+        especie="perro",
+        nombre_mascota="Rocky",
+        descripcion="Se perdió cerca del Parque Sucre.",
+        zona="Armenia",
+        lat=4.535,
+        lng=-75.68,
+        fecha_evento=date(2026, 8, 11),
+        telefono_contacto="3001112233",
+    )
+    db_session.add(report)
+    db_session.commit()
+    return report
+
+
+@pytest.fixture()
+def reporte_vista(db_session, usuario):
+    """Un "encontrado" que quien reportó **no** tiene consigo: la vio y no pudo
+    atraparla. No hay nada que dar en adopción — la mascota anda suelta."""
+    report = Report(
+        user_id=usuario.id,
+        tipo="encontrado",
+        especie="gato",
+        descripcion="Gato atigrado rondando el barrio, no me dejó acercarme.",
+        zona="Armenia",
+        lat=4.535,
+        lng=-75.68,
+        situacion="vista",
+        fecha_evento=date(2026, 8, 11),
+        telefono_contacto="3001112233",
+    )
+    db_session.add(report)
+    db_session.commit()
+    return report
+
+
+@pytest.fixture()
+def fotos_borradas_del_reporte(monkeypatch):
+    """El mismo espía del `DELETE` de mascotas, pero sobre `routers/reports.py`.
+
+    Aquí es lo único que puede detectar el bug del orden: si el 409 se
+    comprobara **después** de `borrar_foto`, el endpoint respondería igual de
+    "correcto" con 409 habiéndose llevado ya las fotos del usuario del bucket, y
+    sin borrar el reporte. `borrar_foto` no lanza, así que el status no delata
+    nada.
+    """
+    llamadas: list[str | None] = []
+    monkeypatch.setattr(reports_router, "borrar_foto", llamadas.append)
+    return llamadas
+
+
+def _publicar_desde(client, usuario, reporte):
+    return client.post(
+        "/api/pets",
+        json=_payload_publicar(
+            user_id=usuario.id,
+            rescatista_id=usuario.id,
+            telefono_contacto="3001112233",
+            report_id=reporte.id,
+        ),
+    )
+
+
+def test_publicar_desde_un_encontrado_propio_enlaza_el_reporte(
+    client, db_session, usuario, reporte
+):
+    respuesta = _publicar_desde(client, usuario, reporte)
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["report_id"] == reporte.id
+
+    db_session.expire_all()
+    guardada = db_session.get(Pet, respuesta.json()["id"])
+    assert guardada.report_id == reporte.id
+
+
+def test_publicar_desde_un_reporte_perdido_devuelve_422(
+    client, db_session, usuario, reporte_perdido
+):
+    """Una mascota perdida es de alguien que la está buscando: darla en adopción
+    sería justo lo contrario del producto."""
+    respuesta = _publicar_desde(client, usuario, reporte_perdido)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == MENSAJE_NO_ES_ENCONTRADA_CONMIGO
+
+    db_session.expire_all()
+    assert db_session.query(Pet).count() == 0
+
+
+def test_publicar_desde_un_encontrado_solo_visto_devuelve_422(
+    client, db_session, usuario, reporte_vista
+):
+    respuesta = _publicar_desde(client, usuario, reporte_vista)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == MENSAJE_NO_ES_ENCONTRADA_CONMIGO
+
+    db_session.expire_all()
+    assert db_session.query(Pet).count() == 0
+
+
+def test_publicar_desde_un_reporte_ajeno_devuelve_403(client, db_session, otro_usuario, reporte):
+    """El reporte es de `usuario` y quien publica es `otro_usuario`: aunque la
+    mascota encontrada esté "conmigo", no es su mascota la que se está dando."""
+    respuesta = _publicar_desde(client, otro_usuario, reporte)
+
+    assert respuesta.status_code == 403
+    assert respuesta.json()["detail"] == MENSAJE_NO_ES_TU_REPORTE
+
+    db_session.expire_all()
+    assert db_session.query(Pet).count() == 0
+
+
+def test_reporte_ajeno_y_ademas_perdido_devuelve_422_no_403(
+    client, db_session, otro_usuario, reporte_perdido
+):
+    """Fija la **precedencia**: primero se valida qué clase de reporte es y solo
+    después de quién. Si el orden se invirtiera, este caso respondería 403 y el
+    mensaje sugeriría que basta con ser el autor para dar en adopción una
+    mascota perdida."""
+    respuesta = _publicar_desde(client, otro_usuario, reporte_perdido)
+
+    assert respuesta.status_code == 422
+    assert respuesta.json()["detail"] == MENSAJE_NO_ES_ENCONTRADA_CONMIGO
+
+
+def test_publicar_dos_veces_desde_el_mismo_reporte_devuelve_409(client, usuario, reporte):
+    assert _publicar_desde(client, usuario, reporte).status_code == 201
+
+    segunda = _publicar_desde(client, usuario, reporte)
+
+    assert segunda.status_code == 409
+    assert segunda.json()["detail"] == "Este reporte ya tiene una mascota publicada en adopción"
+
+
+def test_el_detalle_del_reporte_expone_la_mascota_en_adopcion(client, usuario, reporte):
+    creada = _publicar_desde(client, usuario, reporte)
+    assert creada.status_code == 201
+
+    cuerpo = client.get(f"/api/reports/{reporte.id}").json()
+
+    assert cuerpo["adopcion_pet_id"] == creada.json()["id"]
+
+
+def test_el_detalle_de_un_reporte_sin_adopcion_lo_deja_en_none(client, reporte):
+    cuerpo = client.get(f"/api/reports/{reporte.id}").json()
+
+    assert cuerpo["adopcion_pet_id"] is None
+
+
+def test_el_listado_de_reportes_nunca_calcula_la_mascota_en_adopcion(client, usuario, reporte):
+    """Guarda anti-N+1: el campo existe en el contrato pero el listado (y con él
+    el mapa) lo deja SIEMPRE en `None`. Llenarlo aquí costaría una query por
+    reporte contra el pooler de Supabase, y ninguna vista de lista lo usa."""
+    assert _publicar_desde(client, usuario, reporte).status_code == 201
+
+    listado = client.get("/api/reports").json()
+
+    assert [r["id"] for r in listado] == [reporte.id]
+    assert "adopcion_pet_id" in listado[0]
+    assert listado[0]["adopcion_pet_id"] is None
+
+
+def test_eliminar_un_reporte_con_mascota_enlazada_devuelve_409_sin_tocar_las_fotos(
+    client, db_session, usuario, reporte, fotos_borradas_del_reporte
+):
+    """Sin esta guarda el `DELETE` reventaría con `IntegrityError` (la FK de
+    `pets.report_id`) → 500 con traza. Y el 409 tiene que ir **antes** de borrar
+    las fotos: si no, el usuario pierde las imágenes y encima el reporte sigue
+    ahí."""
+    assert _publicar_desde(client, usuario, reporte).status_code == 201
+
+    respuesta = client.delete(f"/api/reports/{reporte.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 409
+    assert respuesta.json()["detail"] == MENSAJE_REPORTE_CON_MASCOTA
+    assert fotos_borradas_del_reporte == []
+
+    db_session.expire_all()
+    assert db_session.get(Report, reporte.id) is not None
+    cuerpo = client.get(f"/api/reports/{reporte.id}").json()
+    assert cuerpo["foto_url"] == "/media/uploads/reporte-principal.jpg"
+    assert cuerpo["fotos"] == ["/media/uploads/reporte-principal.jpg"]
+
+
+def test_tras_despublicar_la_mascota_el_reporte_si_se_elimina(client, db_session, usuario, reporte):
+    creada = _publicar_desde(client, usuario, reporte)
+    assert creada.status_code == 201
+    assert client.delete(f"/api/pets/{creada.json()['id']}?user_id={usuario.id}").status_code == 204
+
+    respuesta = client.delete(f"/api/reports/{reporte.id}?user_id={usuario.id}")
+
+    assert respuesta.status_code == 204
+
+    db_session.expire_all()
+    assert db_session.get(Report, reporte.id) is None

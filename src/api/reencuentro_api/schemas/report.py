@@ -251,6 +251,13 @@ class ReportOut(BaseModel):
     estado: str
     creado_en: datetime
     resuelto_en: datetime | None
+    # Puente con adopción (AD-02): la mascota que se publicó desde este reporte,
+    # si la hay. Lo calcula el router en `GET /api/reports/{id}` (patrón de
+    # `OrganizacionOut.necesidades_pendientes`), nunca el ORM.
+    # ⚠️ El listado lo deja SIEMPRE en `None`: llenarlo ahí sería una query por
+    # reporte contra el pooler de Supabase, en la vista más caliente de la app
+    # (listado y mapa), y ninguna lista lo usa. El default mantiene el contrato.
+    adopcion_pet_id: int | None = None
 
 
 class CoincidenciaOut(ReportOut):

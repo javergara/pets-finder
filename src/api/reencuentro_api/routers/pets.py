@@ -33,6 +33,10 @@ from ..services.db import get_session
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
 REPORTE_YA_PUBLICADO = "Este reporte ya tiene una mascota publicada en adopción"
+REPORTE_NO_ES_ENCONTRADA_CONMIGO = (
+    "Solo se puede dar en adopción una mascota encontrada que tengas contigo"
+)
+REPORTE_DE_OTRA_PERSONA = "Solo quien publicó el reporte puede darla en adopción"
 
 
 def _dueno_user_id(session: Session, pet: Pet) -> int | None:
@@ -140,9 +144,13 @@ def publicar_mascota(payload: PetIn, session: Session = Depends(get_session)) ->
     HTTP viaja como `payload.rescatista_id`. Cuando publica una organización,
     `Pet.user_id` queda en `None`: nunca se guardan los dos.
 
-    `report_id` (puente con un "encontrado" que nadie reclamó) aquí solo se
-    valida como existente y no repetido; las reglas de tipo/situación/autoría
-    del reporte son de AD-02.
+    `report_id` es el puente con un "encontrado" que nadie reclamó, y se valida
+    en este orden exacto (AD-02): **404** si el reporte no existe → **422** si no
+    es un "encontrado" con `situacion="conmigo"` → **403** si no es de quien
+    pide → **409** si ese reporte ya tiene mascota. La naturaleza del reporte se
+    juzga antes que su autoría a propósito: una mascota perdida (o vista pero no
+    atrapada) no se puede dar en adopción **por nadie**, ni siquiera por su
+    autor, así que ese es el 422 que corresponde.
     """
     if payload.organizacion_id is not None:
         organizacion = session.get(Organizacion, payload.organizacion_id)
@@ -157,8 +165,17 @@ def publicar_mascota(payload: PetIn, session: Session = Depends(get_session)) ->
         raise HTTPException(404, f"El usuario {payload.rescatista_id} no existe")
 
     if payload.report_id is not None:
-        if session.get(Report, payload.report_id) is None:
+        report = session.get(Report, payload.report_id)
+        if report is None:
             raise HTTPException(404, f"El reporte {payload.report_id} no existe")
+        # El orden importa y está testeado: primero QUÉ reporte es, después DE
+        # QUIÉN. Un reporte ajeno y además perdido responde 422, no 403 — al
+        # revés, el mensaje daría a entender que al autor sí se le permitiría
+        # dar en adopción una mascota que otra familia está buscando.
+        if report.tipo != "encontrado" or report.situacion != "conmigo":
+            raise HTTPException(422, REPORTE_NO_ES_ENCONTRADA_CONMIGO)
+        if report.user_id != payload.user_id:
+            raise HTTPException(403, REPORTE_DE_OTRA_PERSONA)
         if _mascota_del_reporte(session, payload.report_id) is not None:
             raise HTTPException(409, REPORTE_YA_PUBLICADO)
 

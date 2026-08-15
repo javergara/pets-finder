@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..media import borrar_foto
+from ..models.pet import Pet
 from ..models.report import Report
 from ..models.report_foto import ReportFoto
 from ..models.sighting import Sighting
@@ -381,11 +382,20 @@ def listar_avistamientos(
 
 @router.get("/{report_id}", response_model=ReportOut)
 def obtener_reporte(report_id: int, session: Session = Depends(get_session)) -> ReportOut:
+    """El detalle es el ÚNICO sitio que resuelve `adopcion_pet_id` (AD-02).
+
+    Una query extra por reporte es barata cuando se pide un reporte; en
+    `listar_reportes` sería una por fila (N+1 contra el pooler de Supabase) en la
+    vista más caliente de la app, y ni el listado ni el mapa lo usan: allí el
+    campo se queda en su default `None`.
+    """
     report = session.get(Report, report_id)
     if report is None:
         raise HTTPException(404, f"El reporte {report_id} no existe")
 
-    return ReportOut.model_validate(report)
+    out = ReportOut.model_validate(report)
+    out.adopcion_pet_id = session.scalar(select(Pet.id).where(Pet.report_id == report_id))
+    return out
 
 
 @router.delete("/{report_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -394,12 +404,28 @@ def eliminar_reporte(report_id: int, user_id: int, session: Session = Depends(ge
 
     La foto asociada se borra también (feature 20) con `borrar_foto`, que es
     tolerante: si el bucket falla, el reporte se elimina igual y queda un log.
+
+    ⚠️ Si de este reporte salió una mascota en adopción (AD-02), no se borra: en
+    Postgres la FK `pets.report_id` haría reventar el commit con un
+    `IntegrityError` (500 con traza), y en SQLite —que no fuerza las FK— pasaría
+    algo peor: el reporte se iría dejando una mascota publicada apuntando a la
+    nada. Se responde 409 y se pide despublicarla primero.
+
+    ⚠️ Ese 409 va **antes** de `borrar_foto`, y ese orden es el punto: al revés,
+    el endpoint se llevaría las fotos del bucket (que además son las de la ficha
+    de adopción, viva) y solo después fallaría, dejando al usuario sin imágenes y
+    con el reporte intacto. Como `borrar_foto` no lanza, el status no delataría
+    nada: por eso el test espía las llamadas.
     """
     report = session.get(Report, report_id)
     if report is None:
         raise HTTPException(404, f"El reporte {report_id} no existe")
     if user_id != report.user_id:
         raise HTTPException(403, "Solo quien creó el reporte puede eliminarlo")
+    if session.scalar(select(Pet.id).where(Pet.report_id == report_id)) is not None:
+        raise HTTPException(
+            409, "Este reporte tiene una mascota publicada en adopción: despublícala primero"
+        )
 
     borrar_foto(report.foto_url)
     for foto in report.fotos_adicionales:
