@@ -20,9 +20,46 @@ Implementado, `bash init.sh` en verde (115 API + 117 web) y verificación visual
 - Renombre: pestaña "Ayudar" → "Centros de ayuda" (nav, h1 de /ayudar, landing, RegistrarOrganizacion). La ruta /ayudar no cambia.
 - Fix aparte: test de Reportes con fecha-bomba (creado_en fijo hacía fallar "· hace" al día siguiente) → fixture relativo a la corrida.
 
-## Próximo paso
+## 2026-08-15 — Arranca el módulo de adopción (AD-01…AD-09)
 
-Tomar la siguiente feature del backlog (`20`-`24`) con el patrón líder→implementador→revisor, o ejecutar el checklist `25` (dueño). Regla dura vigente: nunca `seed.py` contra prod; migraciones aditivas ANTES de mergear a `main` si hay esquema nuevo.
+Plan maestro aprobado por el dueño en `/Users/frandak2/.claude/plans/hola-te-toca-nifty-teapot.md`: revivir la era Adopta (`origin/adopta-v1`, intocable) como módulo `/adoptar`. Backlog fuente `feature_list_adopcion.json`; cada item se copia a `feature_list.json` como `in_progress` al abrirlo. Decisiones cerradas con el dueño: **AD-06 = WhatsApp directo** (ADR 0012, cero WebSockets), **AD-07 = solo favoritos** (apadrinamiento recortado — al copiar ese item hay que borrarle su acceptance), **deploy incremental por feature**, ejecución en `/loop` con auto-pacing.
+
+**Fix de entorno previo (commit `a65a292`)**: `init.sh` salía rojo en `develop` limpio — Node 22.4+ expone un `localStorage` nativo sin métodos que le gana al `Storage` de jsdom en Vitest. Reparado en `src/web/src/test/setup.ts` solo cuando el global está roto (no-op en Node 24/CI) + test de guarda. Detalle en `memory/memory.md`.
+
+**Línea base verde: 174 tests de API + 148 de web.** Al cerrar AD-01 ambos números deben ser mayores.
+
+## Feature activa: AD-01-modelo-pet-y-catalogo (in_progress)
+
+Cada paso = un commit y deja `bash init.sh` pasable. Dentro de un paso: **primero el test en rojo, después el código hasta verde**; no se commitea en rojo. El código portado se lee siempre con `git show origin/adopta-v1:<ruta>` (la rama local no existe). El `done` lo decide el revisor, nunca el implementador.
+
+Acceptance (texto literal, a citar en cada paso):
+- **A1** — "POST /api/pets crea una mascota colgando de una organización O de un usuario (422 si ambos o ninguno) y GET /api/pets filtra por especie/tamaño/energía y excluye adoptadas por defecto"
+- **A2** — "El catálogo /adoptar muestra las mascotas del seed con foto, nombre, edad y tags, filtrable, y cada tarjeta navega a la ficha"
+- **A3** — "La ficha muestra la galería de fotos, historia, checklist de salud (esterilizado/vacunas/microchip/desparasitado) y quién la publica"
+- **A4** — "bash init.sh en verde; tabla pets creada en prod (RLS) antes del merge a main"
+
+### Pasos
+
+1. ✅ **HECHO (2026-08-15)** — **Higiene de harness** (A4). Reescribir `.claude/skills/db-migrations/SKILL.md` al flujo real (local = `create_all` + seed; prod = `SKIP_DB_CREATE_ALL=1` ⇒ SQL aditivo + RLS con autorización explícita ANTES del merge, `.sql` versionado en `migrations/`) — hoy dice "borra `data/app.db`", peligroso con datos reales. Restaurar `docs/decisions/0003-afinidad-calculada-al-vuelo.md` desde `origin/adopta-v1` con nota de vigencia. **No** restaurar el 0004 (superado por el 0012); el 0002 lo restaura AD-03. Verificación: `bash init.sh` sigue verde. Commit `docs:`.
+2. **Extraer `GaleriaFotos`** (A3), refactor puro en commit propio ANTES de tocar adopción. Crea `components/GaleriaFotos.tsx` (+ test) con `{ fotos: string[]; alt: string }`, `null` con 0 fotos, `mediaUrl` interno, clamp `Math.min(fotoActiva, fotos.length - 1)` y las clases exactas. Modifica `screens/ReporteDetalle.tsx` (quita `fotoActiva` de :71 y el JSX 105-133; la derivación de `fotos` de :89 se queda). Tests: 0 fotos → nada; 1 foto → sin miniaturas; 2 fotos → click en "Ver foto 2" cambia el `src`; ruta relativa pasa por `mediaUrl` y absoluta no; clamp con menos fotos que el índice. **Riesgo: prohibido tocar `ReporteDetalle.test.tsx`** — es la red de seguridad (feature 41); si hay que modificarlo, el refactor cambió comportamiento.
+3. **Modelo `Pet` + `schemas/pet.py`** (A1), sin router. `ck_pets_publicador_exclusivo`, `report_id` unique nullable, zona/ciudad_texto/barrio/lat/lng desnormalizados, `telefono_contacto`, `adoptado_en`, sin `relationship()`. Schemas con `Literal`s y `@model_validator` (XOR, rescatista == `user_id`, rescatista sin teléfono, zona) reutilizando `zona_valida`/`ZONA_OTRO`. Tests con `IntegrityError` real sobre `db_session` para ambos lados del CHECK. **Riesgos**: importar `Pet` a nivel de módulo en el test y registrarlo en `models/__init__.py` (si no, `no such table` intermitente); `timezone.utc` nunca `datetime.UTC`; **`PetIn.user_id` = quien hace el request, `Pet.user_id` = el rescatista dueño** (el dueño viaja como `rescatista_id`) — documentarlo en el docstring; nunca mutar listas JSON in-place.
+4. **`migrations/AD-01-pets.sql`** (A4) + `tests/api/test_migracion_pets.py` anti-drift: las columnas del `.sql` son exactamente las de `Pet.__table__`, el CHECK aparece con la misma expresión, hay `enable row level security`, y no hay `drop`/`truncate`/`drop column`. **No ejecutar el SQL todavía** — se aplica en el paso 12 con autorización.
+5. **`POST /api/pets`** (A1) + `include_router(pets.router)` **antes de `paginas`**. 404 dueño/`report_id` inexistente, 403 no autor de la organización, 409 `report_id` repetido (select previo **y** `IntegrityError` con `rollback()`), 422 por schema. Las reglas de tipo/situación del reporte son de AD-02, no adelantarlas.
+6. **Lecturas** (A1, A3): `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"`, **en ese orden en el archivo**. Filtros SQL, `estado="disponible"` por defecto con `"todos"` de escape, `X-Total-Count`. `_publicadores_por_pet` con **dos queries `IN`** (patrón de `conteos` en `organizaciones.py`), nunca N+1. Test del 200 en `/adopciones` = garantía viva del orden literal-antes-que-dinámica.
+7. **Seed local** (A2): 2-3 organizaciones + ~8 mascotas (4 de organización, 4 de rescatista, nunca ambos), al menos una senior, una con `tags=["necesita experiencia"]` y una `adoptado`. Parametrizar el prefijo de `_download_or_placeholder` (hoy hardcodea `report_{id}`) sin romper las fotos de reportes. Determinista y sin red. **`seed.py` jamás contra prod.**
+8. **Contrato del frontend** (A2): `lib/adopcion.ts` (valores + `edadLegible`, que corrige el `Math.round(meses/12)` de adopta-v1 que decía "0 años"; `categoriaEdad`; `tituloMascota`), tipos en `api/types.ts` (espejo puro) y `listarMascotas`/`obtenerMascota`/`obtenerAdopcionesResumen` en `api/client.ts` con **arrays como params repetidos** (`params.append`, no `set`).
+9. **`MascotaCard`** (A2): componente nuevo, esqueleto visual clonado de `ReporteCard` clase por clase. **No se generaliza `ReporteCard`** (soldada al dominio de emergencia, la usan 5 pantallas). Badges `forest`/`ochre`, **nunca `danger`**.
+10. **`/adoptar` — `CatalogoAdopcion` + `FiltrosAdopcion`** (A2): chips con `aria-pressed` y selección múltiple, sin prop de variante. Sin paginación en AD-01. **Pantalla de solo lectura**: ninguna acción que escriba (`getActiveUserId()` cae a `DEMO_USER_ID = 1`). No tocar los filtros inline de las otras tres pantallas. Sin scroll horizontal a 360px.
+11. **`/adoptar/mascota/:id` — `MascotaDetalle`** (A3): `GaleriaFotos`, historia, los 4 flags de salud en ✓/—, publicador (organización → link a `/organizacion/{id}`; rescatista → **sin** link), WhatsApp con `lib/contacto.ts`, `AvisoSeguridad`, y 404 con mensaje en español (no skeleton eterno).
+12. **Cierre** (A4): `bash init.sh` verde con **>174 API y >148 web**, `npm run build`, recorrido manual en navegador real (`/adoptar` → filtros → ficha → WhatsApp), consola limpia, 360px sin desbordes, DB local devuelta al seed. Entrada en `changes.md`. `feature_list.json` **no se toca**: el `done` es del revisor. La migración de prod se presenta al dueño y se aplica **antes** del merge a `main`.
+
+**Paso actual: 2.** Ningún paso arranca sin que el anterior esté verde y commiteado.
+
+### Resultado del paso 1 (2026-08-15)
+
+- `.claude/skills/db-migrations/SKILL.md` — reescrita al flujo real (local `create_all`+seed con los gotchas de `models/__init__.py` e imports en tests; prod `SKIP_DB_CREATE_ALL=1` ⇒ SQL aditivo + RLS autorizado y ANTES del merge, versionado en `migrations/`, verificación con `information_schema`/`pg_constraint`; `seed.py` jamás contra prod).
+- `docs/decisions/0003-afinidad-calculada-al-vuelo.md` — restaurado desde `origin/adopta-v1` intacto + nota de vigencia (servicio `services/afinidad.py`, `Shelter`→`Organizacion`, se implementa en AD-03). El 0004 no se restaura (superado por el 0012 de AD-06); el 0002 lo restaura AD-03.
+- Verificado en esta sesión: `bash init.sh` exit 0 con **174 API + 148 web**; `validate_feature_list.py` exit 0. `feature_list.json` sin tocar.
 
 ## Hecho en la feature 19
 
