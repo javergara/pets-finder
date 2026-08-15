@@ -68,7 +68,7 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 
 ### Pasos de AD-03
 
-1. **ADR 0002 restaurado** (`docs:`, sin código) con nota de vigencia: `Shelter` → `Organizacion`, la tabla es `matches` pero en API y copy es "solicitud", los estados son `solicitado/en_revision/visita_agendada/adoptado/cerrado` (nunca `aprobado`), y **el párrafo de "HomeProfile obligatorio" queda superado** (aquí el deck responde 200 con `afinidad: null`). El 0004 no se restaura.
+1. ✅ **HECHO (2026-08-15)** — **ADR 0002 restaurado** (`docs:`, sin código) con nota de vigencia: `Shelter` → `Organizacion`, la tabla es `matches` pero en API y copy es "solicitud", los estados son `solicitado/en_revision/visita_agendada/adoptado/cerrado` (nunca `aprobado`), y **el párrafo de "HomeProfile obligatorio" queda superado** (aquí el deck responde 200 con `afinidad: null`). El 0004 no se restaura. Ver "Resultado del paso 1".
 2. **`models/home_profile.py` + perfil en el seed.** ⚠️ Trampa que rompe el arranque entero: adopta-v1 declara `relationship(back_populates="home_profile")` y el `User` de este repo no tiene ese atributo → `InvalidRequestError` al configurar mappers, falla el *import*. **Se borra la relación al portar.** `presupuesto_mensual_cop` nullable. Test de guard: `from reencuentro_api.main import app` no lanza.
 3. **`services/afinidad.py`** — port con cinco cambios exactos: imports, `razones: tuple[str, ...]` (tuple, no list, el dataclass es `frozen`), `_razones()` nueva con ≥2 frases, el literal `84` repetido con comentario (**no importar de `descubrir.py`**: invertiría la capa modelos→schemas), y `presupuesto None` → solo experiencia (sin esa línea, `None >= costo` es `TypeError` y revienta el deck de quien no dé el dato). Pesos y reglas duras intactos.
 4. **`services/descubrir.py`** — port sin cambios de lógica. Conservar `datetime.now(timezone.utc).replace(tzinfo=None)`: `publicado_en` es `timestamp without time zone` en ambos motores. Caso nuevo: `ordenar_deck` con todas las afinidades en `None`, que es el camino por defecto de AD-03.
@@ -81,7 +81,14 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 11. **`DescubrirMascotas`** en `/adoptar/descubrir`. Carta quitada optimistamente con `slice(1)` y **sin refetch**; un fallo de red no la revierte. Sin cuenta, "Me interesa" lleva a `/registro`. **No se porta `RequiereHomeProfile`**: un guard bloqueante contradice la cuenta liviana.
 12. **Cierre**: `init.sh` >292/>285, build, recorrido en Chrome real, 360px, DB al seed.
 
-**Paso actual: 1.**
+**Paso actual: 2.**
+
+### Resultado del paso 1 (2026-08-15)
+
+- `docs/decisions/0002-mecanica-match-no-mutuo.md` — restaurado desde `origin/adopta-v1` con el **cuerpo intacto** (Estado / Contexto / Decisión / Consecuencias, palabra por palabra) + una sección final "Nota de vigencia tras el pivot (2026-08-15)", en el mismo formato que la del 0003 restaurado en AD-01.
+- La nota fija cuatro cosas: (a) `Shelter` → `Organizacion`, más el rescatista individual que en la era Adopta no existía; (b) la tabla sigue llamándose `matches` pero en API, copy y pantallas es siempre **"solicitud"**; (c) los estados persistidos son `solicitado/en_revision/visita_agendada/adoptado/cerrado` y **nunca `aprobado`/`descartado`**, que solo son nombres de acción HTTP (`/aprobar`, `/descartar`) y prosa del backlog; (d) **el párrafo que declara obligatorio el `HomeProfile` queda superado** — el deck responde 200 con `afinidad: null` sin perfil, por el acceptance de AD-04 y porque un guard bloqueante contradice la cuenta liviana del ADR 0005. Lo esencial (el match no es mutuo, no hay endpoint de "aceptar match") **sigue vigente y no se re-litiga**.
+- La nota deja escrito además que se implementa en **AD-05** (AD-03 solo trae el swipe, con `SwipeOut.solicitud` en `null`) y que **el `0004-chat-websockets-fastapi.md` no se restaura**: queda superado por el ADR 0012 de AD-06.
+- Verificado en esta sesión: `bash init.sh` exit 0 con **292 API + 285 web** (sin cambios — este paso no toca una línea de código). `feature_list.json` sin tocar; sin `models/home_profile.py` (paso 2) ni `services/afinidad.py` (paso 3).
 
 ---
 
