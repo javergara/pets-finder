@@ -2,6 +2,7 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
 import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
+import { EditarMascota } from './screens/EditarMascota';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
@@ -94,6 +95,9 @@ function App() {
           {/* Literal antes que dinámica, como en el router de la API. */}
           <Route path="/adoptar/publicar" element={<PublicarMascota />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
+          {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
+              ficha, igual que /reporte/:id/editar en el otro dominio. */}
+          <Route path="/adoptar/mascota/:id/editar" element={<EditarMascota />} />
           {/* Landings por zona con SEO propio (feature 46): /cali, /armenia, … */}
           {Object.entries(SLUGS_ZONA).map(([slug, zona]) => (
             <Route key={slug} path={`/${slug}`} element={<ZonaLanding zona={zona} />} />

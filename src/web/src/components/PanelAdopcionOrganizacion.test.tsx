@@ -199,6 +199,36 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  // AD-02, paso 9: el lugar corrige lo que publicó sin salir de su panel. La
+  // ficha pública no ofrece esto para las mascotas de organización (no sabe quién
+  // la registró), así que este enlace es el único camino de edición del lugar.
+  it('el autor edita cada mascota desde su tarjeta', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([
+      mascota(),
+      mascota({ id: 32, nombre: 'Tomás' }),
+    ]);
+
+    renderPanel(true);
+
+    expect(await screen.findByRole('link', { name: 'Editar la ficha de Nala' })).toHaveAttribute(
+      'href',
+      '/adoptar/mascota/31/editar',
+    );
+    expect(screen.getByRole('link', { name: 'Editar la ficha de Tomás' })).toHaveAttribute(
+      'href',
+      '/adoptar/mascota/32/editar',
+    );
+  });
+
+  it('quien no es el autor no ve el enlace de editar', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+
+    renderPanel(false);
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
+  });
+
   it('si la carga falla lo dice en español y sale del esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 

@@ -19,33 +19,61 @@ import { FotoUpload } from './FotoUpload';
 
 const MAX_FOTOS = 3;
 
+// Las fotos que ya están en Storage son las del reporte al publicar (paso 8) y
+// las de la propia mascota al editarla (paso 9): el mecanismo es idéntico —no se
+// vuelven a subir— pero llamarle "del reporte" a una foto que la persona subió
+// aquí sería mentirle. Solo cambia el copy.
+const TEXTOS = {
+  reporte: {
+    titulo: 'Fotos del reporte',
+    alt: (n: number) => `Foto ${n} del reporte`,
+    quitar: (n: number) => `Quitar la foto ${n} del reporte`,
+    ayuda:
+      'Se reusan tal cual, sin volver a subirlas. Quita las que no quieras en la ficha de adopción: el reporte las conserva.',
+  },
+  mascota: {
+    titulo: 'Fotos publicadas',
+    alt: (n: number) => `Foto ${n} de la mascota`,
+    quitar: (n: number) => `Quitar la foto ${n}`,
+    ayuda: 'Quita las que ya no la representen y sube otras: en total pueden ser hasta tres.',
+  },
+} as const;
+
 type Props = {
-  // Ya en Storage (del reporte): viajan al backend tal cual.
+  // Ya en Storage (del reporte o de la propia ficha): viajan al backend tal cual.
   heredadas: string[];
   onQuitarHeredada: (url: string) => void;
   // Las que se suben aquí, en orden y como lista completa.
   onSubidas: (urls: string[]) => void;
+  // De dónde vienen las de arriba. Solo cambia el copy, no el comportamiento.
+  origen?: keyof typeof TEXTOS;
 };
 
-export function FotosMascota({ heredadas, onQuitarHeredada, onSubidas }: Props) {
+export function FotosMascota({
+  heredadas,
+  onQuitarHeredada,
+  onSubidas,
+  origen = 'reporte',
+}: Props) {
   const cupo = MAX_FOTOS - heredadas.length;
+  const textos = TEXTOS[origen];
 
   return (
     <div className="flex flex-col gap-2">
       {heredadas.length > 0 && (
         <>
-          <p className="text-sm font-medium text-ink-soft">Fotos del reporte</p>
+          <p className="text-sm font-medium text-ink-soft">{textos.titulo}</p>
           <div className="flex flex-wrap gap-2">
             {heredadas.map((url, n) => (
               <div key={url} className="relative">
                 <img
                   src={mediaUrl(url)}
-                  alt={`Foto ${n + 1} del reporte`}
+                  alt={textos.alt(n + 1)}
                   className="h-20 w-20 rounded-lg border border-line object-cover"
                 />
                 <button
                   type="button"
-                  aria-label={`Quitar la foto ${n + 1} del reporte`}
+                  aria-label={textos.quitar(n + 1)}
                   onClick={() => onQuitarHeredada(url)}
                   className="absolute -right-2 -top-2 h-6 w-6 rounded-full border border-line bg-surface text-xs text-ink-soft"
                 >
@@ -54,10 +82,7 @@ export function FotosMascota({ heredadas, onQuitarHeredada, onSubidas }: Props) 
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted">
-            Se reusan tal cual, sin volver a subirlas. Quita las que no quieras en la ficha de
-            adopción: el reporte las conserva.
-          </p>
+          <p className="text-xs text-muted">{textos.ayuda}</p>
         </>
       )}
 

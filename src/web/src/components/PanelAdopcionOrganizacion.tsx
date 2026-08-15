@@ -152,6 +152,18 @@ export function PanelAdopcionOrganizacion({
                 {/* El selector va FUERA de la tarjeta: `MascotaCard` es un enlace
                     entero a la ficha y un select dentro de un enlace no se puede
                     usar con teclado. */}
+                {/* La ficha pública no ofrece editar las mascotas de un lugar
+                    (no sabe quién lo registró), así que este es el camino del
+                    autor para corregirlas. */}
+                {esAutor && (
+                  <Link
+                    to={`/adoptar/mascota/${mascota.id}/editar`}
+                    aria-label={`Editar la ficha de ${tituloMascota(mascota)}`}
+                    className="self-start text-sm font-medium text-forest underline underline-offset-4"
+                  >
+                    Editar
+                  </Link>
+                )}
                 {esAutor && (
                   <select
                     aria-label={`Estado de ${tituloMascota(mascota)}`}

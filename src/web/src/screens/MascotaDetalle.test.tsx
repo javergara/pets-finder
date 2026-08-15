@@ -1,8 +1,12 @@
 import { render, screen } from '@testing-library/react';
+// Segundo import del mismo módulo a propósito: la línea de arriba es de AD-01 y
+// este archivo solo admite adiciones (es la red de seguridad de la ficha).
+import { fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Mascota, Publicador } from '../api/types';
+import { setActiveUserId } from '../lib/session';
 import { MascotaDetalle } from './MascotaDetalle';
 
 vi.mock('../api/client', async () => {
@@ -270,5 +274,113 @@ describe('MascotaDetalle', () => {
       /No pudimos cargar esta mascota. Revisa tu conexión e intenta de nuevo./,
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+// AD-02, paso 9. Bloque aparte para no tocar una línea del de arriba: los casos
+// de AD-01 son la garantía de que la ficha pública no cambió de comportamiento.
+//
+// `eliminarMascota` se espía con `vi.spyOn` en vez de añadirla a la factory del
+// `vi.mock` de arriba, que habría sido una línea modificada (sobre un módulo
+// mockeado con factory el spy funciona igual, verificado en el paso 7).
+describe('MascotaDetalle — acciones de quien la publicó (AD-02)', () => {
+  function mascotaDeRescatista(idRescatista: number, overrides: Partial<Mascota> = {}): Mascota {
+    return mascota({
+      organizacion_id: null,
+      user_id: idRescatista,
+      telefono_contacto: '3009998877',
+      publicador: publicadorRescatista({ id: idRescatista }),
+      ...overrides,
+    });
+  }
+
+  it('el rescatista que la publicó ve editar y despublicar', async () => {
+    setActiveUserId(3);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascotaDeRescatista(3));
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.getByRole('link', { name: /Editar/i })).toHaveAttribute(
+      'href',
+      '/adoptar/mascota/7/editar',
+    );
+    expect(screen.getByRole('button', { name: /Despublicar/i })).toBeInTheDocument();
+  });
+
+  it('otro usuario con cuenta no ve ninguna de las dos', async () => {
+    setActiveUserId(9);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascotaDeRescatista(3));
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Despublicar/i })).not.toBeInTheDocument();
+  });
+
+  // ⚠️ El riesgo del módulo: `getActiveUserId()` cae al usuario demo (id 1) sin
+  // cuenta. Sin `hasActiveUser()`, un visitante vería editar y despublicar sobre
+  // las mascotas del usuario 1 — que en producción es una persona real.
+  it('sin cuenta no las ve, aunque la mascota sea del usuario demo', async () => {
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascotaDeRescatista(1));
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Despublicar/i })).not.toBeInTheDocument();
+  });
+
+  // La ficha no sabe quién registró la organización (el publicador trae el id del
+  // LUGAR, no el de su autor): adivinarlo enseñando las acciones a quien tenga
+  // ese mismo id en `users` sería un leak. El lugar se gestiona desde su panel.
+  it('una mascota de organización no muestra esas acciones ni a su autor', async () => {
+    setActiveUserId(3);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Despublicar/i })).not.toBeInTheDocument();
+  });
+
+  it('despublicar pide confirmación en la página y luego borra y vuelve al catálogo', async () => {
+    setActiveUserId(3);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascotaDeRescatista(3));
+    const eliminar = vi.spyOn(client, 'eliminarMascota').mockResolvedValue(undefined);
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    fireEvent.click(screen.getByRole('button', { name: /Despublicar/i }));
+    // Primer paso: pregunta, y todavía no ha borrado nada.
+    expect(screen.getByText(/no se puede deshacer/i)).toBeInTheDocument();
+    expect(eliminar).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, despublicar' }));
+
+    await waitFor(() => expect(eliminar).toHaveBeenCalledWith(7, 3));
+    expect(await screen.findByText('Catálogo stub')).toBeInTheDocument();
+  });
+
+  it('un fallo al despublicar se avisa en español y la ficha sigue en pie', async () => {
+    setActiveUserId(3);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascotaDeRescatista(3));
+    vi.spyOn(client, 'eliminarMascota').mockRejectedValue(
+      new client.ApiError('Solo quien publicó la mascota puede despublicarla'),
+    );
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    fireEvent.click(screen.getByRole('button', { name: /Despublicar/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, despublicar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Solo quien publicó la mascota puede despublicarla',
+    );
+    expect(screen.getByRole('heading', { name: 'Nala' })).toBeInTheDocument();
   });
 });

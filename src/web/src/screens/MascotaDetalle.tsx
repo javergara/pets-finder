@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, obtenerMascota } from '../api/client';
+import { ApiError, eliminarMascota, obtenerMascota } from '../api/client';
 import type { Mascota } from '../api/types';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { GaleriaFotos } from '../components/GaleriaFotos';
@@ -16,15 +16,23 @@ import {
   tituloMascota,
 } from '../lib/adopcion';
 import { mensajeAdoptarMascota, urlWhatsApp } from '../lib/contacto';
+import { getActiveUserId, hasActiveUser } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 
 // Ficha pública de una mascota en adopción (AD-01, acceptance A3).
 //
-// ⚠️ Pantalla de SOLO LECTURA, igual que el catálogo: no llama a
-// `getActiveUserId()` porque esa función cae al usuario demo (id 1) cuando no hay
-// cuenta, y aquí nada escribe. Favoritos y "me interesa" llegan con su propio gate
-// en AD-03/AD-07; la versión de la era Adopta de esta pantalla sí los tenía y por
-// eso no se portó tal cual.
+// ⚠️ Pantalla de solo lectura para quien mira. Lo único que escribe son las
+// acciones de quien la publicó (AD-02, paso 9), y van SIEMPRE detrás de
+// `hasActiveUser()`: `getActiveUserId()` cae al usuario demo (id 1) sin cuenta,
+// así que sin ese guard un visitante vería "editar" y "despublicar" sobre las
+// mascotas del usuario 1 — que en producción es una persona real. Favoritos y
+// "me interesa" llegan con su propio gate en AD-03/AD-07.
+//
+// Esas acciones solo aparecen si publica un RESCATISTA y es quien está mirando.
+// Para las mascotas de una organización no se pintan aunque las mire su autor:
+// el publicador trae el id del LUGAR, no el de la persona que lo registró, así
+// que compararlo con el usuario activo sería adivinar (y enseñarle los botones a
+// quien tenga ese mismo número en `users`). El lugar las gestiona desde su panel.
 //
 // Paleta: el rojo de emergencia está reservado en toda la app a "perdido" y no
 // entra en este módulo — ni siquiera en el error, que se pinta con el borde
@@ -37,11 +45,15 @@ import { tiempoRelativo } from '../lib/tiempo';
 // el mensaje del backend y la salida al catálogo.
 
 const MENSAJE_ERROR_RED = 'No pudimos cargar esta mascota. Revisa tu conexión e intenta de nuevo.';
+const MENSAJE_ERROR_DESPUBLICAR = 'No pudimos despublicar la mascota. Intenta de nuevo.';
 
 export function MascotaDetalle() {
   const { id } = useParams<{ id: string }>();
   const [mascota, setMascota] = useState<Mascota | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmandoDespublicar, setConfirmandoDespublicar] = useState(false);
+  const [despublicando, setDespublicando] = useState(false);
+  const [errorDespublicar, setErrorDespublicar] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,6 +103,25 @@ export function MascotaDetalle() {
   // El teléfono sale siempre del publicador: el router ya resolvió lo asimétrico
   // (el rescatista lo trae en la mascota, la organización tiene el suyo).
   const telefono = publicador?.telefono_contacto ?? null;
+  // Ver la cabecera: `hasActiveUser()` primero, y solo rescatistas. El backend
+  // vuelve a verificar la autoría con un 403; esto es la mitad de UI del trato.
+  const esDueno =
+    hasActiveUser() && publicador?.tipo === 'rescatista' && publicador.id === getActiveUserId();
+
+  async function despublicar() {
+    if (!mascota) return;
+    setErrorDespublicar(null);
+    setDespublicando(true);
+    try {
+      await eliminarMascota(mascota.id, getActiveUserId());
+      navigate('/adoptar');
+    } catch (err) {
+      // El backend responde en español ("Solo quien publicó la mascota puede
+      // despublicarla"): copy de producto, se muestra tal cual.
+      setErrorDespublicar(err instanceof ApiError ? err.message : MENSAJE_ERROR_DESPUBLICAR);
+      setDespublicando(false);
+    }
+  }
 
   // Ficha en chips, como las señas de `ReporteDetalle`: a 360px una tabla de
   // etiqueta-valor obliga a hacer scroll y aquí cada dato se lee solo.
@@ -269,6 +300,67 @@ export function MascotaDetalle() {
             // Sin teléfono no se pinta un botón que no lleva a ninguna parte.
             <p className="text-sm text-ink-soft">
               Quien publicó a {titulo} no dejó un teléfono de contacto todavía.
+            </p>
+          )}
+        </section>
+      )}
+
+      {esDueno && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="mb-2 font-display text-lg text-ink">Publicaste a {titulo}</h2>
+          <p className="mb-4 text-sm text-muted">
+            Corrige lo que haga falta, o despublícala cuando ya no la estés dando en adopción.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              to={`/adoptar/mascota/${mascota.id}/editar`}
+              className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+            >
+              Editar la ficha
+            </Link>
+            {/* Confirmación en dos pasos DENTRO de la página (patrón de
+                `ReporteDetalle`): un `window.confirm` no se puede leer con
+                lector de pantalla ni probar, y esto no tiene deshacer. */}
+            {!confirmandoDespublicar ? (
+              <button
+                type="button"
+                onClick={() => setConfirmandoDespublicar(true)}
+                className="text-sm font-medium text-ink-soft underline underline-offset-4"
+              >
+                Despublicar
+              </button>
+            ) : (
+              <div>
+                <p className="mb-3 text-sm text-ink-soft">
+                  ¿Seguro que quieres despublicar a {titulo}? Sale del catálogo y esta acción no se
+                  puede deshacer.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    disabled={despublicando}
+                    onClick={despublicar}
+                    className="rounded-full bg-ochre px-5 py-2 font-medium text-bg disabled:opacity-60"
+                  >
+                    {despublicando ? 'Despublicando…' : 'Sí, despublicar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmandoDespublicar(false)}
+                    className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          {errorDespublicar && (
+            <p
+              role="alert"
+              className="mt-4 rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft"
+            >
+              {errorDespublicar}
             </p>
           )}
         </section>
