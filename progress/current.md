@@ -51,7 +51,41 @@ Alcance real en producción (dato del líder): las 27 organizaciones importadas 
 
 **La UI es hoy la única barrera de autoría de toda la app.** El backend acepta estas escrituras porque el `user_id` que manda el cliente **es** el del autor: nada impide que alguien llame al endpoint a mano con el id correcto. `esUsuarioActivo()` cierra la puerta que se abría sola en el navegador, pero no cambia eso. Es deuda directa del "registro mínimo sin contraseña" (ADR 0005) y **merece un ADR propio** que decida el mecanismo (token de sesión firmado, magic link por email, o aceptar el riesgo por escrito con su alcance). No se implementa nada de esto aquí.
 
-## Feature activa: AD-02-publicar-en-adopcion (in_progress)
+## Feature activa: AD-03-deck-swipe-y-afinidad (in_progress)
+
+Rama **`feat/adopcion-ad03-ad09`**, salida de `develop`. El PR #6 (`develop` → `main`) está en revisión de Javier y **no debe crecer**, por eso AD-03 en adelante va en rama propia (convención `feat/<slug>`, `docs/conventions.md` §6).
+
+Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos deben subir. Cada paso = un commit, test en rojo primero. El `done` lo decide el revisor.
+
+⚠️ **Orden de despliegue**: `migrations/AD-01-pets.sql` sigue **sin ejecutar** en producción y el PR #6 sigue abierto. AD-03 no puede desplegarse antes que AD-01/AD-02 — su `swipes.pet_id` referencia `public.pets`.
+
+### Cuatro decisiones del líder que corrigen el plan maestro (aceptadas)
+
+1. **`models/home_profile.py` se adelanta de AD-04 a AD-03**, y su tabla viaja en esta ventana de migración. Motivo del código, no de preferencia: `calcular_afinidad(pet: Pet, home: HomeProfile)` no puede existir sin él, y el acceptance A3 solo se prueba de extremo a extremo con un perfil real. Consecuencia dura: si el deck consulta `home_profiles` y la tabla no existe en prod, la ruta responde **500** (`SKIP_DB_CREATE_ALL=1` no crea nada). AD-03 lleva **dos** `.sql`; **AD-04 se queda sin migración** (solo schemas, endpoints y wizard).
+2. **`adoptante_id` en el deck es opcional, no requerido.** Obligatorio forzaría al frontend a mandar el id de una persona real cuando no hay cuenta (`getActiveUserId()` cae a `DEMO_USER_ID = 1`) — el mismo bug de autoría del fix `cc4de85`. Sin él: 200, sin excluir swipeadas, `afinidad: null`.
+3. **`SolicitudEnviadaModal` NO se crea aquí.** `SwipeOut.solicitud` es `null` hasta AD-05: sería código muerto y el revisor lo rechaza. El gotcha viaja anotado a AD-05: al portar `MatchModal` hay que quitarle `[animation:popIn_.24s…]`, porque `@keyframes popIn` no existe ni en adopta-v1 ni aquí.
+4. **La invitación de perfil de AD-03 no lleva link.** `/adoptar/mi-hogar` no existe hasta AD-04 y quedaría rota en producción entre los dos deploys. AD-04 la convierte en enlace.
+
+### Pasos de AD-03
+
+1. **ADR 0002 restaurado** (`docs:`, sin código) con nota de vigencia: `Shelter` → `Organizacion`, la tabla es `matches` pero en API y copy es "solicitud", los estados son `solicitado/en_revision/visita_agendada/adoptado/cerrado` (nunca `aprobado`), y **el párrafo de "HomeProfile obligatorio" queda superado** (aquí el deck responde 200 con `afinidad: null`). El 0004 no se restaura.
+2. **`models/home_profile.py` + perfil en el seed.** ⚠️ Trampa que rompe el arranque entero: adopta-v1 declara `relationship(back_populates="home_profile")` y el `User` de este repo no tiene ese atributo → `InvalidRequestError` al configurar mappers, falla el *import*. **Se borra la relación al portar.** `presupuesto_mensual_cop` nullable. Test de guard: `from reencuentro_api.main import app` no lanza.
+3. **`services/afinidad.py`** — port con cinco cambios exactos: imports, `razones: tuple[str, ...]` (tuple, no list, el dataclass es `frozen`), `_razones()` nueva con ≥2 frases, el literal `84` repetido con comentario (**no importar de `descubrir.py`**: invertiría la capa modelos→schemas), y `presupuesto None` → solo experiencia (sin esa línea, `None >= costo` es `TypeError` y revienta el deck de quien no dé el dato). Pesos y reglas duras intactos.
+4. **`services/descubrir.py`** — port sin cambios de lógica. Conservar `datetime.now(timezone.utc).replace(tzinfo=None)`: `publicado_en` es `timestamp without time zone` en ambos motores. Caso nuevo: `ordenar_deck` con todas las afinidades en `None`, que es el camino por defecto de AD-03.
+5. **`services/filtros.py`** + el catálogo honra `edad_categoria`. `distancia_km` pierde el default `15.0` (escondía resultados en silencio: aquí muchas mascotas no tienen pin). ⚠️ El tramo de edad se traduce a **SQL**, no se filtra en Python después del `LIMIT`, o `X-Total-Count` miente. `tags` sí en Python (JSON no es portable en SQL) y por eso no se ofrece como chip.
+6. **`Swipe` + `POST /api/swipes`** idempotente. ⚠️ **`Swipe.user_id` es el ADOPTANTE**, al revés que en `pets`. `UniqueConstraint` nuevo respecto a adopta-v1 + select previo **Y** `IntegrityError` con `rollback()` (en serverless dos requests corren a la vez). Los 404 salen de comprobaciones **en el código**: SQLite no fuerza las FK.
+7. **`GET /api/pets/deck`** — declarado **entre `/adopciones` y `/{pet_id}`**, o "deck" se parsea como id y da 422. `ordenar_deck` se llama **siempre**, también sin perfil (adopta-v1 solo ordenaba con `home`, y sin eso las difíciles no se intercalan para la mayoría). Test de query-count con `expunge_all()` y publicadores distintos por fila.
+8. **Los dos `.sql` + test anti-drift** calcado del de AD-01. No se ejecuta nada aquí.
+9. **Cliente y chip de edad.** `params.append`, nunca `set`. Borrar el aviso de cabecera de `FiltrosAdopcion` que dice que el grupo de edad "se añade en AD-03", o queda documentación que contradice al código.
+10. **`MascotaSwipeCard`** — tres rutas equivalentes y testeadas: botones con `aria-label`, teclado, y gesto. ⚠️ jsdom no implementa `setPointerCapture` (por eso el test viejo nunca ejercitó el drag) **ni el constructor `PointerEvent`**: hay que comprobar que `clientX` llega de verdad o el test pasa por la razón equivocada. Umbral de 110px con su mutación.
+11. **`DescubrirMascotas`** en `/adoptar/descubrir`. Carta quitada optimistamente con `slice(1)` y **sin refetch**; un fallo de red no la revierte. Sin cuenta, "Me interesa" lleva a `/registro`. **No se porta `RequiereHomeProfile`**: un guard bloqueante contradice la cuenta liviana.
+12. **Cierre**: `init.sh` >292/>285, build, recorrido en Chrome real, 360px, DB al seed.
+
+**Paso actual: 1.**
+
+---
+
+## Feature cerrada: AD-02-publicar-en-adopcion (done, 2026-08-15)
 
 Línea base heredada de AD-01 + el fix de esqueletos: **260 tests de API + 211 de web**, `init.sh` en verde. Al cerrar AD-02 ambos números deben subir. Cada paso = un commit, test en rojo primero; no se commitea en rojo. El `done` lo decide el revisor.
 
