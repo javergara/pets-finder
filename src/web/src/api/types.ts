@@ -229,3 +229,148 @@ export type AvisoAyudaIn = {
   barrio?: string;
   telefono_contacto: string;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Módulo de adopción (AD-01) — espejo de `src/api/reencuentro_api/schemas/pet.py`
+//
+// Convención de nombres del módulo, y no es cosmética: `Reporte` es el dominio
+// de perdidos/encontrados (tabla `reports`) y **`Mascota` es el dominio de
+// adopción** (tabla `pets`, `Pet` en Python). La ambigüedad es real — este repo
+// ya tiene pantallas llamadas `BuscarMascota` y `ReportarMascota` que son del
+// dominio de emergencia, no de este.
+//
+// Estos tipos son un espejo puro de los schemas: si un campo no está en
+// `PetOut`, no está aquí. Los **valores** (catálogos de copy, etiquetas y
+// funciones puras como `edadLegible`) viven en `src/lib/adopcion.ts`, porque
+// este archivo no exporta valores.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type EspecieAdopcion = 'perro' | 'gato' | 'otro';
+export type SexoMascota = 'macho' | 'hembra';
+export type TamanoMascota = 'pequeño' | 'mediano' | 'grande';
+export type EnergiaMascota = 'baja' | 'media' | 'alta';
+export type EstadoMascota = 'disponible' | 'en_proceso' | 'adoptado';
+
+// Tramo de edad para filtrar el catálogo. No es una columna: se deriva de
+// `edad_meses` con `categoriaEdad()` (`lib/adopcion.ts`), que es donde viven los
+// cortes. Los valores son los que espera `services/filtros.py` (AD-03).
+export type CategoriaEdad = 'cachorro' | 'joven' | 'adulto' | 'senior';
+
+/** Quién publica la mascota, en un solo objeto (espejo de `PublicadorOut`):
+ * `id` es el de la organización o el del rescatista, según `tipo`. */
+export type Publicador = {
+  tipo: 'organizacion' | 'rescatista';
+  id: number;
+  nombre: string;
+  telefono_contacto: string | null;
+  zona: string | null;
+  ciudad_texto: string | null;
+  barrio: string | null;
+  foto_url: string | null;
+};
+
+/** Qué tan bien encaja la mascota con el hogar de quien mira (`AfinidadOut`).
+ * Siempre `null` hasta AD-03. */
+export type Afinidad = {
+  score: number;
+  explicacion: string;
+  razones: string[];
+  incompatible: boolean;
+};
+
+export type Mascota = {
+  id: number;
+  organizacion_id: number | null;
+  // ⚠️ El rescatista que publicó la mascota, NUNCA el adoptante que la mira
+  // (en la era Adopta significaba lo contrario). El adoptante viaja aparte,
+  // como `adoptante_id`, y nunca se guarda en la mascota.
+  user_id: number | null;
+  // Puente con el reporte de "encontrada" del que salió (AD-02).
+  report_id: number | null;
+  nombre: string;
+  especie: EspecieAdopcion;
+  raza: string | null;
+  sexo: SexoMascota;
+  edad_meses: number;
+  tamano: TamanoMascota;
+  energia: EnergiaMascota;
+  fotos: string[];
+  historia: string;
+  tags: string[];
+  esterilizado: boolean;
+  vacunas_al_dia: boolean;
+  microchip: boolean;
+  desparasitado: boolean;
+  apto_ninos: boolean;
+  apto_perros: boolean;
+  apto_gatos: boolean;
+  zona: string;
+  ciudad_texto: string | null;
+  barrio: string | null;
+  lat: number | null;
+  lng: number | null;
+  telefono_contacto: string | null;
+  estado: EstadoMascota;
+  publicado_en: string;
+  adoptado_en: string | null;
+  // Calculados por el router, no columnas. En AD-01 solo `publicador` trae algo;
+  // el resto llega con AD-03 (afinidad), AD-05 (solicitud) y AD-07 (favoritos).
+  publicador: Publicador | null;
+  afinidad: Afinidad | null;
+  es_favorito: boolean;
+  ya_solicitada: boolean;
+  distancia_km: number | null;
+};
+
+export type MascotaIn = {
+  // ⚠️ Quien hace el request (autoría → 403 en el backend). El dueño se declara
+  // aparte y es exclusivo: `organizacion_id` **o** `rescatista_id`, nunca ambos
+  // ni ninguno (422). `rescatista_id` es el que se persiste en `Mascota.user_id`.
+  user_id: number;
+  organizacion_id?: number;
+  rescatista_id?: number;
+  nombre: string;
+  especie: EspecieAdopcion;
+  sexo: SexoMascota;
+  tamano: TamanoMascota;
+  energia: EnergiaMascota;
+  raza?: string;
+  edad_meses: number;
+  historia: string;
+  tags?: string[];
+  fotos?: string[];
+  esterilizado?: boolean;
+  vacunas_al_dia?: boolean;
+  microchip?: boolean;
+  desparasitado?: boolean;
+  apto_ninos?: boolean;
+  apto_perros?: boolean;
+  apto_gatos?: boolean;
+  zona: string;
+  ciudad_texto?: string;
+  barrio?: string;
+  lat?: number;
+  lng?: number;
+  // Obligatorio cuando publica un rescatista: el usuario no tiene teléfono y sin
+  // esto la mascota es incontactable.
+  telefono_contacto?: string;
+  report_id?: number;
+};
+
+/** Tarjeta mínima de la franja de celebración (espejo de `PetResumenOut`): el
+ * resumen de adopciones NO devuelve la mascota completa. */
+export type MascotaResumen = {
+  id: number;
+  nombre: string;
+  especie: EspecieAdopcion;
+  raza: string | null;
+  edad_meses: number;
+  fotos: string[];
+  estado: EstadoMascota;
+};
+
+/** La métrica de esperanza del módulo, espejo de `ReunidosResumen`. */
+export type AdopcionesResumen = {
+  total: number;
+  recientes: MascotaResumen[];
+};

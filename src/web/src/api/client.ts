@@ -1,19 +1,26 @@
 import {
+  type AdopcionesResumen,
   type Avistamiento,
   type AvisoAyuda,
   type AvisoAyudaIn,
   type AvistamientoIn,
+  type CategoriaEdad,
   type CategoriaNecesidad,
   type Coincidencia,
   type ConsultaBusqueda,
   type ResultadoBusqueda,
   type Conteos,
+  type EnergiaMascota,
+  type EspecieAdopcion,
+  type EstadoMascota,
+  type Mascota,
   type Necesidad,
   type Organizacion,
   type OrganizacionIn,
   type Reporte,
   type ReporteIn,
   type ReunidosResumen,
+  type TamanoMascota,
   type TipoOrganizacion,
   type UserProfile,
 } from './types';
@@ -310,4 +317,71 @@ export function resolverAvisoAyuda(avisoId: number, userId: number): Promise<Avi
 
 export function eliminarAvisoAyuda(avisoId: number, userId: number): Promise<void> {
   return request(`/api/avisos-ayuda/${avisoId}?user_id=${userId}`, { method: 'DELETE' });
+}
+
+// ── Adopción (AD-01) ─────────────────────────────────────────────────────────
+// El catálogo filtra con **selección múltiple**: cada valor elegido viaja como
+// un param repetido (`?especie=perro&especie=gato`). Eso obliga a `append` y
+// prohíbe `set`, que pisa el valor anterior y deja la multi-selección reducida a
+// uno solo — el filtro parecería funcionar a medias en vez de fallar de frente.
+// Las etiquetas visibles y los defaults viven en `lib/adopcion.ts`.
+
+export type FiltrosMascotas = {
+  especie: EspecieAdopcion[];
+  tamano: TamanoMascota[];
+  energia: EnergiaMascota[];
+  edad: CategoriaEdad[];
+  /** '' = todas las zonas. */
+  zona: string;
+};
+
+/** Catálogo de mascotas en adopción.
+ *
+ * ⚠️ `publicadaPorUserId` (→ `user_id`) es **quien publicó** la mascota, y
+ * `adoptanteId` (→ `adoptante_id`) es **quien la está mirando**. Son parámetros
+ * distintos y confundirlos es el bug de privacidad más fácil de cometer en este
+ * módulo: filtrar "mis mascotas" por el adoptante devolvería las de otro. Por eso
+ * ninguno de los dos se llama `userId` a secas.
+ *
+ * `adoptanteId` ya se manda aunque en AD-01 la respuesta no cambie: el backend lo
+ * acepta desde ya y con AD-03/05/07 empezará a llenar `afinidad`, `es_favorito` y
+ * `ya_solicitada` sin tocar este cliente.
+ */
+export function listarMascotas(
+  filtros: Partial<FiltrosMascotas> & {
+    estado?: EstadoMascota | 'todos';
+    organizacionId?: number;
+    publicadaPorUserId?: number;
+  } = {},
+  adoptanteId?: number,
+): Promise<Mascota[]> {
+  const params = new URLSearchParams();
+  filtros.especie?.forEach((valor) => params.append('especie', valor));
+  filtros.tamano?.forEach((valor) => params.append('tamano', valor));
+  filtros.energia?.forEach((valor) => params.append('energia', valor));
+  // El tramo de edad viaja con el nombre que ya usa el backend (`edad_categoria`,
+  // `services/filtros.py`); el listado de AD-01 todavía no lo aplica en SQL.
+  filtros.edad?.forEach((valor) => params.append('edad_categoria', valor));
+  if (filtros.zona) params.set('zona', filtros.zona);
+  if (filtros.estado) params.set('estado', filtros.estado);
+  if (filtros.organizacionId !== undefined) {
+    params.set('organizacion_id', String(filtros.organizacionId));
+  }
+  if (filtros.publicadaPorUserId !== undefined) {
+    params.set('user_id', String(filtros.publicadaPorUserId));
+  }
+  if (adoptanteId !== undefined) params.set('adoptante_id', String(adoptanteId));
+  const query = params.toString();
+  return request(`/api/pets${query ? `?${query}` : ''}`);
+}
+
+export function obtenerMascota(mascotaId: number, adoptanteId?: number): Promise<Mascota> {
+  const query = adoptanteId === undefined ? '' : `?adoptante_id=${adoptanteId}`;
+  return request(`/api/pets/${mascotaId}${query}`);
+}
+
+/** Cuántas mascotas ya tienen hogar y las últimas seis: la métrica de esperanza
+ * del catálogo, espejo de `obtenerReunidos()`. */
+export function obtenerAdopcionesResumen(): Promise<AdopcionesResumen> {
+  return request('/api/pets/adopciones');
 }
