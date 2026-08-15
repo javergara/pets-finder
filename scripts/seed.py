@@ -26,6 +26,7 @@ sys.path.insert(0, str(REPO_ROOT / "src" / "api"))
 from reencuentro_api.media import subir_a_supabase, supabase_configurado  # noqa: E402
 from reencuentro_api.models import (  # noqa: E402
     Base,
+    HomeProfile,
     Organizacion,
     Pet,
     Report,
@@ -601,6 +602,34 @@ PETS = [
     ),
 ]
 
+# Perfil de hogar de la usuaria demo (AD-03 paso 2). Uno solo, el de Ana
+# Martínez (`user_idx=0` → id 1, el DEMO_USER_ID del frontend): sin él, el score
+# de afinidad con sus razones no se puede ver en el recorrido manual ni probar
+# de extremo a extremo, porque quien no tiene perfil recibe `afinidad: null`.
+#
+# Los valores están elegidos para que el deck muestre **variedad** contra las 8
+# mascotas de PETS, no todo 100 ni todo incompatible: casa con patio favorece a
+# las medianas y grandes por encima de las pequeñas, 6 horas fuera al día
+# penaliza a las de energía alta pero no a las demás, la experiencia "algo" no
+# alcanza para las difíciles, y `tiene_ninos` deja fuera por regla dura a la
+# única con `apto_ninos=False` (Bonita) sin vaciar el deck.
+# Cobertura fijada en tests/api/test_seed_pets.py.
+HOME_PROFILE = dict(
+    user_idx=0,
+    vivienda="casa",
+    espacio_exterior="patio",
+    personas_en_casa=3,
+    tiene_ninos=True,
+    tiene_otros_perros=False,
+    tiene_otros_gatos=False,
+    horas_fuera_dia=6,
+    experiencia_previa="algo",
+    presupuesto_mensual_cop=180_000,
+    preferencia_especies=["perro", "gato"],
+    preferencia_tamanos=["mediano", "grande"],
+    preferencia_energia="media",
+)
+
 # placedog.net elige la foto por `id`: las mascotas en adopción desplazan el
 # suyo para no repetir exactamente las fotos de los reportes (los gatos ya
 # varían solos, cataas.com devuelve uno distinto en cada petición).
@@ -722,6 +751,12 @@ def main() -> None:
         # del modelo rompería el determinismo entre corridas (hallazgo del revisor).
         users = [User(creado_en=datetime(2026, 8, 12, 8, 0), **datos) for datos in USERS]
         session.add_all(users)
+        session.flush()
+
+        # El perfil de hogar cuelga del usuario y su PK **es** `user_id`: no hay
+        # id propio ni fecha de completado, la fila existiendo ya es la señal.
+        datos_hogar = dict(HOME_PROFILE)
+        session.add(HomeProfile(user_id=users[datos_hogar.pop("user_idx")].id, **datos_hogar))
         session.flush()
 
         # Orden de inserción: usuarios → organizaciones (cuelgan de usuarios) →
