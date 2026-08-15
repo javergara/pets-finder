@@ -627,6 +627,19 @@
         "Desde un reporte encontrado propio (situacion conmigo), 'Darla en adopción' pre-llena el form, publica con report_id enlazado y el reporte muestra el aviso con link a la ficha",
         "bash init.sh en verde; sin migración nueva (pets.report_id ya se creó con la tabla en AD-01)"
       ]
+    },
+    {
+      "id": "AD-03-deck-swipe-y-afinidad",
+      "title": "Deck de descubrimiento con swipe y afinidad explicable",
+      "description": "Portar los tres servicios puros de adopta-v1 renombrados al espanol (affinity.py -> services/afinidad.py, deck.py -> services/descubrir.py, filters.py -> services/filtros.py), con ADR 0003 vigente: la afinidad se calcula al vuelo y no se persiste ningun score. AfinidadResultado gana razones: tuple[str, ...] (>=2 frases legibles, filosofia explicable de la feature 38) y presupuesto_mensual_cop pasa a opcional. filtros.py gana zona (filtro primario en esta emergencia) y pierde el default de distancia_km=15 heredado de un producto urbano: aqui muchas mascotas no tienen pin y ese radio escondia resultados en silencio. Modelo Swipe con UniqueConstraint(user_id, pet_id) — nuevo respecto a adopta-v1: sin el, un doble tap del gesto en movil mete dos filas. POST /api/swipes idempotente (201 nuevo, 200 repetido, 409 sobre adoptada) y GET /api/pets/deck declarado ANTES de /{pet_id}. Diferencia clave con adopta-v1: el deck viejo devolvia 404 sin HomeProfile; aqui responde 200 con afinidad null y el frontend invita a completar el perfil sin bloquear (lo exige el acceptance de AD-04). Frontend: MascotaSwipeCard con tres rutas equivalentes y testeadas (botones con aria-label, teclado ArrowLeft/ArrowRight/Enter, y el gesto), y AdoptarDescubrir en /adoptar/descubrir que quita la carta optimistamente sin refetch. Migracion: CREATE TABLE swipes + RLS antes del merge a main.",
+      "status": "in_progress",
+      "depends_on": ["AD-01-modelo-pet-y-catalogo"],
+      "acceptance": [
+        "El deck muestra mascotas disponibles no swipeadas por el usuario, con swipe izquierda/derecha por gesto y botones accesibles",
+        "El orden del deck y el score de afinidad salen de funciones puras portadas con sus tests (adaptados de adopta-v1)",
+        "Cada tarjeta del deck muestra el porcentaje de afinidad con al menos dos razones legibles",
+        "bash init.sh en verde; tabla swipes creada en prod (RLS) antes del merge a main"
+      ]
     }
   ]
 }
