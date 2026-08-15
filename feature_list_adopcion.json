@@ -19,7 +19,7 @@
       "id": "AD-02-publicar-en-adopcion",
       "title": "Publicar en adopción: organizaciones, rescatistas y el puente desde encontrados",
       "description": "Tres caminos de entrada. (1) Panel de la organización: en /organizacion/:id el autor gana pestaña 'En adopción' con form de publicar (adaptar PublicarMascota de adopta-v1 con FotoUpload maxFotos=3) y gestión de estado. (2) Rescatista individual: mismo form desde /adoptar ('Dar en adopción', gate de cuenta liviana). (3) Puente desde el flujo actual: en un reporte 'encontrado' con situacion 'conmigo' del propio autor, botón 'Darla en adopción' que pre-llena el form con los datos y fotos del reporte y al publicar enlaza pet.report_id (columna nullable) — el reporte muestra 'Ahora en adopción' con link. Editar/despublicar solo el autor (patrón 403 de organizaciones).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-01-modelo-pet-y-catalogo"],
       "acceptance": [
         "El autor de una organización publica una mascota desde su panel y aparece en /adoptar; otro usuario recibe 403 al intentarlo en esa organización",
