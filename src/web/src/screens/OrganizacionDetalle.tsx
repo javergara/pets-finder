@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ApiError, listarNecesidades, mediaUrl, obtenerOrganizacion } from '../api/client';
 import type { Necesidad, Organizacion } from '../api/types';
 import { MapaLienzo } from '../components/MapaLienzo';
@@ -8,6 +8,7 @@ import { ETIQUETA_TIPO_ORGANIZACION } from '../lib/organizaciones';
 import { getActiveUserId } from '../lib/session';
 import { AdministrarOrganizacion } from '../components/AdministrarOrganizacion';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
+import { PanelAdopcionOrganizacion } from '../components/PanelAdopcionOrganizacion';
 import { SeccionNecesidades } from '../components/SeccionNecesidades';
 
 // Fix 2026-08-15: la carga iba sin `.catch` (mismo bug que en `ReporteDetalle`),
@@ -19,6 +20,12 @@ export function OrganizacionDetalle() {
   const [organizacion, setOrganizacion] = useState<Organizacion | null>(null);
   const [necesidades, setNecesidades] = useState<Necesidad[]>([]);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  // Pestañas (AD-02): `?tab=adopcion` abre directo el panel de mascotas, que es
+  // adonde vuelve quien acaba de publicar una desde este lugar. Patrón de `RedDeApoyo`.
+  const [busqueda] = useSearchParams();
+  const [pestana, setPestana] = useState<'lugar' | 'adopcion'>(
+    busqueda.get('tab') === 'adopcion' ? 'adopcion' : 'lugar',
+  );
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -107,75 +114,109 @@ export function OrganizacionDetalle() {
         </p>
       )}
 
-      <section className="rounded-2xl border border-line bg-surface p-6">
-        <h2 className="mb-2 font-display text-lg text-ink">Qué hacen</h2>
-        <p className="text-ink-soft">{organizacion.descripcion}</p>
-        {organizacion.horario && (
-          <p className="mt-3 text-sm text-muted">Horario: {organizacion.horario}</p>
-        )}
-      </section>
+      <div className="flex gap-2 border-b border-line">
+        {(
+          [
+            ['lugar', 'El lugar'],
+            ['adopcion', 'En adopción'],
+          ] as const
+        ).map(([clave, texto]) => (
+          <button
+            key={clave}
+            type="button"
+            onClick={() => setPestana(clave)}
+            className={`-mb-px border-b-2 px-4 py-2 font-medium ${
+              pestana === clave ? 'border-forest text-forest' : 'border-transparent text-muted'
+            }`}
+          >
+            {texto}
+          </button>
+        ))}
+      </div>
 
-      <section className="rounded-2xl border border-line bg-surface p-6">
-        <h2 className="mb-2 font-display text-lg text-ink">Dónde están</h2>
-        <MapaLienzo
-          zona={organizacion.zona}
-          pines={[
-            {
-              id: organizacion.id,
-              lat: organizacion.lat,
-              lng: organizacion.lng,
-              colorClass: etiqueta.color,
-              etiqueta: `Ubicación de ${organizacion.nombre}`,
-            },
-          ]}
+      {pestana === 'adopcion' && (
+        <PanelAdopcionOrganizacion
+          organizacionId={organizacion.id}
+          nombreOrganizacion={organizacion.nombre}
+          telefonoContacto={organizacion.telefono_contacto}
+          zona={lugar}
+          esAutor={esAutor}
         />
-      </section>
-
-      {organizacion.como_donar && (
-        <section className="rounded-2xl border border-forest-tint-line bg-forest-tint p-6">
-          <h2 className="mb-2 font-display text-lg text-ink">Cómo donar</h2>
-          <p className="text-ink-soft">{organizacion.como_donar}</p>
-        </section>
       )}
 
-      <SeccionNecesidades
-        organizacion={organizacion}
-        necesidades={necesidades}
-        onNecesidades={setNecesidades}
-        esAutor={esAutor}
-      />
+      {pestana === 'lugar' && (
+        <>
+          <section className="rounded-2xl border border-line bg-surface p-6">
+            <h2 className="mb-2 font-display text-lg text-ink">Qué hacen</h2>
+            <p className="text-ink-soft">{organizacion.descripcion}</p>
+            {organizacion.horario && (
+              <p className="mt-3 text-sm text-muted">Horario: {organizacion.horario}</p>
+            )}
+          </section>
 
-      {organizacion.estado === 'activo' && (
-        <section className="rounded-2xl border border-line bg-surface p-6">
-          <h2 className="mb-2 font-display text-lg text-ink">Contacto</h2>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href={urlWhatsApp(
-                organizacion.telefono_contacto,
-                mensajeAyudaOrganizacion(organizacion.nombre),
-              )}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full bg-forest px-5 py-3 font-medium text-bg"
-            >
-              Escribir por WhatsApp
-            </a>
-            <a
-              href={urlTelefono(organizacion.telefono_contacto)}
-              className="rounded-full border border-line px-5 py-3 font-medium text-ink"
-            >
-              Llamar
-            </a>
-          </div>
-          <AvisoSeguridad contexto="contactar" />
-        </section>
+          <section className="rounded-2xl border border-line bg-surface p-6">
+            <h2 className="mb-2 font-display text-lg text-ink">Dónde están</h2>
+            <MapaLienzo
+              zona={organizacion.zona}
+              pines={[
+                {
+                  id: organizacion.id,
+                  lat: organizacion.lat,
+                  lng: organizacion.lng,
+                  colorClass: etiqueta.color,
+                  etiqueta: `Ubicación de ${organizacion.nombre}`,
+                },
+              ]}
+            />
+          </section>
+
+          {organizacion.como_donar && (
+            <section className="rounded-2xl border border-forest-tint-line bg-forest-tint p-6">
+              <h2 className="mb-2 font-display text-lg text-ink">Cómo donar</h2>
+              <p className="text-ink-soft">{organizacion.como_donar}</p>
+            </section>
+          )}
+
+          <SeccionNecesidades
+            organizacion={organizacion}
+            necesidades={necesidades}
+            onNecesidades={setNecesidades}
+            esAutor={esAutor}
+          />
+
+          {organizacion.estado === 'activo' && (
+            <section className="rounded-2xl border border-line bg-surface p-6">
+              <h2 className="mb-2 font-display text-lg text-ink">Contacto</h2>
+              <div className="flex flex-wrap gap-3">
+                <a
+                  href={urlWhatsApp(
+                    organizacion.telefono_contacto,
+                    mensajeAyudaOrganizacion(organizacion.nombre),
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-forest px-5 py-3 font-medium text-bg"
+                >
+                  Escribir por WhatsApp
+                </a>
+                <a
+                  href={urlTelefono(organizacion.telefono_contacto)}
+                  className="rounded-full border border-line px-5 py-3 font-medium text-ink"
+                >
+                  Llamar
+                </a>
+              </div>
+              <AvisoSeguridad contexto="contactar" />
+            </section>
+          )}
+
+          <AdministrarOrganizacion
+            organizacion={organizacion}
+            esAutor={esAutor}
+            onActualizada={setOrganizacion}
+          />
+        </>
       )}
-
-      <AdministrarOrganizacion
-        organizacion={organizacion}
-        esAutor={esAutor}
-        onActualizada={setOrganizacion}
-      />
     </div>
   );
 }

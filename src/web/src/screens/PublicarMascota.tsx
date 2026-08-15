@@ -1,6 +1,6 @@
-import { type FormEvent, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { ApiError, crearMascota } from '../api/client';
+import { type FormEvent, useEffect, useState } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { ApiError, crearMascota, obtenerOrganizacion } from '../api/client';
 import type { EnergiaMascota, EspecieAdopcion, SexoMascota, TamanoMascota } from '../api/types';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { FotoUpload } from '../components/FotoUpload';
@@ -15,21 +15,26 @@ import {
 import { ZONA_OTRO } from '../lib/ciudades';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 
-// Publicar una mascota en adopción como rescatista individual (AD-02, A2).
+// Publicar una mascota en adopción, como rescatista individual (AD-02, A2) o a
+// nombre de una organización (A1).
 //
 // ⚠️ Escribe en producción, así que lo primero de todo es el gate de cuenta:
 // `getActiveUserId()` cae al usuario demo (id 1) cuando no hay nada en
 // localStorage, y sin gate un visitante publicaría mascotas a nombre de una
 // persona real. Mismo patrón que `PublicarAvisoAyuda` y `ReportarMascota`.
 //
-// Solo el camino de rescatista: manda `rescatista_id` y NUNCA `organizacion_id`
-// (el publicador es exclusivo, mandar los dos es un 422). El camino de
-// organización y el puente desde un reporte encontrado son pasos aparte.
+// Dos caminos, un solo formulario, y los distingue `?organizacion=7` en la URL:
+// sin él se publica como rescatista (`rescatista_id`, el dueño es la persona) y
+// con él a nombre del lugar (`organizacion_id`, y el autor vuelve a su ficha).
+// El publicador es exclusivo: mandar los dos es un 422 del backend, y publicar
+// en una organización ajena, un 403 que se muestra tal cual. El puente desde un
+// reporte encontrado (`?reporte=`) es un paso aparte.
 //
 // Paleta `forest`/`ochre`: el rojo de emergencia está reservado a "perdido" y no
 // aparece en este módulo, tampoco en el bloque de error.
 
 const MENSAJE_ERROR_RED = 'No pudimos publicar la mascota. Intenta de nuevo.';
+const MENSAJE_ERROR_LUGAR = 'No pudimos cargar los datos del lugar. Revísalos antes de publicar.';
 
 // Tope de `PetIn.tags` en el backend: recortar aquí evita un 422 por una coma de más.
 const MAX_TAGS = 8;
@@ -126,10 +131,37 @@ export function PublicarMascota() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
   const navigate = useNavigate();
+  // `?organizacion=7`: publica el lugar, no la persona. `Number(null)` es 0, así
+  // que un parámetro ausente (o basura) cae en el camino de rescatista.
+  const [busqueda] = useSearchParams();
+  const organizacionId = Number(busqueda.get('organizacion')) || null;
+  const [nombreOrganizacion, setNombreOrganizacion] = useState<string | null>(null);
 
-  // ⚠️ Antes de leer ningún id: ver la cabecera del archivo.
+  // Precarga: quien publica desde un lugar no debería reescribir la zona ni el
+  // teléfono que ya registró. Quedan editables (la mascota puede estar en otra
+  // parte) y el teléfono ya escrito a mano no se pisa.
+  useEffect(() => {
+    // Sin cuenta la pantalla redirige abajo: pedir el lugar sería una consulta
+    // tirada a la basura.
+    if (organizacionId === null || !hasActiveUser()) return;
+    obtenerOrganizacion(organizacionId)
+      .then((organizacion) => {
+        setNombreOrganizacion(organizacion.nombre);
+        setZona(organizacion.zona);
+        setCiudadTexto(organizacion.ciudad_texto ?? '');
+        setTelefono((previo) => previo || organizacion.telefono_contacto);
+      })
+      // El backend responde en español ("La organización 7 no existe"): copy de
+      // producto, se muestra tal cual en el mismo bloque de error del formulario.
+      .catch((err) => setError(err instanceof ApiError ? err.message : MENSAJE_ERROR_LUGAR));
+  }, [organizacionId]);
+
+  // ⚠️ Antes de leer ningún id: ver la cabecera del archivo. El `volver` conserva
+  // la query: sin ella, quien se registra vuelve al camino de rescatista.
   if (!hasActiveUser()) {
-    return <Navigate to={`/registro?volver=${encodeURIComponent('/adoptar/publicar')}`} replace />;
+    const query = busqueda.toString();
+    const volver = `/adoptar/publicar${query ? `?${query}` : ''}`;
+    return <Navigate to={`/registro?volver=${encodeURIComponent(volver)}`} replace />;
   }
 
   // Los mensajes son de producto y en español, y salen por el mismo bloque
@@ -157,10 +189,14 @@ export function PublicarMascota() {
     setEnviando(true);
     try {
       const mascota = await crearMascota({
-        // Quien hace el request y el dueño son la misma persona en este camino;
-        // el backend rechaza (422) que un rescatista publique a nombre de otro.
+        // `user_id` es siempre quien hace el request; el dueño va aparte y es
+        // exclusivo. Como rescatista son la misma persona (el backend rechaza con
+        // 422 que alguien publique a nombre de otro); a nombre de un lugar, el
+        // dueño es la organización y quien pide debe ser quien la registró (403).
         user_id: getActiveUserId(),
-        rescatista_id: getActiveUserId(),
+        ...(organizacionId === null
+          ? { rescatista_id: getActiveUserId() }
+          : { organizacion_id: organizacionId }),
         nombre: nombre.trim(),
         especie: especie as EspecieAdopcion,
         sexo: sexo as SexoMascota,
@@ -181,7 +217,13 @@ export function PublicarMascota() {
         ...(barrio.trim() ? { barrio: barrio.trim() } : {}),
         telefono_contacto: telefono.trim(),
       });
-      navigate(`/adoptar/mascota/${mascota.id}`);
+      // Desde un lugar se vuelve a su panel (donde está el resto de su camada y
+      // el selector de estado); como rescatista, a la ficha recién publicada.
+      navigate(
+        organizacionId === null
+          ? `/adoptar/mascota/${mascota.id}`
+          : `/organizacion/${organizacionId}?tab=adopcion`,
+      );
     } catch (err) {
       // El backend responde en español ("Solo quien registró la organización…"):
       // ese texto es copy de producto y se muestra tal cual.
@@ -196,8 +238,9 @@ export function PublicarMascota() {
       <header>
         <h1 className="font-display text-3xl text-ink">Dar una mascota en adopción</h1>
         <p className="mt-1 text-sm text-muted">
-          Rescataste un animal que nadie reclamó y buscas familia para él. Cuéntanos cómo es: entre
-          más sepan de él, más fácil es que alguien se decida.
+          {nombreOrganizacion
+            ? `Publicas a nombre de ${nombreOrganizacion}: quien quiera adoptarla escribirá al teléfono del lugar.`
+            : 'Rescataste un animal que nadie reclamó y buscas familia para él. Cuéntanos cómo es: entre más sepan de él, más fácil es que alguien se decida.'}
         </p>
       </header>
 

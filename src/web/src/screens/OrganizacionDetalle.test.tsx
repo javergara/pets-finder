@@ -13,6 +13,7 @@ vi.mock('../api/client', async () => {
     editarOrganizacion: vi.fn(),
     eliminarOrganizacion: vi.fn(),
     listarNecesidades: vi.fn(),
+    listarMascotas: vi.fn(),
     crearNecesidad: vi.fn(),
     cubrirNecesidad: vi.fn(),
   };
@@ -54,6 +55,19 @@ function crearOrganizacion(overrides: Partial<Organizacion> = {}): Organizacion 
 function renderDetalle() {
   return render(
     <MemoryRouter initialEntries={['/organizacion/1']}>
+      <Routes>
+        <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
+        <Route path="/ayudar" element={<div>Red stub</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+// AD-02: la pestaña de adopción se puede abrir desde la URL para volver aquí
+// después de publicar una mascota (`/organizacion/1?tab=adopcion`).
+function renderDetalleEnAdopcion() {
+  return render(
+    <MemoryRouter initialEntries={['/organizacion/1?tab=adopcion']}>
       <Routes>
         <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
         <Route path="/ayudar" element={<div>Red stub</div>} />
@@ -253,6 +267,39 @@ describe('OrganizacionDetalle', () => {
       '/ayudar',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  // AD-02 (A1): el lugar gana una segunda pestaña con las mascotas que da en
+  // adopción. La ficha de siempre sigue siendo la pestaña por defecto.
+  it('la pestaña "En adopción" existe y al abrirla monta el panel', async () => {
+    vi.mocked(client.obtenerOrganizacion).mockResolvedValue(crearOrganizacion());
+    vi.mocked(client.listarMascotas).mockResolvedValue([]);
+
+    renderDetalle();
+
+    await screen.findByRole('heading', { name: 'Fundación Huellitas' });
+    expect(screen.getByText('Qué hacen')).toBeInTheDocument();
+    // Sin abrir la pestaña, el panel ni siquiera pide las mascotas.
+    expect(client.listarMascotas).not.toHaveBeenCalled();
+
+    screen.getByRole('button', { name: 'En adopción' }).click();
+
+    expect(await screen.findByText(/todavía no tiene mascotas publicadas/i)).toBeInTheDocument();
+    expect(screen.queryByText('Qué hacen')).not.toBeInTheDocument();
+  });
+
+  it('con ?tab=adopcion la pestaña de adopción abre montada', async () => {
+    vi.mocked(client.obtenerOrganizacion).mockResolvedValue(crearOrganizacion());
+    vi.mocked(client.listarMascotas).mockResolvedValue([]);
+
+    renderDetalleEnAdopcion();
+
+    // Es adonde vuelve quien acaba de publicar una mascota desde este lugar.
+    expect(await screen.findByText(/todavía no tiene mascotas publicadas/i)).toBeInTheDocument();
+    expect(client.listarMascotas).toHaveBeenCalledWith({ organizacionId: 1, estado: 'todos' });
+    expect(screen.queryByText('Qué hacen')).not.toBeInTheDocument();
+    // El encabezado del lugar no depende de la pestaña.
+    expect(screen.getByRole('heading', { name: 'Fundación Huellitas' })).toBeInTheDocument();
   });
 
   it('un fallo de red también sale del esqueleto, con copy en español', async () => {
