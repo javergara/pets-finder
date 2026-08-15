@@ -5,6 +5,7 @@ import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
+import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MisReportes } from './screens/MisReportes';
 import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
 import { PublicarAvisoAyuda } from './screens/PublicarAvisoAyuda';
@@ -85,8 +86,11 @@ function App() {
           <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
           {/* Módulo de adopción (AD-01). El enlace en la nav llega en AD-08:
-              hasta entonces la ruta existe y es compartible, pero no se anuncia. */}
+              hasta entonces las rutas existen y son compartibles, pero no se
+              anuncian. La ficha va bajo /adoptar/mascota/:id para no chocar con
+              /reporte/:id, que es el otro dominio (perdidos y encontrados). */}
           <Route path="/adoptar" element={<CatalogoAdopcion />} />
+          <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Landings por zona con SEO propio (feature 46): /cali, /armenia, … */}
           {Object.entries(SLUGS_ZONA).map(([slug, zona]) => (
             <Route key={slug} path={`/${slug}`} element={<ZonaLanding zona={zona} />} />

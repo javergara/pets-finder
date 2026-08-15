@@ -64,3 +64,13 @@ export function mensajeAyudaOrganizacion(nombre: string): string {
 export function mensajeQuieroAyudar(descripcion: string): string {
   return `Hola, vi en Pet Finder Col que necesitan ${descripcion}. Quiero ayudar.`;
 }
+
+// Prefill para escribirle a quien publicó una mascota en adopción (AD-01).
+// Quien recibe el WhatsApp puede ser una fundación con decenas de publicaciones
+// o un rescatista con una sola: el mensaje nombra a la mascota y la app para que
+// no tenga que preguntar de qué se trata, y abre con la única duda que siempre
+// importa (si sigue disponible). "adoptarla" concuerda con "la mascota", no con
+// el sexo del animal.
+export function mensajeAdoptarMascota(nombre: string): string {
+  return `Hola, vi a ${nombre} en Pet Finder Col y me interesa adoptarla. ¿Sigue disponible?`;
+}
