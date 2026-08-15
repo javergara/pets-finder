@@ -567,4 +567,20 @@ describe('ReporteDetalle', () => {
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
+
+  // Puente con adopción (AD-02, A3). Los seis casos de visibilidad viven en
+  // `components/PuenteAdopcion.test.tsx`; aquí solo se fija que la pantalla lo
+  // monta con el reporte cargado, que es todo lo que le toca hacer.
+  it('un reporte con mascota publicada muestra el link a su ficha de adopción', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(
+      crearReporte({ tipo: 'encontrado', situacion: 'conmigo', adopcion_pet_id: 55 }),
+    );
+
+    renderDetalle();
+
+    expect(await screen.findByRole('link', { name: 'Ver su ficha de adopción' })).toHaveAttribute(
+      'href',
+      '/adoptar/mascota/55',
+    );
+  });
 });

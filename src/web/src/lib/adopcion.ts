@@ -68,6 +68,25 @@ export const ETIQUETA_ESTADO_MASCOTA: Record<EstadoMascota, { texto: string; col
   adoptado: { texto: 'Adoptada 💚', color: 'bg-forest' },
 };
 
+/** Los siete sí/no de una mascota (salud + convivencia) con los mismos valores
+ * iniciales de `PetIn`: salud conservadora (no) y convivencia optimista (sí),
+ * para no prometer lo que nadie verificó.
+ *
+ * Viven aquí y no junto a `SeccionesSiNo`, que es quien los pinta, porque son
+ * datos del dominio y un módulo que exporta componentes **y** constantes rompe
+ * el fast refresh de Vite (lo avisa oxlint). */
+export const FLAGS_MASCOTA_INICIALES = {
+  esterilizado: false,
+  vacunas_al_dia: false,
+  microchip: false,
+  desparasitado: false,
+  apto_ninos: true,
+  apto_perros: true,
+  apto_gatos: true,
+};
+
+export type FlagsMascota = typeof FLAGS_MASCOTA_INICIALES;
+
 /** Filtros vacíos del catálogo: todo el mundo entra. `zona: ''` = todas las
  * zonas (no hay default Armenia — se quitó a propósito del resto de la app). */
 export const FILTROS_ADOPCION_DEFAULT: FiltrosMascotas = {

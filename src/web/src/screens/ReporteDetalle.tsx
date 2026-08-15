@@ -16,6 +16,7 @@ import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { ContactoBotones } from '../components/ContactoBotones';
 import { GaleriaFotos } from '../components/GaleriaFotos';
 import { MapaLienzo } from '../components/MapaLienzo';
+import { PuenteAdopcion } from '../components/PuenteAdopcion';
 import { urlPerfilPlataforma } from '../lib/contacto';
 import { descargarCartel } from '../lib/cartel';
 import { getActiveUserId } from '../lib/session';
@@ -238,6 +239,9 @@ export function ReporteDetalle() {
           {error && <p className="mt-2 text-sm text-danger">{error}</p>}
         </div>
       )}
+
+      {/* Puente con adopción (AD-02): decide dentro si hay algo que mostrar. */}
+      <PuenteAdopcion reporte={reporte} />
 
       <section className="rounded-2xl border border-line bg-surface p-6">
         <h2 className="mb-2 font-display text-lg text-ink">Descripción y señas</h2>

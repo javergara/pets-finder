@@ -5,12 +5,26 @@ import { ApiError } from '../api/client';
 import * as client from '../api/client';
 import type { Mascota } from '../api/types';
 import type { Organizacion } from '../api/types';
+import type { Reporte } from '../api/types';
+import * as imagen from '../lib/imagen';
 import { setActiveUserId } from '../lib/session';
 import { PublicarMascota } from './PublicarMascota';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
   return { ...actual, crearMascota: vi.fn(), subirFoto: vi.fn() };
+});
+
+// Los dos mocks del puente (AD-02 paso 8): con fotos heredadas de un reporte hay
+// que ejercitar una subida de verdad, y el recorte real necesita medir el
+// contenedor y cargar la imagen (imposible en jsdom). Mismos stubs que
+// `FotoUpload.test.tsx`; en el resto de los tests de este archivo son inertes,
+// porque el cropper solo se monta después de elegir un archivo.
+vi.mock('../lib/imagen', () => ({ comprimirImagen: vi.fn(), recortarImagen: vi.fn() }));
+
+vi.mock('react-easy-crop', async () => {
+  const { createElement } = await import('react');
+  return { default: () => createElement('div', null, 'cropper') };
 });
 
 // `setup.ts` limpia localStorage tras CADA test, así que la cuenta activa se
@@ -373,5 +387,191 @@ describe('PublicarMascota — a nombre de una organización (AD-02, A1)', () => 
       screen.getByText('registro /registro?volver=%2Fadoptar%2Fpublicar%3Forganizacion%3D7'),
     ).toBeInTheDocument();
     expect(client.crearMascota).not.toHaveBeenCalled();
+  });
+});
+
+// Camino puente (AD-02, A3): se llega con `?reporte=12` desde un encontrado
+// propio que la persona tiene consigo. Todo lo que ya escribió en el reporte se
+// precarga, y sus fotos —que ya están en Storage— se heredan sin volver a
+// subirlas.
+function renderPublicarDesdeReporte() {
+  return render(
+    <MemoryRouter initialEntries={['/adoptar/publicar?reporte=12']}>
+      <Routes>
+        <Route path="/adoptar/publicar" element={<PublicarMascota />} />
+        <Route path="/adoptar/mascota/:id" element={<FichaStub />} />
+        <Route path="/registro" element={<RegistroStub />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+// Como `obtenerOrganizacion`: no está en la factory del mock (que no se toca) y
+// se espía aquí.
+function espiarReporte(overrides: Partial<Reporte> = {}) {
+  return vi.spyOn(client, 'obtenerReporte').mockResolvedValue({
+    id: 12,
+    user_id: 7,
+    tipo: 'encontrado',
+    especie: 'gato',
+    nombre_mascota: 'Michi',
+    raza: 'criolla',
+    color: 'carey',
+    tamano: 'pequeño',
+    descripcion: 'La encontré bajo unos escombros y la tengo en casa.',
+    foto_url: '/media/uploads/reporte-a.jpg',
+    fotos: ['/media/uploads/reporte-a.jpg', '/media/uploads/reporte-b.jpg'],
+    zona: 'Manizales',
+    ciudad_texto: null,
+    barrio: 'Chipre',
+    lat: 5.07,
+    lng: -75.52,
+    situacion: 'conmigo',
+    fecha_evento: '2026-08-11',
+    telefono_contacto: '3005554433',
+    instagram: null,
+    facebook: null,
+    fuente: 'manual',
+    crawl_metadata: null,
+    idempotency_id: null,
+    estado: 'activo',
+    creado_en: '2026-08-12T08:00:00',
+    resuelto_en: null,
+    ...overrides,
+  });
+}
+
+// Lo que el reporte no sabe (el reporte no pregunta sexo ni energía).
+function completarLoQueFaltaDelReporte() {
+  elegir('Sexo', 'Hembra');
+  elegir('Energía', 'Energía media');
+}
+
+describe('PublicarMascota — desde un reporte encontrado (AD-02, A3)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('con ?reporte=12 precarga lo que ya está escrito en el reporte', async () => {
+    setActiveUserId(7);
+    espiarReporte();
+
+    renderPublicarDesdeReporte();
+
+    await waitFor(() => expect(screen.getByLabelText('Nombre')).toHaveValue('Michi'));
+    expect(client.obtenerReporte).toHaveBeenCalledWith(12);
+    expect(screen.getByLabelText('Historia')).toHaveValue(
+      'La encontré bajo unos escombros y la tengo en casa.',
+    );
+    expect(screen.getByLabelText('Raza (opcional)')).toHaveValue('criolla');
+    expect(screen.getByLabelText(/¿En qué zona/)).toHaveValue('Manizales');
+    expect(screen.getByLabelText(/Barrio/)).toHaveValue('Chipre');
+    expect(screen.getByLabelText(/Teléfono de contacto/)).toHaveValue('3005554433');
+    // Especie y tamaño son los mismos catálogos en las dos tablas.
+    expect(
+      within(screen.getByRole('group', { name: 'Especie' })).getByRole('button', { name: 'Gato' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(screen.getByRole('group', { name: 'Tamaño' })).getByRole('button', {
+        name: 'Pequeña',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('publica con report_id y con las fotos del reporte, sin volver a subirlas', async () => {
+    setActiveUserId(7);
+    espiarReporte();
+    vi.mocked(client.crearMascota).mockResolvedValue(mascotaCreada({ id: 60, report_id: 12 }));
+
+    renderPublicarDesdeReporte();
+    await waitFor(() => expect(screen.getByLabelText('Nombre')).toHaveValue('Michi'));
+    completarLoQueFaltaDelReporte();
+    publicar();
+
+    await waitFor(() => expect(client.crearMascota).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(client.crearMascota).mock.calls[0][0]).toMatchObject({
+      report_id: 12,
+      user_id: 7,
+      rescatista_id: 7,
+      // Las mismas URLs del reporte: ya viven en Storage, y el backend enlaza las
+      // dos filas justamente para no duplicar archivos.
+      fotos: ['/media/uploads/reporte-a.jpg', '/media/uploads/reporte-b.jpg'],
+      zona: 'Manizales',
+      lat: 5.07,
+      lng: -75.52,
+    });
+    expect(client.subirFoto).not.toHaveBeenCalled();
+    expect(await screen.findByText('ficha de la mascota 60')).toBeInTheDocument();
+  });
+
+  it('quitar una foto heredada la deja fuera del payload', async () => {
+    setActiveUserId(7);
+    espiarReporte();
+    vi.mocked(client.crearMascota).mockResolvedValue(mascotaCreada({ id: 60, report_id: 12 }));
+
+    renderPublicarDesdeReporte();
+    await waitFor(() => expect(screen.getByLabelText('Nombre')).toHaveValue('Michi'));
+    completarLoQueFaltaDelReporte();
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar la foto 1 del reporte' }));
+    publicar();
+
+    await waitFor(() => expect(client.crearMascota).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(client.crearMascota).mock.calls[0][0]).toMatchObject({
+      fotos: ['/media/uploads/reporte-b.jpg'],
+    });
+  });
+
+  it('con tres fotos heredadas ya no ofrece subir más', async () => {
+    setActiveUserId(7);
+    espiarReporte({
+      fotos: ['/media/uploads/a.jpg', '/media/uploads/b.jpg', '/media/uploads/c.jpg'],
+    });
+
+    renderPublicarDesdeReporte();
+
+    await waitFor(() => expect(screen.getByLabelText('Nombre')).toHaveValue('Michi'));
+    // El tope de la ficha son 3: con el cupo lleno, el subidor no se monta.
+    expect(screen.queryByLabelText('Foto de la mascota')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Quitar la foto 3 del reporte' }),
+    ).toBeInTheDocument();
+  });
+
+  it('con dos heredadas, la foto que se sube se suma a las del reporte', async () => {
+    setActiveUserId(7);
+    espiarReporte();
+    vi.mocked(client.crearMascota).mockResolvedValue(mascotaCreada({ id: 60, report_id: 12 }));
+    vi.mocked(client.subirFoto).mockResolvedValue({ foto_url: '/media/uploads/nueva.jpg' });
+    vi.mocked(imagen.comprimirImagen).mockImplementation(async (archivo) => archivo);
+    vi.mocked(imagen.recortarImagen).mockImplementation(async (archivo) => archivo);
+    // jsdom no implementa object URLs.
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:preview-local'),
+      revokeObjectURL: vi.fn(),
+    });
+
+    renderPublicarDesdeReporte();
+    await waitFor(() => expect(screen.getByLabelText('Nombre')).toHaveValue('Michi'));
+    completarLoQueFaltaDelReporte();
+    // Con 2 heredadas queda cupo para 1, y con cupo 1 `FotoUpload` entra en modo
+    // de foto única: solo avisa por `onFotoSubida`. Si el formulario escuchara
+    // únicamente `onFotosSubidas`, esta foto se perdería en silencio.
+    fireEvent.change(screen.getByLabelText('Foto de la mascota'), {
+      target: { files: [new File(['bytes'], 'michi.jpg', { type: 'image/jpeg' })] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir foto' }));
+    await waitFor(() => expect(client.subirFoto).toHaveBeenCalledTimes(1));
+    publicar();
+
+    await waitFor(() => expect(client.crearMascota).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(client.crearMascota).mock.calls[0][0]).toMatchObject({
+      fotos: [
+        '/media/uploads/reporte-a.jpg',
+        '/media/uploads/reporte-b.jpg',
+        '/media/uploads/nueva.jpg',
+      ],
+    });
   });
 });
