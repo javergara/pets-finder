@@ -64,22 +64,32 @@ export function CatalogoAdopcion() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">
       <header className="space-y-4">
-        <div>
-          <h1 className="font-display text-3xl text-ink">Mascotas en adopción</h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted">
-            Animales rescatados que ya nadie reclamó y esperan una familia. Los publican
-            fundaciones, veterinarias y rescatistas de la comunidad.
-            {mascotas && mascotas.length > 0 && (
-              <span className="mt-0.5 block">
-                <strong className="text-forest">
-                  {mascotas.length === 1
-                    ? '1 mascota busca hogar'
-                    : `${mascotas.length} mascotas buscan hogar`}
-                </strong>
-                {hayFiltros && ' con estos filtros'}
-              </span>
-            )}
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl text-ink">Mascotas en adopción</h1>
+            <p className="mt-1 max-w-2xl text-sm text-muted">
+              Animales rescatados que ya nadie reclamó y esperan una familia. Los publican
+              fundaciones, veterinarias y rescatistas de la comunidad.
+              {mascotas && mascotas.length > 0 && (
+                <span className="mt-0.5 block">
+                  <strong className="text-forest">
+                    {mascotas.length === 1
+                      ? '1 mascota busca hogar'
+                      : `${mascotas.length} mascotas buscan hogar`}
+                  </strong>
+                  {hayFiltros && ' con estos filtros'}
+                </span>
+              )}
+            </p>
+          </div>
+          {/* Entrada al formulario de rescatista (AD-02). El gate de cuenta vive
+              en la pantalla destino, no aquí: mirar el catálogo nunca pide cuenta. */}
+          <Link
+            to="/adoptar/publicar"
+            className="shrink-0 rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"
+          >
+            Dar en adopción
+          </Link>
         </div>
         <FiltrosAdopcion
           filtros={filtros}
@@ -126,15 +136,21 @@ export function CatalogoAdopcion() {
             ) : (
               <>
                 <p className="text-ink-soft">
-                  Todavía no hay mascotas publicadas en adopción. Las fundaciones y veterinarias de
-                  la red las irán publicando aquí.
+                  Todavía no hay mascotas publicadas en adopción. Si rescataste una y busca familia,
+                  la primera puede ser la tuya.
                 </p>
                 <Link
-                  to="/ayudar"
+                  to="/adoptar/publicar"
                   className="mt-4 inline-block rounded-full bg-forest px-5 py-2 font-medium text-bg"
                 >
-                  Ver los centros de ayuda
+                  Publicar una mascota en adopción
                 </Link>
+                <p className="mt-3 text-sm text-muted">
+                  ¿Buscas una fundación o una veterinaria?{' '}
+                  <Link to="/ayudar" className="font-medium text-forest underline">
+                    Ver los centros de ayuda
+                  </Link>
+                </p>
               </>
             )}
           </div>

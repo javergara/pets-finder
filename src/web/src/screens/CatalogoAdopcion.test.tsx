@@ -156,6 +156,26 @@ describe('CatalogoAdopcion', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  it('el CTA del estado vacío lleva a publicar una mascota, no a los centros de ayuda (AD-02)', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([]);
+
+    renderCatalogo();
+
+    expect(
+      await screen.findByRole('link', { name: 'Publicar una mascota en adopción' }),
+    ).toHaveAttribute('href', '/adoptar/publicar');
+  });
+
+  it('el header ofrece siempre la entrada a publicar (AD-02)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('link', { name: 'Dar en adopción' })).toHaveAttribute(
+      'href',
+      '/adoptar/publicar',
+    );
+  });
+
   it('si la API falla muestra un mensaje en español y quita el esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 

@@ -9,6 +9,7 @@ import { MascotaDetalle } from './screens/MascotaDetalle';
 import { MisReportes } from './screens/MisReportes';
 import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
 import { PublicarAvisoAyuda } from './screens/PublicarAvisoAyuda';
+import { PublicarMascota } from './screens/PublicarMascota';
 import { RedDeApoyo } from './screens/RedDeApoyo';
 import { Registro } from './screens/Registro';
 import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
@@ -90,6 +91,8 @@ function App() {
               anuncian. La ficha va bajo /adoptar/mascota/:id para no chocar con
               /reporte/:id, que es el otro dominio (perdidos y encontrados). */}
           <Route path="/adoptar" element={<CatalogoAdopcion />} />
+          {/* Literal antes que dinámica, como en el router de la API. */}
+          <Route path="/adoptar/publicar" element={<PublicarMascota />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Landings por zona con SEO propio (feature 46): /cali, /armenia, … */}
           {Object.entries(SLUGS_ZONA).map(([slug, zona]) => (
