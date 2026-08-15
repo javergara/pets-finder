@@ -14,6 +14,7 @@ import {
 import type { Avistamiento, Coincidencia, Reporte } from '../api/types';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { ContactoBotones } from '../components/ContactoBotones';
+import { GaleriaFotos } from '../components/GaleriaFotos';
 import { MapaLienzo } from '../components/MapaLienzo';
 import { urlPerfilPlataforma } from '../lib/contacto';
 import { descargarCartel } from '../lib/cartel';
@@ -68,7 +69,6 @@ export function ReporteDetalle() {
   const [nombreAvistamiento, setNombreAvistamiento] = useState('');
   const [enviandoAvistamiento, setEnviandoAvistamiento] = useState(false);
   const [emailNovedades, setEmailNovedades] = useState('');
-  const [fotoActiva, setFotoActiva] = useState(0);
   const [estadoNovedades, setEstadoNovedades] = useState<'idle' | 'enviando' | 'ok' | 'error'>(
     'idle',
   );
@@ -102,35 +102,7 @@ export function ReporteDetalle() {
         ← Volver
       </button>
 
-      {/* La foto completa, sin recorte (object-contain con tope de alto): las
-          señas de la mascota pueden estar justo en lo que un crop 4:3 corta.
-          Con varias fotos (feature 41), miniaturas para cambiar la grande. */}
-      {fotos.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <img
-            src={mediaUrl(fotos[Math.min(fotoActiva, fotos.length - 1)])}
-            alt={`Foto del reporte de ${titulo}`}
-            className="max-h-[75vh] w-full rounded-[22px] border border-line bg-surface-alt object-contain"
-          />
-          {fotos.length > 1 && (
-            <div className="flex gap-2">
-              {fotos.map((f, n) => (
-                <button
-                  key={f}
-                  type="button"
-                  aria-label={`Ver foto ${n + 1}`}
-                  onClick={() => setFotoActiva(n)}
-                  className={`h-16 w-16 overflow-hidden rounded-lg border-2 ${
-                    n === fotoActiva ? 'border-forest' : 'border-line'
-                  }`}
-                >
-                  <img src={mediaUrl(f)} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <GaleriaFotos fotos={fotos} alt={`Foto del reporte de ${titulo}`} />
 
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
