@@ -9,6 +9,7 @@ from .report import Report
 from .report_foto import ReportFoto
 from .sighting import Sighting
 from .suscripcion import Suscripcion
+from .swipe import Swipe
 from .user import User
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "RadarAviso",
     "Pet",
     "HomeProfile",
+    "Swipe",
 ]

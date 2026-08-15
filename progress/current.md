@@ -73,7 +73,7 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 3. ✅ **HECHO (2026-08-15)** — **`services/afinidad.py`** — port con cinco cambios exactos: imports, `razones: tuple[str, ...]` (tuple, no list, el dataclass es `frozen`), `_razones()` nueva con ≥2 frases, el literal `84` repetido con comentario (**no importar de `descubrir.py`**: invertiría la capa modelos→schemas), y `presupuesto None` → solo experiencia (sin esa línea, `None >= costo` es `TypeError` y revienta el deck de quien no dé el dato). Pesos y reglas duras intactos.
 4. ✅ **HECHO (2026-08-15)** — **`services/descubrir.py`** — port sin cambios de lógica. Conservar `datetime.now(timezone.utc).replace(tzinfo=None)`: `publicado_en` es `timestamp without time zone` en ambos motores. Caso nuevo: `ordenar_deck` con todas las afinidades en `None`, que es el camino por defecto de AD-03.
 5. ✅ **HECHO (2026-08-15)** — **`services/filtros.py`** + el catálogo honra `edad_categoria`. `distancia_km` pierde el default `15.0` (escondía resultados en silencio: aquí muchas mascotas no tienen pin). ⚠️ El tramo de edad se traduce a **SQL**, no se filtra en Python después del `LIMIT`, o `X-Total-Count` miente. `tags` sí en Python (JSON no es portable en SQL) y por eso no se ofrece como chip. Ver "Resultado del paso 5".
-6. **`Swipe` + `POST /api/swipes`** idempotente. ⚠️ **`Swipe.user_id` es el ADOPTANTE**, al revés que en `pets`. `UniqueConstraint` nuevo respecto a adopta-v1 + select previo **Y** `IntegrityError` con `rollback()` (en serverless dos requests corren a la vez). Los 404 salen de comprobaciones **en el código**: SQLite no fuerza las FK.
+6. ✅ **HECHO (2026-08-15)** — **`Swipe` + `POST /api/swipes`** idempotente. ⚠️ **`Swipe.user_id` es el ADOPTANTE**, al revés que en `pets`. `UniqueConstraint` nuevo respecto a adopta-v1 + select previo **Y** `IntegrityError` con `rollback()` (en serverless dos requests corren a la vez). Los 404 salen de comprobaciones **en el código**: SQLite no fuerza las FK. Ver "Resultado del paso 6".
 7. **`GET /api/pets/deck`** — declarado **entre `/adopciones` y `/{pet_id}`**, o "deck" se parsea como id y da 422. `ordenar_deck` se llama **siempre**, también sin perfil (adopta-v1 solo ordenaba con `home`, y sin eso las difíciles no se intercalan para la mayoría). Test de query-count con `expunge_all()` y publicadores distintos por fila.
 8. **Los dos `.sql` + test anti-drift** calcado del de AD-01. No se ejecuta nada aquí.
 9. **Cliente y chip de edad.** `params.append`, nunca `set`. Borrar el aviso de cabecera de `FiltrosAdopcion` que dice que el grupo de edad "se añade en AD-03", o queda documentación que contradice al código.
@@ -81,7 +81,7 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 11. **`DescubrirMascotas`** en `/adoptar/descubrir`. Carta quitada optimistamente con `slice(1)` y **sin refetch**; un fallo de red no la revierte. Sin cuenta, "Me interesa" lleva a `/registro`. **No se porta `RequiereHomeProfile`**: un guard bloqueante contradice la cuenta liviana.
 12. **Cierre**: `init.sh` >292/>285, build, recorrido en Chrome real, 360px, DB al seed.
 
-**Paso actual: 6.**
+**Paso actual: 7.**
 
 ### Resultado del paso 1 (2026-08-15)
 
@@ -133,6 +133,17 @@ Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos d
 - `tests/api/test_pets.py` — **solo adiciones** (+5 tests, +`_sembrar_edades`, `git diff --numstat`: `125 0` antes del formateo). **Rojo inicial**: 5 fallos.
 - **Mutación verificada de verdad**: filtrar el tramo en Python después del `LIMIT` deja en rojo `test_total_count_refleja_el_filtro_de_edad` (`assert '4' == '2'`); los otros tres tests de edad siguen verdes bajo esa mutación, que es justo por qué hacía falta uno que paginara. Router restaurado con el mismo md5 (`ba2f6315ded8beffde4eec1574bcff96`).
 - Verificado en esta sesión: `.venv/bin/pytest tests/api/test_filtros.py tests/api/test_pets.py -v` 88/88; `pytest tests/api` **346/346**; ruff + black limpios; `bash init.sh` exit 0 con **346 API + 285 web** (322 antes). `feature_list.json` sin tocar; sin `Swipe` (paso 6), sin `GET /api/pets/deck` (paso 7) y sin frontend (los cortes de `lib/adopcion.ts` no cambiaron).
+
+### Resultado del paso 6 (2026-08-15)
+
+- `src/api/reencuentro_api/models/swipe.py` — nuevo. ⚠️ **`user_id` es el ADOPTANTE**, al revés que `Pet.user_id` (el rescatista que publicó). Las dos son FK a `users.id`, así que un cruce no lo detecta ninguna base: el aviso quedó en los docstrings del **modelo, el schema y el router**, y `test_user_id_del_swipe_es_el_adoptante_no_el_publicador` lo fija con dos usuarios distintos.
+- **`UniqueConstraint("user_id", "pet_id", name="uq_swipe_user_pet")`**, nuevo respecto a adopta-v1, + `index=True` en las dos FK (los índices que pide el `.sql` del paso 8).
+- `src/api/reencuentro_api/schemas/swipe.py` — `SwipeIn` acepta y **descarta** `mensaje`/`telefono_contacto` (viven en `matches`, AD-05) con el porqué escrito; `SwipeOut.solicitud` es siempre `null` en AD-03.
+- `src/api/reencuentro_api/routers/swipes.py` — 201 el primero, **200 el repetido** (misma fila, misma dirección). La idempotencia usa `_swipe_existente` (a nivel de módulo, cegable por monkeypatch) **y** el `IntegrityError` con `rollback()`. Los 404 se comprueban en el código; 409 solo para `adoptado` (`en_proceso` se acepta: una adopción puede no cuajar).
+- `models/__init__.py` (+`Swipe`) y `main.py` (`include_router(swipes.router)` después de `pets` y **antes de `paginas`**; `test_paginas.py` sigue verde, canario del orden).
+- `tests/api/test_swipes.py` — nuevo, 17 tests. **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.models.swipe'`.
+- **Mutación verificada de verdad**: quitar el `except IntegrityError`/`rollback()` deja en rojo **solo** el test de la carrera, con el `UNIQUE constraint failed: swipes.user_id, swipes.pet_id` sin atrapar (un 500 en producción). Router restaurado con el mismo md5 (`e2366bce5c91965fe09ea4e3b977ebdd`).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_swipes.py -v` 17/17; `pytest tests/api` **363/363**; ruff + black limpios; `bash init.sh` exit 0 con **363 API + 285 web** (346 antes). `feature_list.json` sin tocar; sin `GET /api/pets/deck` (paso 7) ni los `.sql` (paso 8).
 
 ---
 
