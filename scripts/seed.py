@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Seed determinista de Reencuentro: usuarios y reportes de mascotas por zona.
+"""Seed determinista de Reencuentro: usuarios, reportes, organizaciones y adopción.
 
 Nunca falla por falta de red: si no se puede descargar una foto, genera un
 placeholder SVG local. Ver .claude/skills/seed-data/SKILL.md.
 
 Determinista de verdad: coordenadas y fechas fijas (no random), timestamps
-`creado_en`/`resuelto_en` explícitos — dos corridas seguidas producen
-exactamente los mismos datos.
+`creado_en`/`resuelto_en`/`publicado_en` explícitos — dos corridas seguidas
+producen exactamente los mismos datos.
+
+⚠️ Hace `drop_all`: **jamás** se corre contra la base de producción.
 
 Uso: python3 scripts/seed.py
 """
@@ -22,8 +24,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src" / "api"))
 
 from reencuentro_api.media import subir_a_supabase, supabase_configurado  # noqa: E402
-from reencuentro_api.models import Base, Report, SessionLocal, User, engine  # noqa: E402
-from reencuentro_api.services.ciudades import ZONAS  # noqa: E402
+from reencuentro_api.models import (  # noqa: E402
+    Base,
+    Organizacion,
+    Pet,
+    Report,
+    SessionLocal,
+    User,
+    engine,
+)
+from reencuentro_api.services.ciudades import ZONA_OTRO, ZONAS, zona_valida  # noqa: E402
 
 RANDOM_SEED = 42
 DEMO_USER_ID = 1  # Ana Martínez, primer usuario insertado — usado por src/web y por los tests
@@ -366,21 +376,281 @@ REPORTS = [
 ]
 
 
-def _obtener_foto(report_id: int, etiqueta: str, especie: str) -> tuple[str, bytes, str]:
+# Red de apoyo (feature 32) que además publica mascotas en adopción (AD-01).
+# `user_idx` indexa USERS: la organización la registra un usuario real del seed,
+# que es el único que puede publicar mascotas a su nombre (403 en el router).
+ORGANIZACIONES = [
+    dict(
+        user_idx=0,
+        tipo="fundacion",
+        nombre="Fundación Huellitas del Quindío",
+        descripcion="Refugio temporal para mascotas rescatadas del sismo. Damos alojamiento, comida y atención veterinaria mientras aparecen sus familias o llega una nueva.",
+        zona="Armenia",
+        barrio="La Castellana",
+        direccion="Cra 14 #10-25, Armenia",
+        lat=4.535,
+        lng=-75.681,
+        telefono_contacto="3001234561",
+        horario="Lunes a sábado, 8:00 a 17:00",
+        como_donar="Nequi 300 123 4561 o llevando alimento al refugio",
+    ),
+    dict(
+        user_idx=1,
+        tipo="fundacion",
+        nombre="Refugio Patas del Otún",
+        descripcion="Hogar de paso comunitario en Pereira. Trabajamos con familias voluntarias que reciben mascotas mientras se recuperan del sismo.",
+        zona="Pereira",
+        barrio="Cuba",
+        direccion="Calle 72 #26-14, Pereira",
+        lat=4.813,
+        lng=-75.696,
+        telefono_contacto="3001234562",
+        horario="Todos los días, 9:00 a 18:00",
+        como_donar="Nequi 300 123 4562",
+    ),
+    dict(
+        user_idx=2,
+        tipo="veterinaria",
+        nombre="Veterinaria San Francisco",
+        descripcion="Atendemos gratis a las mascotas rescatadas del sismo y damos en adopción las que nadie reclamó tras la valoración médica.",
+        zona="Manizales",
+        barrio="Palermo",
+        direccion="Av. Santander #48-30, Manizales",
+        lat=5.070,
+        lng=-75.514,
+        telefono_contacto="3001234563",
+        horario="Lunes a viernes, 7:00 a 19:00",
+    ),
+]
+
+# Mascotas en adopción (AD-01). Cada una cuelga de una organización
+# (`organizacion_idx` → ORGANIZACIONES) **o** de un rescatista individual
+# (`user_idx` → USERS), nunca de ambos: `ck_pets_publicador_exclusivo` rechaza
+# la fila si se meten las dos claves. Las de rescatista llevan
+# `telefono_contacto` obligatorio porque el modelo `User` no tiene teléfono.
+# Cobertura que consumen las features siguientes (fijada en
+# tests/api/test_seed_pets.py): al menos una senior (`edad_meses > 84`) y una
+# con tag "necesita experiencia" para el deck de AD-03, y una adoptada con
+# `adoptado_en` para la franja de celebración de AD-05.
+PETS = [
+    dict(
+        organizacion_idx=0,
+        nombre="Nala",
+        especie="perro",
+        raza="Criollo / mestizo",
+        sexo="hembra",
+        edad_meses=18,
+        tamano="mediano",
+        energia="alta",
+        historia="Llegó al refugio dos días después del sismo, flaca y con una pata raspada. Ya está recuperada y es pura fiesta: saluda a todo el que entra y aprende trucos por una galleta.",
+        tags=["juguetona", "buena con niños"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        desparasitado=True,
+        zona="Armenia",
+        barrio="La Castellana",
+        lat=4.536,
+        lng=-75.679,
+    ),
+    dict(
+        organizacion_idx=0,
+        nombre="Tomás",
+        especie="gato",
+        raza="Criollo / mestizo",
+        sexo="macho",
+        edad_meses=96,
+        tamano="pequeño",
+        energia="baja",
+        historia="Gato adulto que apareció en un edificio evacuado del centro. Nadie lo reclamó. Duerme casi todo el día, se deja cepillar y busca regazo apenas alguien se sienta.",
+        tags=["senior", "tranquilo"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        microchip=True,
+        desparasitado=True,
+        apto_perros=False,
+        zona="Armenia",
+        barrio="Centro",
+        lat=4.541,
+        lng=-75.671,
+    ),
+    dict(
+        organizacion_idx=1,
+        nombre="Bonita",
+        especie="perro",
+        raza="Pastor Alemán",
+        sexo="hembra",
+        edad_meses=60,
+        tamano="grande",
+        energia="media",
+        historia="Cuidaba una bodega que se vino abajo. Es leal y obediente, pero desconfía de los desconocidos y no tolera a otros perros: necesita una familia con experiencia y patio propio.",
+        tags=["necesita experiencia"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        desparasitado=True,
+        apto_ninos=False,
+        apto_perros=False,
+        apto_gatos=False,
+        zona="Pereira",
+        barrio="Centro",
+        lat=4.812,
+        lng=-75.702,
+        # Está en un hogar de paso con su propio contacto, no en la sede.
+        telefono_contacto="3001234572",
+    ),
+    dict(
+        organizacion_idx=2,
+        nombre="Pelusa",
+        especie="gato",
+        raza="Criollo / mestizo",
+        sexo="hembra",
+        edad_meses=8,
+        tamano="pequeño",
+        energia="media",
+        historia="Llegó a la veterinaria en una caja, con tres semanas de nacida. Se crió entre las manos del equipo y encontró familia en Manizales: la primera adopción del módulo.",
+        tags=["juguetona", "sociable"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        desparasitado=True,
+        zona="Manizales",
+        barrio="Palermo",
+        lat=5.066,
+        lng=-75.509,
+        estado="adoptado",
+        adoptado_en=datetime(2026, 8, 14, 16, 30),
+    ),
+    dict(
+        user_idx=3,
+        nombre="Copito",
+        especie="perro",
+        raza="Criollo / mestizo",
+        sexo="macho",
+        edad_meses=4,
+        tamano="pequeño",
+        energia="alta",
+        historia="Lo saqué de debajo de una placa caída en Quibdó, con su hermano. El hermano ya tiene casa; él sigue conmigo, mordiendo cordones y persiguiendo gallinas.",
+        tags=["cachorro", "juguetón"],
+        vacunas_al_dia=True,
+        desparasitado=True,
+        zona="Quibdó",
+        barrio="Niño Jesús",
+        lat=5.693,
+        lng=-76.658,
+        telefono_contacto="3001234564",
+    ),
+    dict(
+        user_idx=4,
+        nombre="Manchas",
+        especie="perro",
+        raza="Beagle",
+        sexo="macho",
+        edad_meses=36,
+        tamano="mediano",
+        energia="media",
+        historia="Apareció en mi cuadra la semana del sismo y nunca se fue. Preguntamos casa por casa y nadie lo reconoció. Es tragón, dormilón y bueno con los niños del edificio.",
+        tags=["sociable", "buena con niños"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        desparasitado=True,
+        zona="Cali",
+        barrio="San Fernando",
+        lat=3.448,
+        lng=-76.535,
+        telefono_contacto="3001234565",
+    ),
+    dict(
+        user_idx=1,
+        nombre="Lía",
+        especie="gato",
+        raza="Siamés",
+        sexo="hembra",
+        edad_meses=24,
+        tamano="mediano",
+        energia="media",
+        historia="La recogí de una terraza el día de la réplica. Es habladora, sigue a la gente por la casa y se lleva bien con el otro gato de mi apartamento.",
+        tags=["sociable"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        desparasitado=True,
+        apto_perros=False,
+        zona="Pereira",
+        barrio="Cuba",
+        lat=4.806,
+        lng=-75.688,
+        telefono_contacto="3001234562",
+    ),
+    dict(
+        user_idx=2,
+        nombre="Duque",
+        especie="perro",
+        raza="Labrador",
+        sexo="macho",
+        edad_meses=108,
+        tamano="grande",
+        energia="baja",
+        historia="Su familia se fue a un albergue donde no aceptan mascotas y me pidieron cuidarlo. Nunca volvieron. Camina despacio, ronca fuerte y solo quiere una cama y compañía.",
+        tags=["senior", "tranquilo"],
+        esterilizado=True,
+        vacunas_al_dia=True,
+        microchip=True,
+        desparasitado=True,
+        zona="Manizales",
+        barrio="Chipre",
+        lat=5.072,
+        lng=-75.522,
+        telefono_contacto="3001234563",
+    ),
+]
+
+# placedog.net elige la foto por `id`: las mascotas en adopción desplazan el
+# suyo para no repetir exactamente las fotos de los reportes (los gatos ya
+# varían solos, cataas.com devuelve uno distinto en cada petición).
+DESPLAZAMIENTO_FOTO_POR_PREFIJO = {"report": 0, "pet": 100}
+
+
+def _validar_pin(descripcion: str, zona: str, lat: float | None, lng: float | None) -> None:
+    """Aborta el seed si el pin cae fuera del bounding box de su zona.
+
+    Misma validación para reportes, organizaciones y mascotas: la fuente de
+    verdad de las cajas es `services/ciudades.py`, nunca constantes duplicadas
+    aquí. La zona "Otro" no tiene caja propia (el pin va sobre el mapa
+    nacional), y las mascotas pueden no tener pin — en ambos casos no hay nada
+    que verificar.
+    """
+    if not zona_valida(zona):
+        raise SystemExit(f"{descripcion}: zona desconocida '{zona}'")
+    if zona == ZONA_OTRO or lat is None or lng is None:
+        return
+
+    caja = ZONAS[zona]
+    dentro = caja["lat_min"] <= lat <= caja["lat_max"] and (
+        caja["lng_min"] <= lng <= caja["lng_max"]
+    )
+    if not dentro:
+        raise SystemExit(f"{descripcion} fuera del bounding box de {zona}: {lat},{lng}")
+
+
+def _obtener_foto(
+    entidad_id: int, etiqueta: str, especie: str, prefijo: str = "report"
+) -> tuple[str, bytes, str]:
     """(nombre, contenido, content_type) de la foto: descarga o placeholder SVG.
+
+    `prefijo` decide el nombre del archivo: `report_{id}` para los reportes (el
+    default histórico, no se puede cambiar sin dejar huérfanas las fotos ya
+    generadas en `data/media/seed/`) y `pet_{id}` para las mascotas en adopción.
 
     La especie "otro" no tiene fuente de placeholders — va directo al SVG.
     """
     if especie in ("perro", "gato"):
+        foto_id = entidad_id + DESPLAZAMIENTO_FOTO_POR_PREFIJO.get(prefijo, 0)
         url = (
-            f"https://placedog.net/500/375?id={report_id}"
+            f"https://placedog.net/500/375?id={foto_id}"
             if especie == "perro"
             else "https://cataas.com/cat?width=500&height=375"
         )
         try:
             response = requests.get(url, timeout=DOWNLOAD_TIMEOUT_SECONDS)
             response.raise_for_status()
-            return f"report_{report_id}.jpg", response.content, "image/jpeg"
+            return f"{prefijo}_{entidad_id}.jpg", response.content, "image/jpeg"
         except (requests.RequestException, OSError):
             pass
 
@@ -390,26 +660,29 @@ def _obtener_foto(report_id: int, etiqueta: str, especie: str) -> tuple[str, byt
   <text x="50%" y="50%" font-family="sans-serif" font-size="28" fill="#3D3931"
         text-anchor="middle" dominant-baseline="middle">foto · {etiqueta}</text>
 </svg>"""
-    return f"report_{report_id}.svg", svg.encode("utf-8"), "image/svg+xml"
+    return f"{prefijo}_{entidad_id}.svg", svg.encode("utf-8"), "image/svg+xml"
 
 
-def _download_or_placeholder(report_id: int, etiqueta: str, especie: str) -> str:
-    """Foto del reporte: al bucket de Supabase si está configurado (despliegue,
+def _download_or_placeholder(
+    entidad_id: int, etiqueta: str, especie: str, prefijo: str = "report"
+) -> str:
+    """Foto de un reporte (`prefijo="report"`) o de una mascota en adopción
+    (`prefijo="pet"`): al bucket de Supabase si está configurado (despliegue,
     ADR 0006), o al filesystem local con caché como siempre (dev)."""
     if supabase_configurado():
-        nombre, contenido, content_type = _obtener_foto(report_id, etiqueta, especie)
+        nombre, contenido, content_type = _obtener_foto(entidad_id, etiqueta, especie, prefijo)
         return subir_a_supabase(nombre, contenido, content_type)
 
     SEED_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
-    jpg_path = SEED_IMAGES_DIR / f"report_{report_id}.jpg"
-    svg_path = SEED_IMAGES_DIR / f"report_{report_id}.svg"
+    jpg_path = SEED_IMAGES_DIR / f"{prefijo}_{entidad_id}.jpg"
+    svg_path = SEED_IMAGES_DIR / f"{prefijo}_{entidad_id}.svg"
 
     if jpg_path.exists():
         return f"/media/seed/{jpg_path.name}"
     if svg_path.exists():
         return f"/media/seed/{svg_path.name}"
 
-    nombre, contenido, _content_type = _obtener_foto(report_id, etiqueta, especie)
+    nombre, contenido, _content_type = _obtener_foto(entidad_id, etiqueta, especie, prefijo)
     (SEED_IMAGES_DIR / nombre).write_bytes(contenido)
     return f"/media/seed/{nombre}"
 
@@ -418,14 +691,27 @@ def main() -> None:
     random.seed(RANDOM_SEED)
 
     for datos in REPORTS:
-        caja = ZONAS[datos["zona"]]
-        dentro = caja["lat_min"] <= datos["lat"] <= caja["lat_max"] and (
-            caja["lng_min"] <= datos["lng"] <= caja["lng_max"]
+        _validar_pin(
+            f"Reporte de {datos.get('nombre_mascota') or datos['especie']}",
+            datos["zona"],
+            datos["lat"],
+            datos["lng"],
         )
-        if not dentro:
+    for datos in ORGANIZACIONES:
+        _validar_pin(datos["nombre"], datos["zona"], datos["lat"], datos["lng"])
+    for datos in PETS:
+        _validar_pin(datos["nombre"], datos["zona"], datos.get("lat"), datos.get("lng"))
+        # Mismo invariante que `ck_pets_publicador_exclusivo` y `PetIn`, pero
+        # con un mensaje legible: si no, el seed muere con un IntegrityError.
+        de_organizacion = datos.get("organizacion_idx") is not None
+        de_rescatista = datos.get("user_idx") is not None
+        if de_organizacion == de_rescatista:
             raise SystemExit(
-                f"Reporte fuera del bounding box de {datos['zona']}: {datos['lat']},{datos['lng']}"
+                f"{datos['nombre']}: una mascota en adopción cuelga de una "
+                "organización O de un rescatista, exactamente uno"
             )
+        if de_rescatista and not (datos.get("telefono_contacto") or "").strip():
+            raise SystemExit(f"{datos['nombre']}: un rescatista necesita teléfono de contacto")
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -437,6 +723,46 @@ def main() -> None:
         users = [User(creado_en=datetime(2026, 8, 12, 8, 0), **datos) for datos in USERS]
         session.add_all(users)
         session.flush()
+
+        # Orden de inserción: usuarios → organizaciones (cuelgan de usuarios) →
+        # mascotas (cuelgan de organizaciones o de usuarios) → reportes. Cada
+        # `flush()` es el que da los ids que necesita el nivel siguiente.
+        organizaciones = []
+        for datos in ORGANIZACIONES:
+            datos = dict(datos)
+            user = users[datos.pop("user_idx")]
+            organizaciones.append(
+                Organizacion(user_id=user.id, creado_en=datetime(2026, 8, 12, 8, 0), **datos)
+            )
+        session.add_all(organizaciones)
+        session.flush()
+
+        pets = []
+        for datos in PETS:
+            datos = dict(datos)
+            organizacion_idx = datos.pop("organizacion_idx", None)
+            user_idx = datos.pop("user_idx", None)
+            pets.append(
+                Pet(
+                    organizacion_id=(
+                        organizaciones[organizacion_idx].id
+                        if organizacion_idx is not None
+                        else None
+                    ),
+                    user_id=users[user_idx].id if user_idx is not None else None,
+                    # Explícito por lo mismo que `creado_en` de los usuarios: el
+                    # default del modelo es `datetime.now`, que rompe el determinismo.
+                    publicado_en=datetime(2026, 8, 12, 8, 0),
+                    **datos,
+                )
+            )
+        session.add_all(pets)
+        session.flush()
+
+        for pet in pets:
+            # `fotos` es una lista JSON sin MutableList: se reasigna completa,
+            # nunca se muta in-place (no se persistiría).
+            pet.fotos = [_download_or_placeholder(pet.id, pet.nombre, pet.especie, prefijo="pet")]
 
         reports = []
         for datos in REPORTS:
@@ -453,10 +779,13 @@ def main() -> None:
         session.commit()
         activos = sum(1 for r in reports if r.estado == "activo")
         reunidos = len(reports) - activos
+        adoptadas = sum(1 for p in pets if p.estado == "adoptado")
         destino = "Postgres remoto" if engine.dialect.name == "postgresql" else "data/app.db"
         print(
             f"Seed listo: {len(users)} usuarios, {len(reports)} reportes "
-            f"({activos} activos, {reunidos} reunidos) en {destino}"
+            f"({activos} activos, {reunidos} reunidos), {len(organizaciones)} organizaciones, "
+            f"{len(pets)} mascotas en adopción ({len(pets) - adoptadas} disponibles, "
+            f"{adoptadas} adoptadas) en {destino}"
         )
     finally:
         session.close()
