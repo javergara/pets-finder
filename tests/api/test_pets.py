@@ -1,8 +1,8 @@
-"""Mascotas en adopción (AD-01): modelo `Pet`, schemas y `POST /api/pets`.
+"""Mascotas en adopción (AD-01): modelo `Pet`, schemas y endpoints de `/api/pets`.
 
-Las lecturas (`GET`) llegan en el paso 6 del plan; aquí se ejercitan el
-invariante del CHECK a nivel de DB, las reglas del `model_validator` de `PetIn`
-y la publicación por HTTP.
+Cubre el invariante del CHECK a nivel de DB, las reglas del `model_validator` de
+`PetIn`, la publicación por HTTP (paso 5) y las lecturas del catálogo (paso 6:
+listado con filtros, resumen de adopciones y ficha).
 
 ⚠️ `Pet` se importa a nivel de módulo a propósito: el fixture `db_session` hace
 `create_all` con lo que esté registrado en `Base.metadata` en ese instante, y un
@@ -10,10 +10,12 @@ import perezoso produce un `no such table: pets` intermitente según el orden de
 colección de pytest.
 """
 
+from contextlib import contextmanager
 from datetime import date, datetime
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 
 from reencuentro_api.models.organizacion import Organizacion
@@ -490,3 +492,379 @@ def test_dueno_de_mascota_con_organizacion_borrada_es_nadie(db_session, organiza
     db_session.commit()
 
     assert router_pets._dueno_user_id(db_session, pet) is None
+
+
+# --- Lecturas del catálogo: GET "" / GET /adopciones / GET /{pet_id} (paso 6) --
+
+
+def _sembrar_catalogo(db_session, otro_usuario, organizacion) -> dict[str, Pet]:
+    """Catálogo variado: mascotas de organización y de rescatista, mezcla de
+    especie/tamaño/energía/sexo/zona y los tres estados.
+
+    `publicado_en` va explícito para que el orden del listado sea determinista.
+    """
+    mascotas = {
+        "canela": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Canela",
+            especie="perro",
+            sexo="hembra",
+            tamano="mediano",
+            energia="media",
+            zona="Armenia",
+            publicado_en=datetime(2026, 8, 14, 9, 0),
+        ),
+        "mishi": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Mishi",
+            especie="gato",
+            sexo="macho",
+            tamano="pequeño",
+            energia="baja",
+            zona="Pereira",
+            publicado_en=datetime(2026, 8, 13, 9, 0),
+        ),
+        "rocky": _pet(
+            user_id=otro_usuario.id,
+            telefono_contacto="3105558899",
+            nombre="Rocky",
+            especie="perro",
+            sexo="macho",
+            tamano="grande",
+            energia="alta",
+            zona="Armenia",
+            publicado_en=datetime(2026, 8, 12, 9, 0),
+        ),
+        "nube": _pet(
+            user_id=otro_usuario.id,
+            telefono_contacto="3105558899",
+            nombre="Nube",
+            especie="gato",
+            sexo="hembra",
+            tamano="pequeño",
+            energia="media",
+            zona="Cali",
+            estado="en_proceso",
+            publicado_en=datetime(2026, 8, 11, 9, 0),
+        ),
+        "duque": _pet(
+            organizacion_id=organizacion.id,
+            nombre="Duque",
+            especie="perro",
+            sexo="macho",
+            tamano="grande",
+            energia="media",
+            zona="Armenia",
+            estado="adoptado",
+            adoptado_en=datetime(2026, 8, 13, 18, 0),
+            publicado_en=datetime(2026, 8, 10, 9, 0),
+        ),
+    }
+    db_session.add_all(mascotas.values())
+    db_session.commit()
+    return mascotas
+
+
+def _nombres(respuesta) -> list[str]:
+    return [m["nombre"] for m in respuesta.json()]
+
+
+@contextmanager
+def _contar_consultas(session):
+    """Cuenta las sentencias SQL reales que salen por el engine del test.
+
+    Es la red contra el N+1 del catálogo: sin las dos queries batch con `IN`,
+    cada mascota de la página añadiría un round-trip por su publicador.
+    """
+    sentencias: list[str] = []
+    engine = session.get_bind()
+
+    def _registrar(conn, cursor, statement, parameters, context, executemany):
+        sentencias.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _registrar)
+    try:
+        yield sentencias
+    finally:
+        event.remove(engine, "before_cursor_execute", _registrar)
+
+
+def test_listado_filtra_por_especie(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert sorted(_nombres(client.get("/api/pets?especie=perro"))) == ["Canela", "Rocky"]
+    assert _nombres(client.get("/api/pets?especie=gato")) == ["Mishi"]
+
+
+def test_listado_filtra_por_tamano(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert _nombres(client.get("/api/pets?tamano=grande")) == ["Rocky"]
+    assert _nombres(client.get("/api/pets?tamano=pequeño")) == ["Mishi"]
+
+
+def test_listado_filtra_por_energia(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert _nombres(client.get("/api/pets?energia=baja")) == ["Mishi"]
+    assert _nombres(client.get("/api/pets?energia=alta")) == ["Rocky"]
+
+
+def test_listado_filtra_por_sexo(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert _nombres(client.get("/api/pets?sexo=hembra")) == ["Canela"]
+    assert sorted(_nombres(client.get("/api/pets?sexo=macho"))) == ["Mishi", "Rocky"]
+
+
+def test_listado_filtra_por_zona(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert _nombres(client.get("/api/pets?zona=Armenia")) == ["Canela", "Rocky"]
+    assert _nombres(client.get("/api/pets?zona=Pereira")) == ["Mishi"]
+
+
+def test_listado_combina_filtros(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    assert _nombres(client.get("/api/pets?especie=perro&zona=Armenia&tamano=grande")) == ["Rocky"]
+    assert _nombres(client.get("/api/pets?especie=perro&sexo=hembra&energia=media")) == ["Canela"]
+    assert client.get("/api/pets?especie=gato&zona=Armenia").json() == []
+
+
+def test_listado_excluye_adoptadas_por_defecto(client, db_session, otro_usuario, organizacion):
+    """El catálogo muestra lo adoptable: ni las adoptadas ni las en proceso."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    cuerpo = client.get("/api/pets").json()
+
+    assert [m["nombre"] for m in cuerpo] == ["Canela", "Mishi", "Rocky"]
+    assert all(m["estado"] == "disponible" for m in cuerpo)
+
+
+def test_listado_con_estado_todos_incluye_adoptadas_y_en_proceso(
+    client, db_session, otro_usuario, organizacion
+):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    todos = client.get("/api/pets?estado=todos").json()
+
+    # Orden por publicado_en desc, id desc.
+    assert [m["nombre"] for m in todos] == ["Canela", "Mishi", "Rocky", "Nube", "Duque"]
+    assert _nombres(client.get("/api/pets?estado=en_proceso")) == ["Nube"]
+    assert _nombres(client.get("/api/pets?estado=adoptado")) == ["Duque"]
+
+
+def test_listado_pagina_con_el_total_en_el_header(client, db_session, otro_usuario, organizacion):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    pagina1 = client.get("/api/pets?estado=todos&limit=2&offset=0")
+    pagina2 = client.get("/api/pets?estado=todos&limit=2&offset=2")
+    sin_limit = client.get("/api/pets?estado=todos")
+
+    # El total es el de la consulta SIN paginar, en las tres respuestas.
+    assert pagina1.headers["X-Total-Count"] == "5"
+    assert pagina2.headers["X-Total-Count"] == "5"
+    assert sin_limit.headers["X-Total-Count"] == "5"
+    assert len(pagina1.json()) == 2
+    # Y el total respeta los filtros: solo 3 disponibles.
+    assert client.get("/api/pets?limit=2").headers["X-Total-Count"] == "3"
+    # Sin duplicados ni huecos entre páginas.
+    assert _nombres(pagina1) + _nombres(pagina2) == _nombres(sin_limit)[:4]
+
+
+def test_listado_con_limit_invalido_devuelve_422(client, db_session):
+    assert client.get("/api/pets?limit=0").status_code == 422
+    assert client.get("/api/pets?limit=101").status_code == 422
+    assert client.get("/api/pets?offset=-1").status_code == 422
+
+
+def test_listado_filtra_por_organizacion_y_por_rescatista_sin_confundirlos(
+    client, db_session, usuario, otro_usuario, organizacion
+):
+    """`user_id` en el listado es **el rescatista que publicó**, nunca el
+    adoptante que mira (en `adopta-v1` significaba lo contrario).
+
+    `usuario` es quien registró la organización: sus mascotas cuelgan de ella,
+    así que filtrar por `user_id=usuario.id` no devuelve ninguna.
+    """
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    de_la_organizacion = client.get(f"/api/pets?organizacion_id={organizacion.id}")
+    del_rescatista = client.get(f"/api/pets?user_id={otro_usuario.id}")
+
+    assert _nombres(de_la_organizacion) == ["Canela", "Mishi"]
+    assert _nombres(del_rescatista) == ["Rocky"]
+    assert "Rocky" not in _nombres(de_la_organizacion)
+    assert {"Canela", "Mishi"}.isdisjoint(_nombres(del_rescatista))
+    # Quien registró la organización no publica "a su nombre" ninguna mascota.
+    assert client.get(f"/api/pets?user_id={usuario.id}").json() == []
+    # Combinables con el estado, para el panel de la organización (AD-02).
+    assert _nombres(client.get(f"/api/pets?organizacion_id={organizacion.id}&estado=todos")) == [
+        "Canela",
+        "Mishi",
+        "Duque",
+    ]
+
+
+def test_listado_trae_el_publicador_de_cada_mascota(
+    client, db_session, usuario, otro_usuario, organizacion
+):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    por_nombre = {m["nombre"]: m["publicador"] for m in client.get("/api/pets").json()}
+
+    assert por_nombre["Canela"]["tipo"] == "organizacion"
+    assert por_nombre["Canela"]["id"] == organizacion.id
+    assert por_nombre["Canela"]["nombre"] == "Fundación Huellitas del Quindío"
+    assert por_nombre["Rocky"]["tipo"] == "rescatista"
+    assert por_nombre["Rocky"]["id"] == otro_usuario.id
+    assert por_nombre["Rocky"]["nombre"] == "Carlos"
+
+
+def test_listado_no_hace_una_consulta_por_publicador(client, db_session):
+    """Anti-N+1: el número de consultas NO crece con el tamaño de la página.
+
+    Son siempre 4 — el total, las mascotas, y **una** query con `IN` por cada
+    tabla de publicador — aunque cada mascota tenga un publicador distinto. Con
+    `session.get` por mascota serían 2 + N: contra el pooler de Supabase, ~40
+    round-trips por página.
+    """
+    for n in range(6):
+        rescatista = User(nombre=f"Rescatista {n}", email=f"r{n}@example.co", ciudad="Armenia")
+        db_session.add(rescatista)
+        db_session.flush()
+        fundacion = Organizacion(
+            user_id=rescatista.id,
+            tipo="fundacion",
+            nombre=f"Fundación {n}",
+            descripcion="Rescate tras el sismo.",
+            zona="Armenia",
+            direccion="Cra 14 #10-25",
+            lat=4.535,
+            lng=-75.68,
+            telefono_contacto="3001112233",
+        )
+        db_session.add(fundacion)
+        db_session.flush()
+        db_session.add(_pet(organizacion_id=fundacion.id, nombre=f"Fundada {n}"))
+        db_session.add(
+            _pet(user_id=rescatista.id, telefono_contacto="3105558899", nombre=f"Rescatada {n}")
+        )
+    db_session.commit()
+
+    # El identity map de la sesión del fixture escondería el N+1 (en producción
+    # cada request abre su propia sesión): se vacía antes de contar para que las
+    # consultas por publicador sean visibles de verdad.
+    db_session.expunge_all()
+    with _contar_consultas(db_session) as pagina_corta:
+        assert len(client.get("/api/pets?limit=3").json()) == 3
+
+    db_session.expunge_all()
+    with _contar_consultas(db_session) as pagina_completa:
+        assert len(client.get("/api/pets").json()) == 12
+
+    assert len(pagina_corta) == 4
+    assert len(pagina_completa) == 4
+
+
+def test_listado_acepta_adoptante_id_sin_alterar_la_respuesta(
+    client, db_session, otro_usuario, organizacion
+):
+    """`adoptante_id` ya se acepta para no romper el cliente cuando AD-03/05/07
+    lo llenen; en AD-01 no cambia nada de lo que se devuelve."""
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    con_adoptante = client.get(f"/api/pets?adoptante_id={otro_usuario.id}")
+
+    assert con_adoptante.status_code == 200
+    assert con_adoptante.json() == client.get("/api/pets").json()
+    assert all(m["afinidad"] is None for m in con_adoptante.json())
+    assert all(m["es_favorito"] is False for m in con_adoptante.json())
+    assert all(m["ya_solicitada"] is False for m in con_adoptante.json())
+
+
+def test_adopciones_no_se_parsea_como_pet_id_y_responde_200(client, db_session):
+    """Garantía viva del orden literal-antes-que-dinámica: si `GET /adopciones`
+    se declarara después de `GET /{pet_id}`, FastAPI intentaría convertir
+    "adopciones" en int y respondería 422 (bug que parece "ruta inexistente")."""
+    respuesta = client.get("/api/pets/adopciones")
+
+    assert respuesta.status_code != 422
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"total": 0, "recientes": []}
+
+
+def test_resumen_de_adopciones_cuenta_solo_las_adoptadas(
+    client, db_session, otro_usuario, organizacion
+):
+    _sembrar_catalogo(db_session, otro_usuario, organizacion)
+
+    cuerpo = client.get("/api/pets/adopciones").json()
+
+    assert cuerpo["total"] == 1
+    assert [m["nombre"] for m in cuerpo["recientes"]] == ["Duque"]
+    assert cuerpo["recientes"][0]["estado"] == "adoptado"
+
+
+def test_resumen_de_adopciones_lista_las_seis_mas_recientes(
+    client, db_session, otro_usuario, organizacion
+):
+    db_session.add_all(
+        _pet(
+            organizacion_id=organizacion.id,
+            nombre=f"Adoptada {n}",
+            estado="adoptado",
+            adoptado_en=datetime(2026, 8, 1 + n, 12, 0),
+        )
+        for n in range(8)
+    )
+    db_session.add(_pet(organizacion_id=organizacion.id, nombre="Disponible"))
+    db_session.commit()
+
+    cuerpo = client.get("/api/pets/adopciones").json()
+
+    assert cuerpo["total"] == 8
+    assert len(cuerpo["recientes"]) == 6
+    # Las más recientes primero (adoptado_en desc).
+    assert [m["nombre"] for m in cuerpo["recientes"]] == [f"Adoptada {n}" for n in range(7, 1, -1)]
+
+
+def test_detalle_de_mascota_de_organizacion_trae_su_publicador(
+    client, db_session, otro_usuario, organizacion
+):
+    canela = _sembrar_catalogo(db_session, otro_usuario, organizacion)["canela"]
+
+    respuesta = client.get(f"/api/pets/{canela.id}")
+
+    assert respuesta.status_code == 200
+    publicador = respuesta.json()["publicador"]
+    assert publicador["tipo"] == "organizacion"
+    assert publicador["id"] == organizacion.id
+    assert publicador["nombre"] == "Fundación Huellitas del Quindío"
+    # Sin teléfono propio, la mascota se contacta por el de la organización.
+    assert publicador["telefono_contacto"] == "3001112233"
+    assert publicador["zona"] == "Armenia"
+
+
+def test_detalle_de_mascota_de_rescatista_trae_su_telefono(
+    client, db_session, otro_usuario, organizacion
+):
+    """El `User` no tiene teléfono: el del rescatista sale de `Pet.telefono_contacto`."""
+    rocky = _sembrar_catalogo(db_session, otro_usuario, organizacion)["rocky"]
+
+    respuesta = client.get(f"/api/pets/{rocky.id}")
+
+    assert respuesta.status_code == 200
+    publicador = respuesta.json()["publicador"]
+    assert publicador["tipo"] == "rescatista"
+    assert publicador["id"] == otro_usuario.id
+    assert publicador["nombre"] == "Carlos"
+    assert publicador["telefono_contacto"] == "3105558899"
+
+
+def test_detalle_de_mascota_inexistente_devuelve_404(client, db_session):
+    respuesta = client.get("/api/pets/9999")
+
+    assert respuesta.status_code == 404
+    assert respuesta.json()["detail"] == "La mascota 9999 no existe"
