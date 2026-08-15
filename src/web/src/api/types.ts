@@ -52,6 +52,12 @@ export type Reporte = {
   estado: 'activo' | 'reunido';
   creado_en: string;
   resuelto_en: string | null;
+  // Puente con adopción (AD-02): la mascota que se publicó desde este reporte.
+  // Solo llega con algo en el DETALLE (`GET /api/reports/{id}`); en el listado y
+  // el mapa el backend lo deja siempre en `null` a propósito (llenarlo ahí sería
+  // una query por reporte). Opcional en el tipo, como `fotos`, para no obligar a
+  // cada fixture de test a declararlo.
+  adopcion_pet_id?: number | null;
 };
 
 export type Coincidencia = Reporte & { distancia_km: number; razones: string[] };
@@ -355,6 +361,47 @@ export type MascotaIn = {
   // esto la mascota es incontactable.
   telefono_contacto?: string;
   report_id?: number;
+};
+
+/** Edición parcial de una mascota publicada (espejo de `PetUpdate`, AD-02).
+ *
+ * ⚠️ **No lleva `zona` ni `ciudad_texto`, y no es un olvido**: `PetUpdate` los
+ * omite a propósito, así que el backend los ignoraría. Mudar una mascota de zona
+ * cambiaría su encuadre en el mapa; para eso se despublica y se vuelve a
+ * publicar. Por la misma razón tampoco se puede cambiar el publicador
+ * (`organizacion_id` / `rescatista_id`).
+ *
+ * `user_id` no es editable: identifica a **quien pide el cambio** para que el
+ * router valide autoría (403 si no es quien publicó). Nunca es el adoptante.
+ *
+ * ⚠️ `fotos` y `tags` se mandan como la lista completa que debe quedar, no como
+ * un incremento. Y como el backend aplica `exclude_none=True`, omitir un campo y
+ * mandarlo en `null` son lo mismo: no hay forma de vaciar un opcional por aquí.
+ */
+export type MascotaUpdate = {
+  user_id: number;
+  nombre?: string;
+  especie?: EspecieAdopcion;
+  sexo?: SexoMascota;
+  tamano?: TamanoMascota;
+  energia?: EnergiaMascota;
+  raza?: string;
+  edad_meses?: number;
+  historia?: string;
+  tags?: string[];
+  fotos?: string[];
+  esterilizado?: boolean;
+  vacunas_al_dia?: boolean;
+  microchip?: boolean;
+  desparasitado?: boolean;
+  apto_ninos?: boolean;
+  apto_perros?: boolean;
+  apto_gatos?: boolean;
+  barrio?: string;
+  lat?: number;
+  lng?: number;
+  telefono_contacto?: string;
+  estado?: EstadoMascota;
 };
 
 /** Tarjeta mínima de la franja de celebración (espejo de `PetResumenOut`): el

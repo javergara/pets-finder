@@ -14,6 +14,8 @@ import {
   type EspecieAdopcion,
   type EstadoMascota,
   type Mascota,
+  type MascotaIn,
+  type MascotaUpdate,
   type Necesidad,
   type Organizacion,
   type OrganizacionIn,
@@ -384,4 +386,39 @@ export function obtenerMascota(mascotaId: number, adoptanteId?: number): Promise
  * del catálogo, espejo de `obtenerReunidos()`. */
 export function obtenerAdopcionesResumen(): Promise<AdopcionesResumen> {
   return request('/api/pets/adopciones');
+}
+
+// ── Escrituras de adopción (AD-02) ───────────────────────────────────────────
+// ⚠️ `user_id` viaja en un sitio distinto según el verbo, y es la convención del
+// repo, no un descuido: en el **body** del POST y el PUT, y como **query param**
+// del DELETE (igual que `eliminarReporte` y `eliminarOrganizacion`). Cambiarlo de
+// sitio da un 422 sin pista útil para el usuario.
+//
+// ⚠️ Ninguna de las tres manda `adoptante_id`. En este módulo `user_id` es quien
+// publica y `adoptante_id` quien mira: mezclarlos le daría a un visitante
+// permisos de autor sobre una mascota ajena.
+
+/** Publica una mascota en adopción, a nombre de una organización o de un
+ * rescatista (el XOR y el 403 de autoría los resuelve el backend). Con
+ * `report_id` queda enlazada al reporte de "encontrada" del que salió. */
+export function crearMascota(datos: MascotaIn): Promise<Mascota> {
+  return request('/api/pets', {
+    method: 'POST',
+    body: JSON.stringify(datos),
+  });
+}
+
+/** Edición parcial por quien publicó. `datos.user_id` es quien pide el cambio,
+ * y va en el body (patrón de `editarReporte`/`editarOrganizacion`). */
+export function editarMascota(mascotaId: number, datos: MascotaUpdate): Promise<Mascota> {
+  return request(`/api/pets/${mascotaId}`, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
+  });
+}
+
+/** Despublica (borra) la mascota. Responde 204 sin cuerpo, que `request()` ya
+ * sabe no parsear. `userId` va en la query: un DELETE no lleva body aquí. */
+export function eliminarMascota(mascotaId: number, userId: number): Promise<void> {
+  return request(`/api/pets/${mascotaId}?user_id=${userId}`, { method: 'DELETE' });
 }
