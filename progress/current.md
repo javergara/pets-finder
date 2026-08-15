@@ -28,7 +28,7 @@ Plan maestro aprobado por el dueño en `/Users/frandak2/.claude/plans/hola-te-to
 
 **Línea base verde: 174 tests de API + 148 de web.** Al cerrar AD-01 ambos números deben ser mayores.
 
-## 2026-08-15 — Bug de seguridad de autoría en la UI: SALDADO (commit `PENDIENTE_HASH`)
+## 2026-08-15 — Bug de seguridad de autoría en la UI: SALDADO (commit `cc4de85`)
 
 Aparte de AD-02 y sin tocar `feature_list.json`. **Un visitante sin cuenta es tratado como el usuario 1** y ve/usa los controles de escritura de lo que pertenezca a esa persona: `getActiveUserId()` cae al `DEMO_USER_ID = 1` y varias pantallas comparan contra ese valor sin `hasActiveUser()` delante. Reproducido en navegador real en `/organizacion/1` con `localStorage` vacío ("Editar información", "Eliminar este lugar", CTA de publicar, selectores de estado). El backend acepta esas escrituras porque el `user_id` que manda el cliente **coincide de verdad** con el autor.
 
