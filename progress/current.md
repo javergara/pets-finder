@@ -28,6 +28,16 @@ Plan maestro aprobado por el dueño en `/Users/frandak2/.claude/plans/hola-te-to
 
 **Línea base verde: 174 tests de API + 148 de web.** Al cerrar AD-01 ambos números deben ser mayores.
 
+## 2026-08-15 — Bug de seguridad de autoría en la UI: DETECTADO, BLOQUEADO (no es una feature)
+
+Aparte de AD-02 y sin tocar `feature_list.json`. **Un visitante sin cuenta es tratado como el usuario 1** y ve/usa los controles de escritura de lo que pertenezca a esa persona: `getActiveUserId()` cae al `DEMO_USER_ID = 1` y varias pantallas comparan contra ese valor sin `hasActiveUser()` delante. Reproducido en navegador real en `/organizacion/1` con `localStorage` vacío ("Editar información", "Eliminar este lugar", CTA de publicar, selectores de estado). El backend acepta esas escrituras porque el `user_id` que manda el cliente **coincide de verdad** con el autor.
+
+Sitios afectados (5 pantallas): `OrganizacionDetalle.tsx:80` (y con él `SeccionNecesidades`/`AdministrarOrganizacion`/`PanelAdopcionOrganizacion`, que reciben `esAutor` como prop), `RedDeApoyo.tsx:209`, `ReporteDetalle.tsx:215` y `:626`, `EditarReporte.tsx:42` y `MisReportes.tsx:14` (esta no compara: **consulta** por el id activo y pinta "Editar"/"Marcar como reunida"). Ya estaban bien protegidos `MascotaDetalle`, `PuenteAdopcion`, `PublicarMascota`, `EditarMascota`, `PublicarAvisoAyuda`, `RegistrarOrganizacion` y `ReportarMascota`; `CatalogoAdopcion` y `ZonaLanding` no escriben.
+
+**Bloqueado a la espera de decisión del líder**: el arreglo (helper `esUsuarioActivo()` en `lib/session.ts` + su uso en los 6 sitios) deja en rojo **14 tests existentes** repartidos en 5 archivos, que fijan justamente el comportamiento inseguro — usan fixtures con `user_id: 1` y **nunca** llaman a `setActiveUserId`, así que asertan que sin cuenta se ven los controles de autor. Medido de verdad: línea base 276/276 verde → con el arreglo `14 failed | 262 passed`. Desglose: `OrganizacionDetalle.test.tsx` 4 (líneas 124, 145, 198, 238), `MisReportes.test.tsx` 4 (todos), `EditarReporte.test.tsx` 3 (61, 79, 116), `ReporteDetalle.test.tsx` 2 (263, 290), `RedDeApoyo.test.tsx` 1 (102). El encargo prohibía tocar tests existentes, así que **no se commiteó código de producto**: el árbol quedó limpio y verde.
+
+Alcance real en producción (dato del líder): las 27 organizaciones importadas son del usuario sistema id 70 y los 204 reportes del crawler del id 49 — nada de eso es alcanzable. El riesgo vive en cualquier organización, reporte o aviso cuyo autor sea el usuario 1.
+
 ## Feature activa: AD-02-publicar-en-adopcion (in_progress)
 
 Línea base heredada de AD-01 + el fix de esqueletos: **260 tests de API + 211 de web**, `init.sh` en verde. Al cerrar AD-02 ambos números deben subir. Cada paso = un commit, test en rojo primero; no se commitea en rojo. El `done` lo decide el revisor.
