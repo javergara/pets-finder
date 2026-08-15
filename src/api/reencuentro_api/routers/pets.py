@@ -1,12 +1,14 @@
-"""Mascotas en adopción (AD-01), el módulo `/adoptar`.
+"""Mascotas en adopción (AD-01/AD-02), el módulo `/adoptar`.
 
 ⚠️ Orden obligatorio de las rutas en este archivo: **literal antes que
-dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"`. Si
-`/adopciones` se registrara después de `/{pet_id}`, FastAPI intentaría parsearla
-como int y respondería 422 (misma regla que ya sigue `routers/reports.py`).
+dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"` →
+`PUT "/{pet_id}"`. Si `/adopciones` se registrara después de `/{pet_id}`,
+FastAPI intentaría parsearla como int y respondería 422 (misma regla que ya
+sigue `routers/reports.py`).
 """
 
 from collections.abc import Sequence
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
@@ -22,6 +24,7 @@ from ..schemas.pet import (
     PetIn,
     PetOut,
     PetResumenOut,
+    PetUpdate,
     PublicadorOut,
 )
 from ..services.db import get_session
@@ -309,5 +312,49 @@ def obtener_mascota(
     pet = session.get(Pet, pet_id)
     if pet is None:
         raise HTTPException(404, f"La mascota {pet_id} no existe")
+
+    return _pet_out(pet, _publicadores_por_pet(session, [pet]))
+
+
+@router.put("/{pet_id}", response_model=PetOut)
+def editar_mascota(
+    pet_id: int, payload: PetUpdate, session: Session = Depends(get_session)
+) -> PetOut:
+    """Edición parcial solo por quien publicó (patrón de `editar_organizacion`).
+
+    Autoriza `_dueno_user_id`: el autor de la organización que la publicó, o el
+    rescatista dueño. Ese helper puede devolver `None` (organización eliminada,
+    feature 32) y entonces **nadie** queda autorizado — 403, nunca un 500.
+
+    Marcarla `adoptado` sella `adoptado_en`; devolverla a `disponible` o
+    `en_proceso` (una adopción que no cuajó) lo limpia, para que el resumen de
+    `/api/pets/adopciones` no cuente finales felices que no ocurrieron.
+
+    ⚠️ `exclude_none=True` significa que **mandar `null` no vacía un campo**: se
+    ignora, igual que no mandarlo. Así, un formulario que no toca el teléfono no
+    lo borra sin querer. La contrapartida es que hoy no hay forma de vaciar un
+    opcional por esta vía, y no se inventa un centinela para eso.
+
+    ⚠️ `fotos` y `tags` se **reasignan** con la lista completa que llega en el
+    body: mutarlas in-place (`pet.fotos.append(...)`) no se persistiría, porque
+    las columnas JSON no llevan `MutableList`.
+
+    Lo que este endpoint no puede cambiar (`PetUpdate` no los declara): el
+    publicador, la zona y `ciudad_texto`. Mudar de dueño o de zona cambiaría el
+    encuadre en el mapa; para eso se despublica y se vuelve a publicar.
+    """
+    pet = session.get(Pet, pet_id)
+    if pet is None:
+        raise HTTPException(404, f"La mascota {pet_id} no existe")
+    if payload.user_id != _dueno_user_id(session, pet):
+        raise HTTPException(403, "Solo quien publicó la mascota puede editarla")
+
+    cambios = payload.model_dump(exclude={"user_id"}, exclude_none=True)
+    for campo, valor in cambios.items():
+        setattr(pet, campo, valor)
+    if "estado" in cambios:
+        pet.adoptado_en = datetime.now(timezone.utc) if cambios["estado"] == "adoptado" else None
+    session.commit()
+    session.refresh(pet)
 
     return _pet_out(pet, _publicadores_por_pet(session, [pet]))
