@@ -1,6 +1,7 @@
 import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
+import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
@@ -83,6 +84,9 @@ function App() {
           <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
           <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
+          {/* Módulo de adopción (AD-01). El enlace en la nav llega en AD-08:
+              hasta entonces la ruta existe y es compartible, pero no se anuncia. */}
+          <Route path="/adoptar" element={<CatalogoAdopcion />} />
           {/* Landings por zona con SEO propio (feature 46): /cali, /armenia, … */}
           {Object.entries(SLUGS_ZONA).map(([slug, zona]) => (
             <Route key={slug} path={`/${slug}`} element={<ZonaLanding zona={zona} />} />
