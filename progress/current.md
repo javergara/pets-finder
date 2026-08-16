@@ -1532,3 +1532,25 @@ Partido en dos mitades, porque **jsdom no puede probar la segunda**:
 - **"El rewrite se verifica en prod en AD-09"**: dejar `vercel.json` sin test hasta AD-09 apuesta toda la difusión de fichas a que nadie lo coloque en el sitio equivocado. Es JSON estático: cuesta un test.
 - **Los avisos de seguridad como trabajo pendiente**: ya están; implementarlos otra vez los duplicaría en pantalla.
 - **La búsqueda por descripción con mascotas** sigue fuera de alcance (media integración es peor que ninguna). Queda como nota de backlog en `product-research.md`.
+
+#### AD-08 paso 1 EN PAUSA (2026-08-16): el acceptance 2 ya está cubierto; la premisa del plan no se sostiene
+
+**Sin rojo inicial y sin test nuevo, a propósito.** El paso pedía +1 caso en `PublicarMascota.test.tsx` y +1 en `SolicitudDetalle.test.tsx` porque "dos de las tres pantallas no tienen test". Medido antes de escribir nada:
+
+- `src/web/src/screens/PublicarMascota.test.tsx:306` — `it('muestra el aviso de espacio público antes de publicar')`, caso dedicado, con cuenta activa, aseverando `/espacio público/`.
+- `src/web/src/screens/SolicitudDetalle.test.tsx:356` y `:370` — aseveran `/Antes de coordinar un encuentro/i` dentro de los dos casos de WhatsApp (que montan con teléfono, la rama donde vive el aviso).
+- `src/web/src/screens/MascotaDetalle.test.tsx:258` — la tercera pata, ya citada por el plan.
+
+**Mutación ejecutada** (la evidencia que el plan pedía): borradas a la vez las líneas `<AvisoSeguridad contexto="publicar" />` (`PublicarMascota.tsx:362`) y `<AvisoSeguridad contexto="contactar" />` (`SolicitudDetalle.tsx:316`) → `npx vitest run` sobre los dos archivos da **3 fallos de 38** (base: 38 verdes):
+
+- `PublicarMascota.test.tsx > muestra el aviso de espacio público antes de publicar` → `TestingLibraryElementError: Unable to find an element with the text: /espacio público/`.
+- `SolicitudDetalle.test.tsx > quien publicó le escribe a quien pidió la mascota…` y `> quien pidió la mascota le escribe a quien la publicó…` → `Unable to find an element with the text: /Antes de coordinar un encuentro/i`.
+
+Ambos archivos restaurados con `git checkout --`; `git status --short` vacío y sha1 verificados (`e6cc27c9…` `PublicarMascota.tsx`, `e0392bb0…` `SolicitudDetalle.tsx`). **Cero código de producto tocado, cero tests escritos.**
+
+**Lo que el líder tiene que decidir** (el implementador no lo hace por su cuenta):
+
+1. Cerrar el acceptance 2 **citando** los tres tests de arriba, que es lo que el propio plan manda hacer con la tercera pata ("cítala, no la dupliques"); o
+2. Añadir **solo** un caso dedicado en `SolicitudDetalle.test.tsx` con `/nadie debe pedirte dinero/`. Es el único hueco defendible, y no es de cobertura sino de forma: hoy la protegen dos casos cuyo nombre habla de WhatsApp, así que un refactor de esos casos podría llevarse el candado sin que salte nada. El complemento "sin teléfono no hay aviso" (rama `otroLado.telefono`) tampoco está aseverado en ningún sitio.
+
+El duplicado en `PublicarMascota` no se recomienda en ninguno de los dos caminos: sería la misma aserción, más larga, sobre la misma pantalla.
