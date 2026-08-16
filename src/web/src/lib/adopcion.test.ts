@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { Mascota } from '../api/types';
-import { categoriaEdad, edadLegible, tituloMascota } from './adopcion';
+import type { AccionSolicitud, EstadoSolicitud, Mascota } from '../api/types';
+import {
+  categoriaEdad,
+  edadLegible,
+  ETIQUETA_ACCION_SOLICITUD,
+  ETIQUETA_ESTADO_SOLICITUD,
+  tituloMascota,
+} from './adopcion';
 
 function mascota(
   overrides: Partial<Mascota> = {},
@@ -83,5 +89,80 @@ describe('tituloMascota', () => {
 
   it('la raza "Otra" no aporta señas y no se incluye', () => {
     expect(tituloMascota(mascota({ nombre: '', raza: 'Otra' }))).toBe('Perro mediano');
+  });
+});
+
+// ── Copy de las solicitudes de adopción (AD-05) ──────────────────────────────
+// Las dos listas van escritas a mano y tipadas contra su `Literal`: es lo que
+// convierte estos casos en un anti-drift de verdad. Si mañana el backend suma un
+// estado, `tsc` obliga a añadirlo al `Record` (o no compila) y estos casos se
+// ponen rojos hasta que alguien decida su copy y su color — en vez de que la
+// pantalla pinte `undefined` en un badge.
+const ESTADOS: EstadoSolicitud[] = [
+  'solicitado',
+  'en_revision',
+  'visita_agendada',
+  'adoptado',
+  'cerrado',
+];
+
+const ACCIONES: AccionSolicitud[] = ['agendar-visita', 'pedir-informacion', 'aprobar', 'descartar'];
+
+describe('ETIQUETA_ESTADO_SOLICITUD', () => {
+  it('los cinco estados tienen texto y color, ninguno vacío', () => {
+    for (const estado of ESTADOS) {
+      const badge = ETIQUETA_ESTADO_SOLICITUD[estado];
+      expect(badge.texto.trim()).not.toBe('');
+      expect(badge.color.trim()).not.toBe('');
+    }
+  });
+
+  it('sus claves son exactamente los cinco estados persistidos', () => {
+    expect(Object.keys(ETIQUETA_ESTADO_SOLICITUD).sort()).toEqual([...ESTADOS].sort());
+  });
+
+  it('avanzar es forest, esperar es ochre y cerrar es neutro', () => {
+    expect(ETIQUETA_ESTADO_SOLICITUD.solicitado.color).toContain('ochre');
+    expect(ETIQUETA_ESTADO_SOLICITUD.en_revision.color).toContain('ochre');
+    expect(ETIQUETA_ESTADO_SOLICITUD.visita_agendada.color).toContain('forest');
+    expect(ETIQUETA_ESTADO_SOLICITUD.adoptado.color).toContain('forest');
+    expect(ETIQUETA_ESTADO_SOLICITUD.cerrado.color).toContain('muted');
+  });
+
+  // `danger` es el rojo de emergencia y está reservado en toda la app a
+  // "perdido". Una solicitud cerrada no es una mala noticia del mismo orden que
+  // una mascota perdida, y teñirla de rojo rompería esa señal en la única
+  // pantalla donde los dos dominios pueden convivir.
+  it('ningún estado usa danger: el rojo está reservado a "perdido"', () => {
+    for (const estado of ESTADOS) {
+      expect(ETIQUETA_ESTADO_SOLICITUD[estado].color).not.toContain('danger');
+    }
+  });
+});
+
+describe('ETIQUETA_ACCION_SOLICITUD', () => {
+  it('las cuatro acciones tienen el copy exacto de los botones', () => {
+    expect(ETIQUETA_ACCION_SOLICITUD['agendar-visita']).toBe('Agendar visita');
+    expect(ETIQUETA_ACCION_SOLICITUD['pedir-informacion']).toBe('Pedir más información');
+    expect(ETIQUETA_ACCION_SOLICITUD.aprobar).toBe('Confirmar adopción');
+    expect(ETIQUETA_ACCION_SOLICITUD.descartar).toBe('Descartar solicitud');
+  });
+
+  // Anti-drift: las acciones son los últimos segmentos de
+  // `POST /api/solicitudes/{id}/{accion}` y llegan del backend dentro de
+  // `acciones_disponibles`. Una que no tenga etiqueta pintaría un botón vacío
+  // que sí funciona al pulsarlo.
+  it('sus claves son exactamente las cuatro acciones del backend', () => {
+    expect(Object.keys(ETIQUETA_ACCION_SOLICITUD).sort()).toEqual([...ACCIONES].sort());
+  });
+
+  it('ninguna etiqueta nombra un estado ni promete que la acción ya ocurrió', () => {
+    // "Aprobar" lleva a `adoptado` y "Descartar" a `cerrado`: las acciones NO
+    // son estados (`aprobado` no existe como estado, y ese es el error que el
+    // backend tiene explícitamente prohibido).
+    for (const accion of ACCIONES) {
+      expect(ETIQUETA_ACCION_SOLICITUD[accion]).not.toContain('aprobado');
+      expect(ETIQUETA_ACCION_SOLICITUD[accion].trim()).not.toBe('');
+    }
   });
 });

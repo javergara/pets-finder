@@ -439,12 +439,11 @@ export type Swipe = {
   pet_id: number;
   direccion: DireccionSwipe;
   creado_en: string;
-  // Siempre `null` en AD-03: el swipe no crea nada más. La solicitud (tabla
-  // `matches`, "solicitud" en el copy) la crea AD-05, que ampliará este campo a
-  // `SolicitudResumen | null` cuando ese schema exista. Se tipa como `null` a
-  // propósito: inventarle hoy una forma que nada llena sería declarar un
-  // contrato que el backend no cumple.
-  solicitud: null;
+  // La solicitud de adopción que nació de este swipe (AD-05, tabla `matches`).
+  // Llega con el "me interesa" —también al repetirlo: el backend devuelve la
+  // que ya había en vez de crear otra— y es `null` en el "ahora no", que no
+  // pide nada a nadie.
+  solicitud: SolicitudResumen | null;
 };
 
 /** Tarjeta mínima de la franja de celebración (espejo de `PetResumenOut`): el
@@ -506,4 +505,101 @@ export type ExperienciaPrevia = 'ninguna' | 'algo' | 'mucha';
 export type PerfilHogarIn = Omit<PerfilHogar, 'presupuesto_mensual_cop'> & {
   user_id: number;
   presupuesto_mensual_cop?: number | null;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Solicitudes de adopción (AD-05) — espejo de `schemas/solicitud.py`
+// ─────────────────────────────────────────────────────────────────────────────
+// La tabla se llama `matches`, pero en la API, en el copy y en las pantallas
+// esto es siempre una **solicitud**: quien busque "match" en el producto no lo
+// va a encontrar.
+//
+// ⚠️ **Ningún tipo de esta sección declara `motivo_descarte`.** Es la nota
+// interna con la que quien publica cierra una solicitud, y el backend no la
+// devuelve en ninguna respuesta —quien no se quedó con la mascota no tiene por
+// qué leer por qué (ADR 0002)—. Declararla aquí no la traería: la volvería una
+// promesa que el servidor no cumple, llegaría siempre `undefined` y una pantalla
+// podría pintarle ese hueco al adoptante sin que `tsc` dijera nada.
+
+export type EstadoSolicitud =
+  | 'solicitado'
+  | 'en_revision'
+  | 'visita_agendada'
+  | 'adoptado'
+  | 'cerrado';
+
+/** Las acciones que puede ejecutar quien publicó la mascota.
+ *
+ * ⚠️ **No son estados**: `aprobar` lleva a `adoptado` y `descartar` a
+ * `cerrado`. Son los últimos segmentos de `POST /api/solicitudes/{id}/{accion}`,
+ * de ahí el guion. Cuáles están disponibles lo decide el backend
+ * (`acciones_disponibles`); el frontend solo las traduce a copy con
+ * `ETIQUETA_ACCION_SOLICITUD`. */
+export type AccionSolicitud = 'agendar-visita' | 'pedir-informacion' | 'aprobar' | 'descartar';
+
+/** Quién pide la mascota: nombre y nada más (espejo de `AdoptanteResumen`).
+ *
+ * ⚠️ **Sin `email`, y no es un olvido del espejo**: sin contraseñas (ADR 0005)
+ * el correo es la credencial de entrar-o-registrar de todo el producto, así que
+ * el backend no lo manda en una lista que ve cualquier publicador. El contacto
+ * viaja solo en el detalle, como `telefono_contacto`, y es el que esa persona
+ * dejó al pedir la mascota. */
+export type AdoptanteResumen = {
+  id: number;
+  nombre: string;
+};
+
+/** La solicitud recién creada que devuelve el swipe-derecha
+ * (`SolicitudResumenOut`): lo mínimo para el modal de "solicitud enviada".
+ *
+ * No trae adoptante (es quien pregunta) ni afinidad (ya venía en la tarjeta del
+ * deck). */
+export type SolicitudResumen = {
+  id: number;
+  estado: EstadoSolicitud;
+  // Texto ya resuelto por el backend ("Cuestionario nuevo", "En revisión",
+  // "Sin responder · 5 días"...). Depende de cuántos días lleve abierta, así que
+  // se muestra tal cual y no se recalcula aquí.
+  etiqueta: string;
+  creado_en: string;
+  pet: MascotaResumen;
+};
+
+/** Fila de `GET /api/solicitudes` (espejo de `SolicitudOut`): la misma para
+ * "mis solicitudes" y para "las que recibí".
+ *
+ * `publicador` y `afinidad` son opcionales por razones distintas y las dos
+ * reales: una mascota puede colgar de una organización ya eliminada (feature
+ * 32), y quien adopta puede no haber contestado el cuestionario de hogar (AD-04
+ * lo dejó opcional a propósito). */
+export type Solicitud = {
+  id: number;
+  estado: EstadoSolicitud;
+  etiqueta: string;
+  creado_en: string;
+  actualizado_en: string | null;
+  pet: MascotaResumen;
+  publicador: Publicador | null;
+  // ⚠️ Quien pide la mascota, NO quien la publicó (eso es `publicador`).
+  adoptante: AdoptanteResumen;
+  afinidad: Afinidad | null;
+  // ⚠️ Lo calcula el backend para quien pregunta, y para el adoptante es
+  // **siempre `[]`** (el match no es mutuo, ADR 0002). La pantalla pinta esta
+  // lista y nada más: reimplementar la matriz de transiciones en el frontend es
+  // exactamente lo que hacía la era Adopta, donde las dos fuentes de verdad se
+  // separaron en la primera corrección del backend.
+  acciones_disponibles: AccionSolicitud[];
+};
+
+/** El detalle (`SolicitudDetalleOut`): además, con qué decidir.
+ *
+ * `home_profile` es el contenido principal para quien publica y puede ser
+ * `null` — en la era Adopta esa fila desaparecía del panel sin ningún error
+ * visible—. `mensaje` y `telefono_contacto` son los que dejó quien adopta al
+ * pedir la mascota. */
+export type SolicitudDetalle = Solicitud & {
+  bio: string | null;
+  mensaje: string | null;
+  telefono_contacto: string | null;
+  home_profile: PerfilHogar | null;
 };

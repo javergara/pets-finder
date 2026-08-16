@@ -25,6 +25,8 @@ import {
   type Reporte,
   type ReporteIn,
   type ReunidosResumen,
+  type Solicitud,
+  type SolicitudDetalle,
   type Swipe,
   type TamanoMascota,
   type TipoOrganizacion,
@@ -517,4 +519,121 @@ export async function obtenerPerfilHogar(
     throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
   }
   return respuesta.json() as Promise<PerfilHogar>;
+}
+
+// ── Solicitudes de adopción (AD-05) ──────────────────────────────────────────
+// Aquí conviven las dos mitades del módulo: quien adopta solo lee (`las que
+// envié`), y quien publica lee y además mueve el estado con las cuatro
+// acciones. El corte no lo hace este archivo — lo hace el backend con un 403 —,
+// pero sí lo refleja: `listarSolicitudes` y `obtenerSolicitud` las usan los dos;
+// las cuatro acciones, solo quien publicó la mascota.
+
+/** El filtro de `GET /api/solicitudes`: **exactamente uno de los tres**.
+ *
+ * Son tres preguntas distintas ("las que envié", "las de mi fundación", "las que
+ * recibí a título propio") y el backend responde 422 si llegan cero o dos —un
+ * guard escrito a mano, porque FastAPI sabe exigir un parámetro requerido pero
+ * no "uno de tres"—. La unión hace ese mismo trabajo en tiempo de compilación,
+ * así que ese 422 es inalcanzable desde la app.
+ *
+ * ⚠️ Los `?: never` no son ruido: **medido en este repo**, una unión pelada
+ * (`{adoptanteId} | {organizacionId} | {publicadorId}`) acepta
+ * `{ adoptanteId: 7, organizacionId: 2 }` sin protestar. TypeScript solo aplica
+ * el chequeo de propiedades de más contra la unión entera, así que la clave
+ * sobrante se considera legítima porque existe en otro miembro. Con los `never`
+ * declarados, ese literal no compila. */
+export type FiltroSolicitudes =
+  | { adoptanteId: number; organizacionId?: never; publicadorId?: never }
+  | { organizacionId: number; adoptanteId?: never; publicadorId?: never }
+  | { publicadorId: number; adoptanteId?: never; organizacionId?: never };
+
+/** Las solicitudes de una persona (las que envió) o de quien publica (las que
+ * recibió), lo más reciente primero.
+ *
+ * `acciones_disponibles` viene calculado por el backend para quien pregunta: al
+ * adoptante le llega siempre `[]`.
+ */
+export function listarSolicitudes(filtro: FiltroSolicitudes): Promise<Solicitud[]> {
+  const params = new URLSearchParams();
+  // Tres `if` independientes en vez de una cadena con `else`: el tipo ya
+  // garantiza que solo uno llega definido, y así esta función nunca elige por su
+  // cuenta cuál filtro gana si alguna vez la llamaran desde JavaScript sin
+  // tipos — el backend respondería su 422, que es la respuesta honesta.
+  if (filtro.adoptanteId !== undefined) params.set('adoptante_id', String(filtro.adoptanteId));
+  if (filtro.organizacionId !== undefined) {
+    params.set('organizacion_id', String(filtro.organizacionId));
+  }
+  if (filtro.publicadorId !== undefined) params.set('publicador_id', String(filtro.publicadorId));
+  return request(`/api/solicitudes?${params}`);
+}
+
+/** El detalle: el cuestionario del hogar, el mensaje y el teléfono de quien
+ * adopta.
+ *
+ * `solicitanteId` es requerido y solo lo pasan dos personas: quien envió la
+ * solicitud y quien publicó la mascota. Cualquier otra recibe **403** — los ids
+ * son secuenciales y adivinables, así que sin ese corte cualquiera leería datos
+ * personales ajenos. */
+export function obtenerSolicitud(
+  solicitudId: number,
+  solicitanteId: number,
+): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}?solicitante_id=${solicitanteId}`);
+}
+
+// Las cuatro acciones de quien publicó la mascota. Una función por endpoint, con
+// su nombre y su ruta escritos enteros, en vez de un `avanzarSolicitud(accion)`
+// genérico: cada una cambia el estado de una adopción real (`aprobar` cierra la
+// mascota y descarta a las demás familias), y con un parámetro suelto ese
+// destino se decidiría en una variable que ningún tipo mira dos veces.
+//
+// Las cuatro devuelven el detalle ya actualizado —incluida
+// `acciones_disponibles` recalculada—, así que la pantalla no necesita un `GET`
+// detrás de cada botón. Un 403 significa que quien pide no es el publicador; un
+// 409, que esa acción no es válida desde el estado actual (una pestaña vieja,
+// típicamente): los dos llegan como `ApiError` con el texto del backend, que ya
+// es copy de producto en español.
+
+/** Cita para conocer a la mascota. Válida desde `solicitado` o `en_revision`. */
+export function agendarVisita(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/agendar-visita`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Deja la solicitud `en_revision`. Válida **solo** desde `solicitado`: pedirla
+ * dos veces es 409, no un no-op. */
+export function pedirInformacion(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/pedir-informacion`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Cierra la adopción: esta solicitud gana, la mascota sube a la franja de
+ * celebración y **las demás de esa mascota se cierran solas**. Es irreversible.
+ */
+export function aprobarSolicitud(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/aprobar`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Cierra la solicitud con un motivo **obligatorio** (el backend responde 422 si
+ * llega vacío o en blanco).
+ *
+ * ⚠️ Ese motivo es la nota interna de quien publica: se guarda, pero no vuelve
+ * en ninguna respuesta y el adoptante nunca lo ve (ADR 0002). Por eso no existe
+ * en ningún tipo de `api/types.ts`. */
+export function descartarSolicitud(
+  solicitudId: number,
+  userId: number,
+  motivo: string,
+): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/descartar`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, motivo }),
+  });
 }

@@ -1,16 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  agendarVisita,
   ApiError,
+  aprobarSolicitud,
   crearMascota,
+  descartarSolicitud,
   editarMascota,
   eliminarMascota,
   listarDeck,
   listarMascotas,
+  listarSolicitudes,
   mediaUrl,
   guardarPerfilHogar,
   obtenerAdopcionesResumen,
   obtenerPerfilHogar,
   obtenerMascota,
+  obtenerSolicitud,
+  pedirInformacion,
   registrarSwipe,
 } from './client';
 import type { MascotaIn, PerfilHogarIn } from './types';
@@ -430,5 +436,142 @@ describe('obtenerPerfilHogar', () => {
     espiarFetchError(500, 'Internal Server Error');
 
     await expect(obtenerPerfilHogar(7, 7)).rejects.toThrow(ApiError);
+  });
+});
+
+// ── Solicitudes de adopción (AD-05) ──────────────────────────────────────────
+// Dos riesgos, y los dos son silenciosos:
+//
+// 1. **El filtro del listado.** `adoptante_id`, `organizacion_id` y
+//    `publicador_id` son tres preguntas distintas ("las que envié", "las de mi
+//    fundación", "las que recibí a título propio") y el backend responde 422 si
+//    llegan cero o dos. Mandar el id correcto bajo la clave equivocada no da
+//    error: devuelve las solicitudes de otra persona.
+// 2. **La ruta de cada acción.** Las cuatro comparten forma de body
+//    (`{user_id}`), así que confundir dos endpoints compila, responde 200 y
+//    cambia el estado de una adopción real: `aprobar` en vez de `agendar-visita`
+//    cierra la mascota y descarta a las demás familias.
+
+describe('listarSolicitudes', () => {
+  it('las que envió una persona van con adoptante_id, y solo con ese filtro', async () => {
+    const espia = espiarFetch([]);
+
+    await listarSolicitudes({ adoptanteId: 7 });
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes?adoptante_id=7');
+  });
+
+  it('las de una fundación van con organizacion_id', async () => {
+    const espia = espiarFetch([]);
+
+    await listarSolicitudes({ organizacionId: 2 });
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes?organizacion_id=2');
+  });
+
+  it('las que recibió quien publica a título propio van con publicador_id', async () => {
+    const espia = espiarFetch([]);
+
+    await listarSolicitudes({ publicadorId: 4 });
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes?publicador_id=4');
+  });
+
+  it('un 404 del backend llega como ApiError con el mensaje en español', async () => {
+    espiarFetchError(404, 'La organización 99 no existe');
+
+    await expect(listarSolicitudes({ organizacionId: 99 })).rejects.toThrow(ApiError);
+    await expect(listarSolicitudes({ organizacionId: 99 })).rejects.toThrow(
+      'La organización 99 no existe',
+    );
+  });
+});
+
+describe('obtenerSolicitud', () => {
+  it('pide el detalle declarando quién pregunta (solicitante_id)', async () => {
+    const espia = espiarFetch({ id: 5 });
+
+    await obtenerSolicitud(5, 7);
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes/5?solicitante_id=7');
+  });
+
+  it('el 403 de una solicitud ajena llega como ApiError con el mensaje del backend', async () => {
+    // El detalle lleva el cuestionario de hogar y el teléfono de quien adopta, y
+    // los ids son adivinables: este error nunca puede degradarse a "vacío".
+    espiarFetchError(403, 'Solo el adoptante o quien publicó la mascota pueden ver esta solicitud');
+
+    await expect(obtenerSolicitud(5, 99)).rejects.toThrow(ApiError);
+    await expect(obtenerSolicitud(5, 99)).rejects.toThrow(
+      'Solo el adoptante o quien publicó la mascota pueden ver esta solicitud',
+    );
+  });
+});
+
+describe('las cuatro acciones sobre una solicitud', () => {
+  it('agendarVisita pega a /agendar-visita con user_id en el body', async () => {
+    const espia = espiarFetch({ id: 5, estado: 'visita_agendada' });
+
+    await agendarVisita(5, 4);
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes/5/agendar-visita');
+    expect(initPedido(espia).method).toBe('POST');
+    expect(bodyEnviado(espia)).toEqual({ user_id: 4 });
+  });
+
+  it('pedirInformacion pega a /pedir-informacion con user_id en el body', async () => {
+    const espia = espiarFetch({ id: 5, estado: 'en_revision' });
+
+    await pedirInformacion(5, 4);
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes/5/pedir-informacion');
+    expect(initPedido(espia).method).toBe('POST');
+    expect(bodyEnviado(espia)).toEqual({ user_id: 4 });
+  });
+
+  it('aprobarSolicitud pega a /aprobar con user_id en el body', async () => {
+    const espia = espiarFetch({ id: 5, estado: 'adoptado' });
+
+    await aprobarSolicitud(5, 4);
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes/5/aprobar');
+    expect(initPedido(espia).method).toBe('POST');
+    expect(bodyEnviado(espia)).toEqual({ user_id: 4 });
+  });
+
+  it('descartarSolicitud manda el motivo junto al user_id: el backend lo exige', async () => {
+    const espia = espiarFetch({ id: 5, estado: 'cerrado' });
+
+    await descartarSolicitud(5, 4, 'Ya tenemos otra familia más cerca');
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/solicitudes/5/descartar');
+    expect(initPedido(espia).method).toBe('POST');
+    expect(bodyEnviado(espia)).toEqual({
+      user_id: 4,
+      motivo: 'Ya tenemos otra familia más cerca',
+    });
+  });
+
+  it('el 403 de quien no publicó la mascota llega con el mensaje del backend', async () => {
+    // Las cuatro acciones son solo de quien publica: el adoptante recibe 403
+    // igual que un desconocido (el match no es mutuo, ADR 0002).
+    espiarFetchError(403, 'Solo quien publicó la mascota puede gestionar esta solicitud');
+
+    await expect(aprobarSolicitud(5, 7)).rejects.toThrow(ApiError);
+    await expect(aprobarSolicitud(5, 7)).rejects.toThrow(
+      'Solo quien publicó la mascota puede gestionar esta solicitud',
+    );
+  });
+
+  it('el 409 de una transición inválida llega tal cual, no como un error de red', async () => {
+    // Es el error que de verdad va a ver quien publica (dos pestañas abiertas,
+    // o un botón que quedó pintado sobre un estado viejo), y el texto del
+    // backend es el que explica qué pasó.
+    espiarFetchError(409, "No se puede 'pedir-informacion' una solicitud en estado 'cerrado'");
+
+    await expect(pedirInformacion(5, 4)).rejects.toThrow(ApiError);
+    await expect(pedirInformacion(5, 4)).rejects.toThrow(
+      "No se puede 'pedir-informacion' una solicitud en estado 'cerrado'",
+    );
   });
 });
