@@ -78,7 +78,7 @@ git diff origin/main...feat/adoptar -- src/api api | grep "^[+-].*os\.environ"
 
 Cada archivo es **puramente aditivo**: `create table if not exists`, índices, una constraint y `enable row level security`. Ninguno lleva `drop`, `truncate`, `delete` ni `alter` sobre tablas existentes — solo las referencian por clave foránea. Ninguno puede modificar ni borrar una fila que ya exista: tus reportes importados y tus organizaciones no se tocan. Y como llevan `if not exists`, re-ejecutar uno no rompe nada.
 
-Que no son una transcripción a ojo del modelo lo garantizan los cuatro tests anti-drift (`tests/api/test_migracion_{pets,swipes,matches,favorites}.py`), que comparan cada `.sql` contra su `__table__` columna a columna y exigen que viajen el RLS y las constraints **con su nombre**. El revisor de AD-07 los verificó rompiendo el SQL de ocho formas distintas: ocho rojos.
+Que no son una transcripción a ojo del modelo lo garantizan los cuatro tests anti-drift (`tests/api/test_migracion_{pets,swipes,matches,favorites}.py`), que comparan cada `.sql` contra su `__table__` columna a columna y exigen que viajen el RLS y las constraints **con su nombre**. No es una promesa: el revisor de AD-07 rompió `AD-07-favorites.sql` de **ocho formas distintas** (sin unique, sin RLS, con un `drop`, una columna nullable de más, sin índice, columna extra, `timestamptz`, unique mal nombrado) y obtuvo **ocho rojos**.
 
 ### 2.1 — `AD-03-swipes.sql`
 
