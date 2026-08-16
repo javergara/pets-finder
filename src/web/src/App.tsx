@@ -20,6 +20,7 @@ import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
 import { ReportarMascota } from './screens/ReportarMascota';
 import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
+import { SolicitudDetalle } from './screens/SolicitudDetalle';
 import { ZonaLanding } from './screens/ZonaLanding';
 
 function Nav() {
@@ -103,11 +104,12 @@ function App() {
           {/* Cuestionario de hogar (AD-04). Es una escritura, así que la
               pantalla se manda sola al registro si no hay cuenta. */}
           <Route path="/adoptar/mi-hogar" element={<CuestionarioHogar />} />
-          {/* Solicitudes propias (AD-05). Lee datos personales de terceros (quién
-              pidió cada mascota), así que la pantalla se manda sola al registro
-              si no hay cuenta. El detalle, `/adoptar/solicitud/:id`, llega en el
-              paso 7. */}
+          {/* Solicitudes propias (AD-05). Leen datos personales de terceros (quién
+              pidió cada mascota, con su mensaje y su teléfono en el detalle), así
+              que las dos pantallas se mandan solas al registro si no hay cuenta.
+              Literal antes que dinámica, como el resto del archivo. */}
           <Route path="/adoptar/mis-solicitudes" element={<MisSolicitudes />} />
+          <Route path="/adoptar/solicitud/:id" element={<SolicitudDetalle />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
               ficha, igual que /reporte/:id/editar en el otro dominio. */}

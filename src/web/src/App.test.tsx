@@ -16,6 +16,7 @@ vi.mock('./api/client', async () => {
     listarDeck: vi.fn(),
     obtenerPerfilHogar: vi.fn(),
     listarSolicitudes: vi.fn(),
+    obtenerSolicitud: vi.fn(),
   };
 });
 
@@ -24,6 +25,10 @@ beforeEach(() => {
   vi.mocked(client.listarDeck).mockResolvedValue([]);
   vi.mocked(client.obtenerPerfilHogar).mockResolvedValue(null);
   vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
+  // El detalle se queda en su esqueleto: lo que este archivo comprueba es que la
+  // ruta monta la pantalla dentro de AppLayout, no lo que la pantalla pinta
+  // después (eso vive en `SolicitudDetalle.test.tsx`).
+  vi.mocked(client.obtenerSolicitud).mockReturnValue(new Promise(() => {}));
   setActiveUserId(1);
 });
 
@@ -94,6 +99,22 @@ describe('App', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Mis solicitudes' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
+  });
+
+  // El detalle de una solicitud (AD-05, paso 7) es una ruta dinámica y va
+  // también dentro de AppLayout: se llega desde cualquiera de las dos listas.
+  it('en "/adoptar/solicitud/:id" monta el detalle con el <Nav/> interno', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adoptar/solicitud/42']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('status', { name: /cargando la solicitud/i }),
+    ).toBeInTheDocument();
+    expect(client.obtenerSolicitud).toHaveBeenCalledWith(42, 1);
     expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
   });
 
