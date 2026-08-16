@@ -31,7 +31,7 @@ Si falta una columna o una constraint, se arregla con otro `alter` aditivo — n
 
 | Archivo | Feature | Qué hace | Estado |
 | --- | --- | --- | --- |
-| `AD-01-pets.sql` | AD-01 | Crea `public.pets` (+ 4 índices, `ck_pets_publicador_exclusivo`, RLS) | Escrito, **pendiente de ejecutar** con autorización del dueño |
+| `AD-01-pets.sql` | AD-01 | Crea `public.pets` (+ 4 índices, `ck_pets_publicador_exclusivo`, RLS) | ✅ **EJECUTADA en producción** (2026-08-15, por el dueño del repo, junto con el merge del PR #6). Verificado: `GET /api/pets` responde 200 en petfinder-col.com |
 | `AD-03-swipes.sql` | AD-03 | Crea `public.swipes` (+ 2 índices, `uq_swipe_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de `AD-01-pets.sql`: su `pet_id` referencia `public.pets` |
 | `AD-03-home-profiles.sql` | AD-03 | Crea `public.home_profiles` (PK = `user_id`, RLS) | Escrito, **pendiente de ejecutar** — la tabla se adelanta de AD-04 porque el deck la consulta; **AD-04 no trae migración** |
 | `AD-05-matches.sql` | AD-05 | Crea `public.matches` — las solicitudes de adopción — (+ 2 índices, `uq_match_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de los dos de AD-03: el swipe-derecha inserta en `swipes` y en `matches` en el mismo request |

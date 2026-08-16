@@ -58,7 +58,7 @@
       "id": "AD-05-solicitudes-de-adopcion",
       "title": "Solicitudes: del swipe-derecha a la visita (match no mutuo)",
       "description": "Portar Match (match.py: user/pet/organizacion, estado, motivo_descarte), services/solicitudes.py (transiciones solicitado→en_revision→visita_agendada→aprobado|descartado con sus reglas) y las pantallas MisMatches.tsx (adoptante) + la gestión en el panel de la organización (de PanelRefugio.tsx y SolicitudDetalle.tsx). ADR 0002 vigente: el match NO es mutuo — swipe-derecha crea la solicitud, la organización la gestiona. Al aprobar, la mascota pasa a estado adoptado y las demás solicitudes se descartan con motivo automático. Franja de celebración de adopciones (métrica de esperanza, como los reencuentros).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-03-deck-swipe-y-afinidad"],
       "acceptance": [
         "El swipe-derecha crea la solicitud (una por user+pet, idempotente) visible en /adoptar/mis-solicitudes con su estado",
