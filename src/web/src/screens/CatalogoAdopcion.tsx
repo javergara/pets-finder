@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
+  desmarcarFavorita,
   type FiltrosMascotas,
   listarMascotas,
+  marcarFavorita,
   mediaUrl,
   obtenerAdopcionesResumen,
 } from '../api/client';
@@ -10,18 +12,20 @@ import type { AdopcionesResumen, Mascota } from '../api/types';
 import { FiltrosAdopcion } from '../components/FiltrosAdopcion';
 import { MascotaCard } from '../components/MascotaCard';
 import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
+import { getActiveUserId, hasActiveUser } from '../lib/session';
 
-// Catálogo público de mascotas en adopción (AD-01).
+// Catálogo público de mascotas en adopción (AD-01, con el corazón de AD-07).
 //
-// ⚠️ Pantalla de SOLO LECTURA. No lleva ninguna acción que escriba —ni favorito ni
-// solicitud— y por eso no llama a `getActiveUserId()`: esa función cae al usuario
-// demo (id 1) cuando no hay cuenta, así que un visitante sin registrarse crearía
-// datos a nombre de otra persona real en producción. Mirar quién necesita hogar
-// nunca exige cuenta; las acciones que escriben llegan con su gate en AD-05/AD-07.
+// ⚠️ **`getActiveUserId()` solo se llama detrás de `hasActiveUser()`**, las tres
+// veces que aparece aquí. Esa función cae al usuario demo (id 1) cuando no hay
+// cuenta, y el id 1 es una persona real en producción (Ana Martínez): mandarlo
+// como `adoptante_id` le mostraría SUS favoritos a un visitante anónimo, y
+// escribir con él le guardaría —o le borraría— mascotas de su lista. Mirar quién
+// necesita hogar nunca exige cuenta; guardar, sí.
 //
-// Tampoco manda `adoptante_id` al backend: en AD-01 no cambiaría la respuesta
-// (afinidad, favorito y solicitud viajan siempre vacíos) y mandar un id inventado
-// sería justo el bug de privacidad que el módulo evita por convención.
+// El corazón se pinta igual sin cuenta y lleva a `/registro?volver=/adoptar`: es
+// el mismo gate que "Me interesa" en el deck (AD-03). Esconderlo sería peor —
+// ocultaría que los favoritos existen a quien todavía no se registró.
 //
 // Sin paginación a propósito: `listarMascotas` devuelve el listado completo, como
 // `listarOrganizaciones` en /ayudar. Cuando el catálogo crezca se copia el paginado
@@ -30,11 +34,16 @@ import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
 const MENSAJE_ERROR =
   'No pudimos cargar las mascotas en adopción. Revisa tu conexión e intenta de nuevo.';
 
+/** La ruta propia, para el `?volver=` del registro: quien se registra desde el
+ * corazón vuelve al catálogo, no a la landing. */
+const RUTA = '/adoptar';
+
 export function CatalogoAdopcion() {
   const [filtros, setFiltros] = useState<FiltrosMascotas>(FILTROS_ADOPCION_DEFAULT);
   const [mascotas, setMascotas] = useState<Mascota[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adopciones, setAdopciones] = useState<AdopcionesResumen | null>(null);
+  const navigate = useNavigate();
 
   // Métrica de esperanza del módulo, como la franja de reencuentros de la landing:
   // si falla, simplemente no aparece — nunca bloquea el catálogo.
@@ -49,10 +58,45 @@ export function CatalogoAdopcion() {
   // rejilla no parpadea y el esqueleto solo se ve en la primera carga.
   useEffect(() => {
     setError(null);
-    listarMascotas(filtros)
+    // El adoptante solo viaja si existe de verdad (ver la cabecera): es lo que
+    // hace que `es_favorito` llegue lleno y el corazón se pinte como está.
+    listarMascotas(filtros, hasActiveUser() ? getActiveUserId() : undefined)
       .then(setMascotas)
       .catch(() => setError(MENSAJE_ERROR));
   }, [filtros]);
+
+  /** Guarda o quita la mascota, en optimista. */
+  function alternarFavorita(mascota: Mascota) {
+    // Se pide la cuenta ANTES de tocar nada, como el "me interesa" del deck:
+    // sin ella, `getActiveUserId()` escribiría en la lista del usuario 1.
+    if (!hasActiveUser()) {
+      navigate(`/registro?volver=${encodeURIComponent(RUTA)}`);
+      return;
+    }
+
+    const adoptanteId = getActiveUserId();
+    const guardada = mascota.es_favorito;
+    // El corazón cambia ya y el catálogo NO se re-consulta: la rejilla no puede
+    // parpadear ni reordenarse por un toque, y quien está comparando varias
+    // mascotas perdería el sitio donde iba.
+    setMascotas((previas) =>
+      previas
+        ? previas.map((m) => (m.id === mascota.id ? { ...m, es_favorito: !guardada } : m))
+        : previas,
+    );
+
+    const peticion = guardada
+      ? desmarcarFavorita(adoptanteId, mascota.id)
+      : marcarFavorita(adoptanteId, mascota.id);
+    peticion.catch(() => {
+      // Vacío A PROPÓSITO, no por descuido (`docs/conventions.md` §3, mismo
+      // criterio que el swipe del deck): un favorito no bloquea la pantalla ni
+      // merece un error rojo encima del catálogo. Tampoco se revierte el
+      // corazón: lo que se pierde es una fila en una lista privada, y volver a
+      // tocarlo lo reintenta. Reponerlo con la red intermitente haría que el
+      // corazón parpadeara solo mientras la persona sigue mirando.
+    });
+  }
 
   const cargando = mascotas === null && error === null;
   const hayFiltros =
@@ -188,7 +232,11 @@ export function CatalogoAdopcion() {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {mascotas.map((mascota) => (
-              <MascotaCard key={mascota.id} mascota={mascota} />
+              <MascotaCard
+                key={mascota.id}
+                mascota={mascota}
+                onAlternarFavorita={() => alternarFavorita(mascota)}
+              />
             ))}
           </div>
         ))}

@@ -5,11 +5,14 @@ import {
   aprobarSolicitud,
   crearMascota,
   descartarSolicitud,
+  desmarcarFavorita,
   editarMascota,
   eliminarMascota,
   listarDeck,
+  listarFavoritas,
   listarMascotas,
   listarSolicitudes,
+  marcarFavorita,
   mediaUrl,
   guardarPerfilHogar,
   obtenerAdopcionesResumen,
@@ -573,5 +576,98 @@ describe('las cuatro acciones sobre una solicitud', () => {
 
     await expect(pedirInformacion(5, 4)).rejects.toThrow(ApiError);
     await expect(pedirInformacion(5, 4)).rejects.toThrow(MENSAJE);
+  });
+});
+
+// ── Favoritos (AD-07) ────────────────────────────────────────────────────────
+// Las tres rutas cuelgan de `/api/users/{userId}`, y aquí `userId` es **quien
+// mira**, no quien publica (al revés que `Pet.user_id`). Lo que se prueba es
+// dónde viaja cada dato: el `pet_id` en el body del POST y en la ruta del
+// DELETE, y el `solicitante_id` requerido del GET — el backend responde 422 sin
+// él y 403 si no coincide con el del path.
+
+describe('marcarFavorita', () => {
+  it('manda pet_id EN EL BODY del POST, con la persona en la ruta', async () => {
+    const fetchMock = espiarFetch({ id: 3, es_favorito: true });
+
+    await marcarFavorita(7, 3);
+
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/users/7/favorites');
+    expect(initPedido(fetchMock).method).toBe('POST');
+    // `FavoritoIn` solo tiene `pet_id`: colar aquí un `user_id` sería mandar dos
+    // fuentes del mismo actor, que es justo lo que el backend evitó no pidiéndolo.
+    expect(bodyEnviado(fetchMock)).toEqual({ pet_id: 3 });
+  });
+
+  it('el 404 de una mascota que ya no existe llega como ApiError en español', async () => {
+    espiarFetchError(404, 'La mascota 3 no existe');
+
+    await expect(marcarFavorita(7, 3)).rejects.toThrow(ApiError);
+    await expect(marcarFavorita(7, 3)).rejects.toThrow('La mascota 3 no existe');
+  });
+});
+
+describe('desmarcarFavorita', () => {
+  it('borra por ruta (/{userId}/favorites/{petId}) y sin cuerpo', async () => {
+    const fetchMock = espiarFetch204();
+
+    await desmarcarFavorita(7, 3);
+
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/users/7/favorites/3');
+    expect(initPedido(fetchMock).method).toBe('DELETE');
+    // A diferencia de `eliminarMascota`, aquí no hay query param ninguno: el
+    // actor y la mascota ya están los dos en la ruta.
+    expect(initPedido(fetchMock).body).toBeUndefined();
+  });
+
+  it('resuelve sin cuerpo con el 204 del backend', async () => {
+    espiarFetch204();
+
+    await expect(desmarcarFavorita(7, 3)).resolves.toBeUndefined();
+  });
+});
+
+describe('listarFavoritas', () => {
+  it('manda solicitante_id con el MISMO id del path: es una auto-consulta', async () => {
+    const fetchMock = espiarFetch();
+
+    await listarFavoritas(7);
+
+    // El param es requerido en el backend (sin él, 422) y cualquier otro valor da
+    // 403: la lista de favoritos de alguien es su historial de navegación.
+    expect(urlPedida(fetchMock)).toBe(
+      'http://127.0.0.1:8000/api/users/7/favorites?solicitante_id=7',
+    );
+    expect(initPedido(fetchMock).method).toBeUndefined();
+  });
+
+  it('el 403 de una lista ajena llega con el mensaje del backend', async () => {
+    espiarFetchError(403, 'Solo puedes ver las mascotas que guardaste en tu cuenta');
+
+    await expect(listarFavoritas(7)).rejects.toThrow(
+      'Solo puedes ver las mascotas que guardaste en tu cuenta',
+    );
+  });
+});
+
+// Candado del paso 4 de AD-07: el corazón del catálogo se pinta lleno con el
+// `es_favorito` que trae el listado, y ese campo solo llega si el catálogo manda
+// `adoptante_id`. Si alguien "limpia" ese parámetro del cliente, todos los
+// corazones quedarían vacíos aunque la mascota estuviera guardada.
+describe('listarMascotas sigue llevando al adoptante (lo que llena es_favorito)', () => {
+  it('con adoptante manda adoptante_id', async () => {
+    const fetchMock = espiarFetch();
+
+    await listarMascotas({}, 7);
+
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/pets?adoptante_id=7');
+  });
+
+  it('sin adoptante no lo inventa (el visitante anónimo no hereda favoritos ajenos)', async () => {
+    const fetchMock = espiarFetch();
+
+    await listarMascotas({});
+
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/pets');
   });
 });

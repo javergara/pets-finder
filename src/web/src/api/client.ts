@@ -637,3 +637,51 @@ export function descartarSolicitud(
     body: JSON.stringify({ user_id: userId, motivo }),
   });
 }
+
+// ── Favoritos (AD-07) ────────────────────────────────────────────────────────
+// Las tres cuelgan de `/api/users/{userId}` y aquí `userId` es **quien mira**,
+// exactamente al revés que `Pet.user_id` (quien publica). Las dos son ids de
+// `users`, así que nada avisa si se cruzan: el síntoma sería que a una fundación
+// le salgan sus propias mascotas como "guardadas".
+//
+// ⚠️ **Ninguna se llama sin cuenta.** `getActiveUserId()` cae al
+// `DEMO_USER_ID = 1`, que en producción es una persona real: guardar sin cuenta
+// escribiría en la lista de otra, y leer sin cuenta mostraría la suya. El gate
+// (`hasActiveUser()` → `/registro?volver=…`) vive en cada pantalla que las usa,
+// como el de "Me interesa" del deck.
+//
+// Una función por endpoint, con su verbo escrito entero, en vez de un
+// `alternarFavorita(guardada)` con un booleano: el destino de la escritura no se
+// decide en una variable que ningún tipo mira dos veces.
+
+/** Guarda la mascota en la lista de quien mira.
+ *
+ * `pet_id` viaja **en el body** (`FavoritoIn`), no en la query: el actor ya está
+ * en la ruta. Repetirlo no es error —el backend responde 200 con la misma fila
+ * en vez de 409, porque el doble-tap de un corazón es un accidente del dedo— y
+ * la respuesta es la mascota completa ya con `es_favorito: true`, así que la
+ * tarjeta no necesita volver a pedirla. */
+export function marcarFavorita(userId: number, petId: number): Promise<Mascota> {
+  return request(`/api/users/${userId}/favorites`, {
+    method: 'POST',
+    body: JSON.stringify({ pet_id: petId }),
+  });
+}
+
+/** Quita la mascota de la lista. Responde **204 siempre**, incluso si no estaba
+ * guardada: apagar dos veces el corazón no es un error que haya que pintar. */
+export function desmarcarFavorita(userId: number, petId: number): Promise<void> {
+  return request(`/api/users/${userId}/favorites/${petId}`, { method: 'DELETE' });
+}
+
+/** Las mascotas guardadas por esa persona, lo último guardado primero.
+ *
+ * ⚠️ `solicitante_id` es **requerido** por el backend (sin él, 422) y viaja con
+ * el mismo id del path porque esto es siempre una auto-consulta: una lista de
+ * favoritos es un historial de navegación, y pedir la de otra persona responde
+ * 403. Que sea el mismo valor dos veces no es redundancia inútil — es lo que
+ * convierte una fuga accidental (el frontend cayendo al `DEMO_USER_ID`) en algo
+ * que solo puede pasar a propósito. */
+export function listarFavoritas(userId: number): Promise<Mascota[]> {
+  return request(`/api/users/${userId}/favorites?solicitante_id=${userId}`);
+}

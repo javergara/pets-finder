@@ -1,10 +1,17 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Mascota } from '../api/types';
 import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
+import { setActiveUserId } from '../lib/session';
 import { CatalogoAdopcion } from './CatalogoAdopcion';
+
+// ⚠️ Desde AD-07 el catálogo llama a `listarMascotas` SIEMPRE con dos
+// argumentos: los filtros y el adoptante, que es `undefined` sin cuenta. Por eso
+// cada aserción de este archivo nombra el segundo argumento — `undefined` ahí no
+// es ruido, es el caso anónimo escrito a la vista (mismo criterio que
+// `DescubrirMascotas.test.tsx` con `listarDeck`).
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
@@ -12,6 +19,8 @@ vi.mock('../api/client', async () => {
     ...actual,
     listarMascotas: vi.fn(),
     obtenerAdopcionesResumen: vi.fn(),
+    marcarFavorita: vi.fn(),
+    desmarcarFavorita: vi.fn(),
   };
 });
 
@@ -62,16 +71,28 @@ beforeEach(() => {
     mascota({ id: 8, nombre: 'Copito', especie: 'gato', tamano: 'pequeño' }),
   ]);
   vi.mocked(client.obtenerAdopcionesResumen).mockResolvedValue({ total: 0, recientes: [] });
+  vi.mocked(client.marcarFavorita).mockResolvedValue(mascota({ es_favorito: true }));
+  vi.mocked(client.desmarcarFavorita).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   vi.resetAllMocks();
 });
 
+/** Stub que imprime la ruta completa: el gate del corazón no solo tiene que
+ * redirigir, tiene que llevar el `?volver=` exacto para regresar al catálogo. */
+function RegistroStub() {
+  const { pathname, search } = useLocation();
+  return <p>{`registro ${pathname}${search}`}</p>;
+}
+
 function renderCatalogo() {
   return render(
     <MemoryRouter initialEntries={['/adoptar']}>
-      <CatalogoAdopcion />
+      <Routes>
+        <Route path="/adoptar" element={<CatalogoAdopcion />} />
+        <Route path="/registro" element={<RegistroStub />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -80,7 +101,7 @@ describe('CatalogoAdopcion', () => {
   it('al montar pide el catálogo con los filtros por defecto y pinta las tarjetas', async () => {
     renderCatalogo();
 
-    expect(client.listarMascotas).toHaveBeenCalledWith(FILTROS_ADOPCION_DEFAULT);
+    expect(client.listarMascotas).toHaveBeenCalledWith(FILTROS_ADOPCION_DEFAULT, undefined);
     expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Copito' })).toBeInTheDocument();
   });
@@ -95,10 +116,10 @@ describe('CatalogoAdopcion', () => {
     fireEvent.click(chipPerro);
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
-    expect(client.listarMascotas).toHaveBeenLastCalledWith({
-      ...FILTROS_ADOPCION_DEFAULT,
-      especie: ['perro'],
-    });
+    expect(client.listarMascotas).toHaveBeenLastCalledWith(
+      { ...FILTROS_ADOPCION_DEFAULT, especie: ['perro'] },
+      undefined,
+    );
     expect(screen.getByRole('button', { name: 'Perro' })).toHaveAttribute('aria-pressed', 'true');
   });
 
@@ -111,10 +132,10 @@ describe('CatalogoAdopcion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Gato' }));
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(3));
-    expect(client.listarMascotas).toHaveBeenLastCalledWith({
-      ...FILTROS_ADOPCION_DEFAULT,
-      especie: ['perro', 'gato'],
-    });
+    expect(client.listarMascotas).toHaveBeenLastCalledWith(
+      { ...FILTROS_ADOPCION_DEFAULT, especie: ['perro', 'gato'] },
+      undefined,
+    );
     expect(screen.getByRole('button', { name: 'Perro' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Gato' })).toHaveAttribute('aria-pressed', 'true');
   });
@@ -126,10 +147,10 @@ describe('CatalogoAdopcion', () => {
     fireEvent.change(screen.getByLabelText('Zona'), { target: { value: 'Cali' } });
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
-    expect(client.listarMascotas).toHaveBeenLastCalledWith({
-      ...FILTROS_ADOPCION_DEFAULT,
-      zona: 'Cali',
-    });
+    expect(client.listarMascotas).toHaveBeenLastCalledWith(
+      { ...FILTROS_ADOPCION_DEFAULT, zona: 'Cali' },
+      undefined,
+    );
   });
 
   it('"Limpiar filtros" vuelve a los valores por defecto', async () => {
@@ -142,7 +163,7 @@ describe('CatalogoAdopcion', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(3));
-    expect(client.listarMascotas).toHaveBeenLastCalledWith(FILTROS_ADOPCION_DEFAULT);
+    expect(client.listarMascotas).toHaveBeenLastCalledWith(FILTROS_ADOPCION_DEFAULT, undefined);
     expect(screen.getByRole('button', { name: 'Perro' })).toHaveAttribute('aria-pressed', 'false');
   });
 
@@ -270,13 +291,108 @@ describe('CatalogoAdopcion', () => {
     fireEvent.click(chipCachorra);
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
-    expect(client.listarMascotas).toHaveBeenLastCalledWith({
-      ...FILTROS_ADOPCION_DEFAULT,
-      edad: ['cachorro'],
-    });
+    expect(client.listarMascotas).toHaveBeenLastCalledWith(
+      { ...FILTROS_ADOPCION_DEFAULT, edad: ['cachorro'] },
+      undefined,
+    );
     expect(screen.getByRole('button', { name: 'Cachorra' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
+  });
+
+  // ── Favoritos (AD-07) ──────────────────────────────────────────────────────
+  // Los dos riesgos de esta pantalla, por gravedad:
+  //
+  // 1. **Mandar `adoptante_id` sin cuenta.** `getActiveUserId()` cae al
+  //    `DEMO_USER_ID = 1`, que en producción es una persona real (Ana Martínez):
+  //    un visitante anónimo vería SUS favoritos pintados como propios y, al
+  //    tocar el corazón, se los borraría.
+  // 2. **Guardar navegando.** La tarjeta entera es un `<Link>`; el corazón vive
+  //    dentro. Sin `preventDefault` el gesto de guardar saca a la persona del
+  //    catálogo (ese candado vive en `MascotaCard.test.tsx`, que es donde está
+  //    el código).
+  describe('corazón de favoritos', () => {
+    it('con cuenta, el catálogo pide el listado con el id de quien mira', async () => {
+      setActiveUserId(7);
+
+      renderCatalogo();
+
+      expect(client.listarMascotas).toHaveBeenCalledWith(FILTROS_ADOPCION_DEFAULT, 7);
+      expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
+    });
+
+    it('sin cuenta NO manda adoptante_id (el fallback es una persona real)', async () => {
+      renderCatalogo();
+
+      expect(client.listarMascotas).toHaveBeenCalledWith(FILTROS_ADOPCION_DEFAULT, undefined);
+      expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
+    });
+
+    it('sin cuenta el corazón se pinta igual, pero lleva al registro sin llamar a la API', async () => {
+      renderCatalogo();
+      await screen.findByRole('heading', { name: 'Nala' });
+
+      const corazones = screen.getAllByRole('button', { name: 'Guardar en favoritos' });
+      // Se pinta a propósito: esconderlo ocultaría que los favoritos existen.
+      expect(corazones).toHaveLength(2);
+
+      fireEvent.click(corazones[0]);
+
+      // El orden importa: lo grave no es dejar de navegar, es escribir. Sin el
+      // gate, esta llamada saldría con el `DEMO_USER_ID = 1` y guardaría la
+      // mascota en la lista de una persona real.
+      expect(client.marcarFavorita).not.toHaveBeenCalled();
+      expect(client.desmarcarFavorita).not.toHaveBeenCalled();
+      // El `?volver=` codificado: si se rompe, el registro no sabe adónde
+      // devolver a quien acaba de crear la cuenta para guardar una mascota.
+      expect(await screen.findByText('registro /registro?volver=%2Fadoptar')).toBeInTheDocument();
+    });
+
+    it('con cuenta, guarda y el corazón queda lleno al instante (sin re-consultar)', async () => {
+      setActiveUserId(7);
+      renderCatalogo();
+      await screen.findByRole('heading', { name: 'Nala' });
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Guardar en favoritos' })[0]);
+
+      expect(client.marcarFavorita).toHaveBeenCalledWith(7, 7);
+      // Optimista: la tarjeta cambia sin esperar la respuesta y sin refetch del
+      // catálogo (`docs/conventions.md` §3).
+      expect(
+        await screen.findByRole('button', { name: 'Quitar de favoritos' }),
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole('button', { name: 'Guardar en favoritos' })).toHaveLength(1);
+      expect(client.listarMascotas).toHaveBeenCalledTimes(1);
+    });
+
+    it('con cuenta, tocar una ya guardada la quita', async () => {
+      setActiveUserId(7);
+      vi.mocked(client.listarMascotas).mockResolvedValue([mascota({ es_favorito: true })]);
+      renderCatalogo();
+      await screen.findByRole('heading', { name: 'Nala' });
+
+      fireEvent.click(screen.getByRole('button', { name: 'Quitar de favoritos' }));
+
+      expect(client.desmarcarFavorita).toHaveBeenCalledWith(7, 7);
+      expect(client.marcarFavorita).not.toHaveBeenCalled();
+      expect(
+        await screen.findByRole('button', { name: 'Guardar en favoritos' }),
+      ).toBeInTheDocument();
+    });
+
+    it('si la API falla, el catálogo no muestra error ni repone la tarjeta', async () => {
+      setActiveUserId(7);
+      vi.mocked(client.marcarFavorita).mockRejectedValue(new Error('offline'));
+      renderCatalogo();
+      await screen.findByRole('heading', { name: 'Nala' });
+
+      fireEvent.click(screen.getAllByRole('button', { name: 'Guardar en favoritos' })[0]);
+
+      expect(
+        await screen.findByRole('button', { name: 'Quitar de favoritos' }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
   });
 });
