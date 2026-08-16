@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mascota } from '../api/types';
 import { MascotaSwipeCard } from './MascotaSwipeCard';
 
@@ -222,6 +222,58 @@ describe('MascotaSwipeCard — gesto', () => {
     // no hay vuelta atrás, así que un gesto abortado se descarta entero.
     expect(onSwipe).not.toHaveBeenCalled();
     expect(tarjeta.style.transform).toContain('translateX(0px)');
+  });
+});
+
+// --- Captura del puntero: por qué NO se hace al presionar ----------------------
+//
+// ⚠️ Bug real, encontrado en el recorrido manual de AD-03 con Chrome 151 (no en
+// jsdom, que ni implementa `setPointerCapture`): capturando el puntero en el
+// `pointerdown` —como hacía `adopta-v1`— el navegador redirige el `pointerup` **y
+// el `click`** al elemento que capturó. Medido por CDP sobre el deck real: al
+// pulsar "Me interesa" el `click` llegaba al `role="group"` y NUNCA al botón, así
+// que los tres botones de la tarjeta estaban MUERTOS con ratón y con dedo —
+// funcionaban solo el teclado y el gesto, justo las dos rutas que no usa la
+// mayoría. Por eso la captura se pide en el primer `pointermove` que supera
+// `INICIO_ARRASTRE_PX`: un click nunca captura nada.
+
+describe('MascotaSwipeCard — captura del puntero', () => {
+  const capturar = vi.fn();
+
+  beforeEach(() => {
+    capturar.mockClear();
+    // jsdom no trae `setPointerCapture`; se define para poder aseverar CUÁNDO se
+    // llama, que es lo único que distingue el bug del arreglo.
+    (Element.prototype as unknown as Record<string, unknown>).setPointerCapture = capturar;
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as unknown as Record<string, unknown>).setPointerCapture;
+  });
+
+  it('presionar sin mover NO captura el puntero: el click tiene que llegar al botón', () => {
+    render(<MascotaSwipeCard mascota={mascota()} onSwipe={vi.fn()} onAbrirFicha={vi.fn()} />);
+
+    fireEvent.pointerDown(screen.getByRole('group'), { clientX: 0, pointerId: 1 });
+
+    expect(capturar).not.toHaveBeenCalled();
+  });
+
+  it('en cuanto el gesto es un arrastre de verdad, captura una sola vez', () => {
+    render(<MascotaSwipeCard mascota={mascota()} onSwipe={vi.fn()} onAbrirFicha={vi.fn()} />);
+    const tarjeta = screen.getByRole('group');
+
+    fireEvent.pointerDown(tarjeta, { clientX: 0, pointerId: 9 });
+    fireEvent.pointerMove(tarjeta, { clientX: 4, pointerId: 9 });
+    // Cuatro píxeles es el temblor de un click, no un arrastre.
+    expect(capturar).not.toHaveBeenCalled();
+
+    fireEvent.pointerMove(tarjeta, { clientX: 60, pointerId: 9 });
+    fireEvent.pointerMove(tarjeta, { clientX: 90, pointerId: 9 });
+
+    // Una sola vez y con el id del puntero: capturar en cada `pointermove`
+    // dispararía `gotpointercapture` decenas de veces por gesto.
+    expect(capturar).toHaveBeenCalledExactlyOnceWith(9);
   });
 });
 

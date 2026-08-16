@@ -31,6 +31,11 @@ import {
  * tarjeta vuelve a su sitio: el roce accidental no saca a nadie del deck. */
 const UMBRAL_PX = 110;
 
+/** Cuánto hay que moverse para que esto sea un arrastre y no un click, y solo
+ * entonces capturar el puntero. Ver `alMover`: capturarlo antes deja muertos los
+ * botones de la tarjeta en un navegador real. */
+const INICIO_ARRASTRE_PX = 8;
+
 /** Con más de tres chips la fila salta de línea y a 360px empuja el pie de la
  * tarjeta fuera de la pantalla (mismo tope que `MascotaCard`). */
 const MAX_TAGS = 3;
@@ -53,31 +58,40 @@ export function MascotaSwipeCard({ mascota, onSwipe, onAbrirFicha, onAlternarFav
   const [dx, setDx] = useState(0);
   const [arrastrando, setArrastrando] = useState(false);
   const inicioX = useRef<number | null>(null);
+  const capturado = useRef(false);
 
   const reposar = () => {
     setDx(0);
     setArrastrando(false);
     inicioX.current = null;
+    capturado.current = false;
   };
 
   const alPresionar = (e: React.PointerEvent) => {
     inicioX.current = e.clientX;
     setArrastrando(true);
-    // ⚠️ Defensivo y sobre `currentTarget`, no sobre `target`: `target` puede ser
-    // un hijo (la foto, un chip) y capturarle el puntero a él deja el arrastre a
-    // medias. `setPointerCapture` **no existe en jsdom** (medido: `typeof` da
-    // `undefined`), así que sin el `?.` cada `pointerdown` de los tests lanza un
-    // `TypeError` que React reporta por consola; y en cualquier entorno donde el
-    // método falte, la excepción abortaría lo que viniera después en el handler.
-    // Va al final y con guarda: si no se puede capturar el puntero, el arrastre
-    // igual funciona.
-    const el = e.currentTarget as Element & { setPointerCapture?: (id: number) => void };
-    el.setPointerCapture?.(e.pointerId);
   };
 
   const alMover = (e: React.PointerEvent) => {
     if (inicioX.current === null) return;
-    setDx(e.clientX - inicioX.current);
+    const delta = e.clientX - inicioX.current;
+    // ⚠️ El puntero se captura AQUÍ y solo cuando el gesto ya es un arrastre —
+    // nunca en `pointerdown`. Medido en Chrome 151 sobre el deck real: con la
+    // captura al presionar (como en `adopta-v1`), el navegador redirige el
+    // `pointerup` **y el `click`** al elemento que capturó, así que los botones
+    // "Me interesa" / "Ahora no" / "Ver ficha" quedaban MUERTOS con ratón y con
+    // dedo — funcionaban solo el teclado y el gesto. jsdom no lo detecta porque
+    // ahí `setPointerCapture` ni existe (de ahí el `?.`, que además evita el
+    // `TypeError` en cualquier entorno donde falte).
+    //
+    // Sobre `currentTarget`, no sobre `target`: `target` puede ser un hijo (la
+    // foto, un chip) y capturarle el puntero a él deja el arrastre a medias.
+    if (!capturado.current && Math.abs(delta) > INICIO_ARRASTRE_PX) {
+      const el = e.currentTarget as Element & { setPointerCapture?: (id: number) => void };
+      el.setPointerCapture?.(e.pointerId);
+      capturado.current = true;
+    }
+    setDx(delta);
   };
 
   const alSoltar = () => {
