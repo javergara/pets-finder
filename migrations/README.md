@@ -32,3 +32,7 @@ Si falta una columna o una constraint, se arregla con otro `alter` aditivo — n
 | Archivo | Feature | Qué hace | Estado |
 | --- | --- | --- | --- |
 | `AD-01-pets.sql` | AD-01 | Crea `public.pets` (+ 4 índices, `ck_pets_publicador_exclusivo`, RLS) | Escrito, **pendiente de ejecutar** con autorización del dueño |
+| `AD-03-swipes.sql` | AD-03 | Crea `public.swipes` (+ 2 índices, `uq_swipe_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de `AD-01-pets.sql`: su `pet_id` referencia `public.pets` |
+| `AD-03-home-profiles.sql` | AD-03 | Crea `public.home_profiles` (PK = `user_id`, RLS) | Escrito, **pendiente de ejecutar** — la tabla se adelanta de AD-04 porque el deck la consulta; **AD-04 no trae migración** |
+
+Anti-drift de las dos tablas de AD-03: `tests/api/test_migracion_swipes.py` (el parser de `create table` que comparten los dos anti-drift vive en `tests/api/soporte_migraciones.py`).
