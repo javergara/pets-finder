@@ -71,7 +71,7 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 1. ✅ **HECHO (2026-08-15)** — **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Ver "Resultado del paso 1".
 2. ✅ **HECHO (2026-08-15)** — **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.** Ver "Resultado del paso 2".
 3. ✅ **HECHO (2026-08-15)** — **Las cuatro acciones**, con `aprobar` en una sola transacción y una sola query de cierre. El adoptante recibe **403** en las cuatro. ⚠️ El test de conteo cuenta **filas**, no sentencias: el flush agrupa los `UPDATE` en un `executemany` y un bucle también daría "una sentencia". Ver "Resultado del paso 3".
-4. **El swipe-derecha crea la solicitud**, en el **mismo** commit que el swipe, copiando `mensaje` y `telefono_contacto` que hoy se descartan. Idempotente con select previo + `IntegrityError`.
+4. ✅ **HECHO (2026-08-15)** — **El swipe-derecha crea la solicitud**, en el mismo commit que el swipe, copiando `mensaje` y `telefono_contacto`. Idempotente sobre **dos** constraints. **Con esto el backend de AD-05 queda completo**: la API es usable de punta a punta sin UI. Ver "Resultado del paso 4".
 5. **Cliente y copy**: una función por endpoint; `listarSolicitudes` con firma en **unión** para que el 422 sea inalcanzable desde la app. `ETIQUETA_ACCION_SOLICITUD` es el **único** mapeo que el frontend tiene derecho a conocer. Nada de `danger`.
 6. **`MisSolicitudes`, la tabla del panel y el modal.** ⚠️ Riesgo medido: el `vi.mock` de `PanelAdopcionOrganizacion.test.tsx` tiene factory; **hay que añadirle `listarSolicitudes: vi.fn()`** o ~6 tests existentes caen con `Cannot read properties of undefined (reading 'then')`, un error que parece del componente y no lo es. Al portar `MatchModal`, quitarle la clase `[animation:popIn_.24s…]`: ese keyframe no existe ni allá ni aquí.
 7. **`SolicitudDetalle`: los botones los manda el backend.** En `adopta-v1` había un bloque que reimplementaba `TRANSICIONES_VALIDAS` a mano; aquí **no puede quedar ningún array de estados en el archivo**. Dos tests lo matan: con `acciones_disponibles: ['aprobar']` sobre estado `solicitado`, un frontend que reimplemente la matriz pintaría **los cuatro** botones.
@@ -79,7 +79,18 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 **Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
 
-**Paso actual: 4.**
+**Paso actual: 5.** Empieza la mitad de frontend (5-8); el **backend de AD-05 está completo y coherente**.
+
+### Resultado del paso 4 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: 10 fallos en `tests/api/test_swipes.py` (19 pasaban), el primero `assert None is not None` sobre `respuesta.json()["solicitud"]` del like.
+
+- `src/api/reencuentro_api/routers/swipes.py` (+144/-11) — el `like` crea el `Match` en `solicitado` con `mensaje`/`telefono_contacto` del `SwipeIn`, **en el mismo `commit()` que el swipe**. Helpers nuevos: `_solicitud_existente` (gemelo de `_swipe_existente`, también a nivel de módulo), `_nueva_solicitud`, `_texto_o_none` (`""`/`"   "` → `NULL`), `_resumen_solicitud`, `_swipe_out` y `_solicitud_del_swipe_previo` (el repetido y el swipe huérfano de AD-03). El `except IntegrityError` cubre ahora `uq_swipe_user_pet` **y** `uq_match_user_pet`.
+- `src/api/reencuentro_api/schemas/swipe.py` — `SwipeOut.solicitud: SolicitudResumenOut | None` (importado de `.solicitud`; sin ciclo). Conserva el default porque el ORM no puede llenarlo: **no hay `relationship()` entre `swipes` y `matches`**, el router lo arma a mano.
+- `tests/api/test_swipes.py` (+307/-11) — 12 casos nuevos (17 → 29). Las **11 líneas borradas son docstrings, dos nombres y una línea de payload**: `test_solicitud_viene_null` pasó al `pass` (su premisa con `like` la mató este paso) y `..._se_aceptan_y_no_se_persisten` pasó a `..._no_son_columnas_del_swipe`. Ninguna aserción eliminada.
+- ⚠️ **La mutación pedida no da rojo, y es una buena noticia**: quitar el select previo del match deja los 29 en verde porque `uq_match_user_pet` + el `except` responden igual (el segundo cinturón haciendo su trabajo). Con dientes de verdad: quitando además el `except` caen **5** (los dos de idempotencia de AD-03 se vuelven 500 con `UNIQUE constraint failed: matches.user_id, matches.pet_id`), y quitando también la constraint del modelo caen **3** con `assert 2 == 1`. Router y modelo restaurados con `diff` + md5 (`d2cbed7be06c98176ccf839009bdc2fd`, `84f924156a12f63fc2d8d99a8f03a1e3`).
+- Verificado: `bash init.sh` **exit 0 con 665 tests de Python + 345 de web** (653 y 345 al empezar; `tests/api` solo: 591 → 603), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto.
+- **Observación para AD-07/AD-08, no implementada aquí**: nada impide hoy solicitar **tu propia mascota** (swipear tu publicación crea una solicitud tuya sobre ti mismo, y `_publicador_o_403` te dejaría además gestionarla). Ningún acceptance de AD-05 lo pide y añadirlo sería alcance inventado; queda para que el líder decida dónde entra —el deck ya podría excluirlas antes, que es más barato que un 409—.
 
 ### Resultado del paso 3 (2026-08-15)
 

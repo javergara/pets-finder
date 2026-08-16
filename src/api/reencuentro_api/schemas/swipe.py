@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .solicitud import SolicitudResumenOut
+
 
 class SwipeIn(BaseModel):
     """Payload de un swipe del deck (AD-03).
@@ -12,12 +14,12 @@ class SwipeIn(BaseModel):
     trampa que documenta `models/swipe.py`: las dos son FK a `users.id` y nadie
     va a avisar si se cruzan.
 
-    ⚠️ `mensaje` y `telefono_contacto` se aceptan **y se descartan**: no existen
-    como columnas de `swipes`. Están declarados desde ya porque el formulario de
-    AD-05/AD-06 los va a mandar en esta misma petición (el "me interesa" pasa a
-    crear una solicitud) y vivirán en `matches`. Aceptarlos hoy evita que el
-    cliente de AD-05 tenga que hablar con una API que le devuelva 422 mientras
-    dura el despliegue incremental; no es un olvido de persistencia.
+    ⚠️ `mensaje` y `telefono_contacto` **no son columnas de `swipes`**: desde
+    AD-05 el "me interesa" los copia a la **solicitud** que crea en `matches`, en
+    el mismo commit que el swipe. AD-03 ya los aceptaba (y los tiraba) para que el
+    cliente no tuviera que hablar con una API que le devolviera 422 mientras
+    duraba el despliegue incremental. Un `pass` los ignora: descartar una mascota
+    no pide nada.
     """
 
     user_id: int
@@ -32,12 +34,16 @@ class SwipeOut(BaseModel):
 
     `user_id` es el adoptante, igual que en `SwipeIn`.
 
-    `solicitud` viaja **siempre `null` en AD-03**: el swipe no crea nada más. La
-    solicitud (tabla `matches`, "solicitud" en el copy — ver la nota de vigencia
-    del ADR 0002) la crea AD-05, que ampliará el tipo a `SolicitudResumenOut |
-    None` cuando ese schema exista. Se declara ya para que el frontend lea el
-    campo desde el primer día en vez de estrenar una clave nueva a mitad de
-    camino; declararle hoy una forma que nada llena sería inventar un contrato.
+    `solicitud` es lo que el swipe-derecha creó (tabla `matches`, "solicitud" en
+    el copy — ver la nota de vigencia del ADR 0002) y viene `null` en un `pass`.
+    Va aquí, y no en un `POST /api/solicitudes` aparte, porque el gesto es uno
+    solo: pedir la mascota **es** swipear a la derecha, y una segunda petición
+    podría fallar dejando el swipe sin solicitud.
+
+    ⚠️ `solicitud` **no se rellena desde el ORM**: `Swipe` no tiene ese atributo
+    (no hay `relationship()` entre las dos tablas, a propósito) y el router la
+    arma a mano. Por eso conserva el default: sin él, un `model_validate` de un
+    `pass` reventaría.
     """
 
     model_config = ConfigDict(from_attributes=True)
@@ -47,4 +53,4 @@ class SwipeOut(BaseModel):
     pet_id: int
     direccion: str
     creado_en: datetime
-    solicitud: None = None
+    solicitud: SolicitudResumenOut | None = None
