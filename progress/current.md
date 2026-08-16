@@ -51,7 +51,39 @@ Alcance real en producción (dato del líder): las 27 organizaciones importadas 
 
 **La UI es hoy la única barrera de autoría de toda la app.** El backend acepta estas escrituras porque el `user_id` que manda el cliente **es** el del autor: nada impide que alguien llame al endpoint a mano con el id correcto. `esUsuarioActivo()` cierra la puerta que se abría sola en el navegador, pero no cambia eso. Es deuda directa del "registro mínimo sin contraseña" (ADR 0005) y **merece un ADR propio** que decida el mecanismo (token de sesión firmado, magic link por email, o aceptar el riesgo por escrito con su alcance). No se implementa nada de esto aquí.
 
-## Feature activa: AD-04-perfil-de-hogar (in_progress)
+## Feature activa: AD-05-solicitudes-de-adopcion (in_progress)
+
+Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migración `CREATE TABLE matches` + RLS, escrita y **NO ejecutada**. Un commit por paso, test en rojo primero. El `done` lo decide el revisor.
+
+**8 pasos**, con corte natural para dos sesiones: **1-4 = backend completo y coherente** (la API queda usable aunque no haya UI), **5-8 = frontend y cierre**.
+
+### Decisiones del líder (no se re-litigan)
+
+1. **Cinco estados persistidos**: `solicitado`, `en_revision`, `visita_agendada`, `adoptado`, `cerrado`. `aprobar`/`descartar` son **nombres de acción HTTP**, nunca estados. Inventar `"aprobado"` no falla: cae al branch de "solicitado" y muestra *"Sin responder · N días"* sobre una adopción cerrada. Hay un guard explícito para eso.
+2. **`acciones_disponibles` lo calcula el backend** para el `solicitante_id` que consulta. Para el adoptante es **siempre `[]`** (ADR 0002).
+3. **`publicador_id` incluye las dos vías**: mascotas del rescatista **y** de organizaciones cuyo autor es esa persona. Si no, quien registró una fundación tendría que mirar en dos sitios.
+4. **`routers/solicitudes.py` importa `_dueno_user_id` de `.pets`** — primer import router→router del repo, con comentario. Duplicar una regla de autoría es peor: se desincroniza y el que se queda viejo autoriza de más.
+5. **La franja de celebración ya existe** desde AD-01. El acceptance 3 no pide una nueva: pide que **aprobar** empuje la mascota hasta ella.
+6. **`SolicitudEnviadaModal`** es lo único sin acceptance detrás: si un paso desborda, es lo primero que se corta.
+
+### Pasos
+
+1. **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`, porque el orden de los botones no puede depender del orden de iteración de un dict), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Guard clave: **ningún estado distinto de `solicitado` puede devolver "Cuestionario nuevo" ni "Sin responder"**.
+2. **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.**
+3. **Las cuatro acciones**, con `aprobar` en **una sola transacción y una sola query de cierre** — nada de bucles, y hay un test que cuenta los `UPDATE`. ⚠️ El `UPDATE` masivo deja objetos rancios en la sesión compartida del `conftest`: `synchronize_session=False` + releer por HTTP, o el test miente en las dos direcciones.
+4. **El swipe-derecha crea la solicitud**, en el **mismo** commit que el swipe, copiando `mensaje` y `telefono_contacto` que hoy se descartan. Idempotente con select previo + `IntegrityError`.
+5. **Cliente y copy**: una función por endpoint; `listarSolicitudes` con firma en **unión** para que el 422 sea inalcanzable desde la app. `ETIQUETA_ACCION_SOLICITUD` es el **único** mapeo que el frontend tiene derecho a conocer. Nada de `danger`.
+6. **`MisSolicitudes`, la tabla del panel y el modal.** ⚠️ Riesgo medido: el `vi.mock` de `PanelAdopcionOrganizacion.test.tsx` tiene factory; **hay que añadirle `listarSolicitudes: vi.fn()`** o ~6 tests existentes caen con `Cannot read properties of undefined (reading 'then')`, un error que parece del componente y no lo es. Al portar `MatchModal`, quitarle la clase `[animation:popIn_.24s…]`: ese keyframe no existe ni allá ni aquí.
+7. **`SolicitudDetalle`: los botones los manda el backend.** En `adopta-v1` había un bloque que reimplementaba `TRANSICIONES_VALIDAS` a mano; aquí **no puede quedar ningún array de estados en el archivo**. Dos tests lo matan: con `acciones_disponibles: ['aprobar']` sobre estado `solicitado`, un frontend que reimplemente la matriz pintaría **los cuatro** botones.
+8. **Cierre**: `init.sh`, recorrido real en Chrome (swipe → modal → mis solicitudes → panel → agendar → aprobar → la mascota sale del catálogo y sube a la franja → la otra solicitud queda cerrada sin que su adoptante vea el motivo), 360px, DB al seed.
+
+**Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
+
+**Paso actual: 1.**
+
+---
+
+## Feature cerrada: AD-04-perfil-de-hogar (done, 2026-08-15)
 
 Rama **`feat/adoptar`** (antes `feat/adopcion-ad03-ad09`): rama única donde caen AD-01…AD-09, para enviar el módulo entero a `develop` de una vez. Ya integrada con `origin/main`.
 
