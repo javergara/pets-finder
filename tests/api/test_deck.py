@@ -574,3 +574,89 @@ def test_el_deck_no_hace_una_consulta_por_publicador(client, db_session, adoptan
     assert all(m["publicador"] is not None for m in cuerpo_largo)
     assert len(deck_corto) == 5
     assert len(deck_largo) == 5
+
+
+# --- De extremo a extremo con el endpoint del perfil (AD-04, acceptance 2) -----
+#
+# Todo lo de arriba siembra el `HomeProfile` a mano con `_home`, así que ningún
+# test prueba que **el endpoint nuevo** sea el que alimenta al deck; y
+# `test_afinidad.py` es función pura, sin HTTP. Estos dos casos cierran ese
+# hueco: lo único que cambia entre las dos consultas al deck es el `PUT`.
+
+
+def _payload_hogar(user_id: int, **overrides) -> dict:
+    datos = {
+        "user_id": user_id,
+        "vivienda": "casa",
+        "espacio_exterior": "patio",
+        "personas_en_casa": 2,
+        "tiene_ninos": False,
+        "tiene_otros_perros": False,
+        "tiene_otros_gatos": False,
+        "horas_fuera_dia": 6,
+        "experiencia_previa": "algo",
+        "presupuesto_mensual_cop": None,
+        "preferencia_especies": [],
+        "preferencia_tamanos": [],
+        "preferencia_energia": "media",
+    }
+    datos.update(overrides)
+    return datos
+
+
+def test_el_deck_cambia_de_afinidad_al_guardar_el_perfil(client, db_session, adoptante, publicador):
+    """Acceptance 2: contestar el cuestionario puntúa y reordena el deck.
+
+    Las dos mascotas se siembran con energías distintas (`media` y `alta`) y el
+    hogar declara 10 horas fuera al día: eso es lo que las separa de verdad. Con
+    dos mascotas iguales, "ahora hay afinidad" pasaría igual con un score
+    constante, que no demostraría nada.
+    """
+    _sembrar(
+        db_session, publicador, ("Canela", {"energia": "media"}), ("Rocky", {"energia": "alta"})
+    )
+
+    antes = client.get(f"/api/pets/deck?adoptante_id={adoptante.id}").json()
+    assert len(antes) == 2
+    assert all(m["afinidad"] is None for m in antes)
+
+    guardado = client.put(
+        f"/api/users/{adoptante.id}/home-profile",
+        json=_payload_hogar(adoptante.id, horas_fuera_dia=10),
+    )
+    assert guardado.status_code == 200
+
+    despues = client.get(f"/api/pets/deck?adoptante_id={adoptante.id}").json()
+
+    assert len(despues) == 2
+    assert all(m["afinidad"] is not None for m in despues)
+    scores = {m["nombre"]: m["afinidad"]["score"] for m in despues}
+    assert scores["Canela"] != scores["Rocky"]
+    # Con 10 horas fuera de casa la de mucha energía encaja peor: el perfil no
+    # rellena un número cualquiera, ordena.
+    assert scores["Rocky"] < scores["Canela"]
+
+
+def test_las_razones_del_deck_citan_las_respuestas_guardadas(
+    client, db_session, adoptante, publicador
+):
+    """Acceptance 2: las razones son las del hogar que acaba de responder.
+
+    `tiene_ninos=True` no excluye a Canela (es apta con niños; la regla dura solo
+    muerde al revés), así que la convivencia sí puede aparecer citada.
+    """
+    _sembrar(db_session, publicador, ("Canela", {"energia": "media", "apto_ninos": True}))
+
+    client.put(
+        f"/api/users/{adoptante.id}/home-profile",
+        json=_payload_hogar(
+            adoptante.id, horas_fuera_dia=9, vivienda="apartamento", tiene_ninos=True
+        ),
+    )
+
+    cuerpo = client.get(f"/api/pets/deck?adoptante_id={adoptante.id}").json()
+
+    texto = " | ".join(cuerpo[0]["afinidad"]["razones"])
+    assert "9 horas fuera al día" in texto
+    assert "apartamento" in texto
+    assert "niños" in texto
