@@ -87,6 +87,17 @@ export function LandingEmergencia() {
         >
           Centros de ayuda: acopio, fundaciones y donaciones
         </Link>
+        {/* Adopción (AD-08): enlace de texto, hermano del de arriba y sin borde
+            A PROPÓSITO. Los dos CTAs llenos y los tres botones con borde son la
+            emergencia; la adopción es la fase 2 y no compite con ellos por la
+            mirada de quien entra aquí a los tres minutos de perder a su perro.
+            Que no lleve `border-` lo asevera un test. */}
+        <Link
+          to="/adoptar"
+          className="text-sm font-medium text-forest underline-offset-4 hover:underline"
+        >
+          Adoptar: mascotas rescatadas que buscan hogar
+        </Link>
       </div>
 
       {reunidos !== null && reunidos.total > 0 && (

@@ -40,6 +40,36 @@ describe('LandingEmergencia', () => {
     );
   });
 
+  // ⚠️ EL ORDEN DE LA LANDING NO ES ESTÉTICA. Esta app nació para reunir
+  // mascotas perdidas tras un terremoto; la adopción es la fase 2 y entra por
+  // detrás. Un enlace nuevo colado arriba —o un CTA de adopción del mismo peso
+  // visual— empuja hacia abajo lo que alguien busca con el móvil en la mano a
+  // los tres minutos de perder a su perro. Por eso la posición se fija con un
+  // test y no con un comentario en el componente.
+  it('los dos primeros enlaces siguen siendo los CTAs de emergencia', () => {
+    renderLanding();
+
+    const enlaces = screen.getAllByRole('link');
+    expect(enlaces[0]).toHaveTextContent('Perdí a mi mascota');
+    expect(enlaces[0]).toHaveAttribute('href', '/reportar/perdido');
+    expect(enlaces[1]).toHaveTextContent('Encontré una mascota');
+    expect(enlaces[1]).toHaveAttribute('href', '/reportar/encontrado');
+  });
+
+  // Espejo invertido del caso de abajo (`border-forest` en los secundarios): el
+  // enlace de adopción es TERCIARIO, hermano del de "Centros de ayuda" y no un
+  // botón. Sin esta aserción, darle un borde lo convierte en el tercer CTA de
+  // la landing de emergencia sin que nada salte.
+  it('enlaza el catálogo de adopción como acceso terciario, sin borde (AD-08)', () => {
+    renderLanding();
+
+    const adoptar = screen.getByRole('link', {
+      name: 'Adoptar: mascotas rescatadas que buscan hogar',
+    });
+    expect(adoptar).toHaveAttribute('href', '/adoptar');
+    expect(adoptar.className).not.toContain('border-');
+  });
+
   it('da acceso al listado y al mapa como botones visibles (feature 35)', () => {
     renderLanding();
 

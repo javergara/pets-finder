@@ -54,6 +54,14 @@ function Nav() {
       <NavLink to="/mis-reportes" className={linkClass}>
         Mis reportes
       </NavLink>
+      {/* Adopción (AD-08): la fase 2 del producto entra en la nav DETRÁS de la
+          emergencia, nunca delante. Reportar, mirar y lo mío van primero porque
+          quien acaba de perder a su mascota no debería tener que saltarse un
+          enlace de adopción para llegar a lo suyo. El orden lo fija un test
+          (`App.test.tsx`), no este comentario. */}
+      <NavLink to="/adoptar" className={linkClass}>
+        Adoptar
+      </NavLink>
       <NavLink to="/ayudar" className={linkClass}>
         Centros de ayuda
       </NavLink>
@@ -92,10 +100,12 @@ function App() {
           <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
           <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
-          {/* Módulo de adopción (AD-01). El enlace en la nav llega en AD-08:
-              hasta entonces las rutas existen y son compartibles, pero no se
-              anuncian. La ficha va bajo /adoptar/mascota/:id para no chocar con
-              /reporte/:id, que es el otro dominio (perdidos y encontrados). */}
+          {/* Módulo de adopción (AD-01), ya anunciado en la nav y en la landing
+              desde AD-08. Las rutas interiores (deck, cuestionario, solicitudes,
+              favoritas) siguen sin enlace propio en la nav: se llega a ellas
+              desde el catálogo. La ficha va bajo /adoptar/mascota/:id para no
+              chocar con /reporte/:id, que es el otro dominio (perdidos y
+              encontrados). */}
           <Route path="/adoptar" element={<CatalogoAdopcion />} />
           {/* Literal antes que dinámica, como en el router de la API. */}
           <Route path="/adoptar/publicar" element={<PublicarMascota />} />

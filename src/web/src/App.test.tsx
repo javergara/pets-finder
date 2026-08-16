@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from './api/client';
@@ -6,8 +6,9 @@ import App from './App';
 import { setActiveUserId } from './lib/session';
 
 // La landing pide el resumen de reencuentros al montar; el deck de AD-03 pide su
-// baraja y "Mis solicitudes" (AD-05) sus dos listas. Se mockean todas para que
-// ninguna ruta salga a la red de verdad.
+// baraja, "Mis solicitudes" (AD-05) sus dos listas y el catálogo (AD-01) su
+// listado más el resumen de adopciones. Se mockean todas para que ninguna ruta
+// salga a la red de verdad.
 vi.mock('./api/client', async () => {
   const actual = await vi.importActual<typeof client>('./api/client');
   return {
@@ -17,6 +18,8 @@ vi.mock('./api/client', async () => {
     obtenerPerfilHogar: vi.fn(),
     listarSolicitudes: vi.fn(),
     obtenerSolicitud: vi.fn(),
+    listarMascotas: vi.fn(),
+    obtenerAdopcionesResumen: vi.fn(),
   };
 });
 
@@ -25,6 +28,8 @@ beforeEach(() => {
   vi.mocked(client.listarDeck).mockResolvedValue([]);
   vi.mocked(client.obtenerPerfilHogar).mockResolvedValue(null);
   vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
+  vi.mocked(client.listarMascotas).mockResolvedValue([]);
+  vi.mocked(client.obtenerAdopcionesResumen).mockResolvedValue({ total: 0, recientes: [] });
   // El detalle se queda en su esqueleto: lo que este archivo comprueba es que la
   // ruta monta la pantalla dentro de AppLayout, no lo que la pantalla pinta
   // después (eso vive en `SolicitudDetalle.test.tsx`).
@@ -59,6 +64,21 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mis reportes' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Entra o crea tu cuenta' })).toBeInTheDocument();
+  });
+
+  // Desde AD-08 el catálogo sí se anuncia en la nav, así que su ruta merece el
+  // mismo caso de montaje que las otras cuatro del módulo.
+  it('en "/adoptar" monta el catálogo con el <Nav/> interno', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adoptar']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'Mascotas en adopción' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
   });
 
   // La ruta del deck (AD-03) existe y es compartible aunque todavía no se anuncie
@@ -132,5 +152,38 @@ describe('App', () => {
       'href',
       '/ayudar',
     );
+  });
+
+  // ⚠️ LA SECUENCIA COMPLETA, no "existe un enlace a /adoptar". El orden de la
+  // nav es la jerarquía del producto: emergencia primero (reportar, buscar,
+  // mirar el mapa, lo mío) y la adopción después, como fase 2. Aseverar la lista
+  // entera es lo único que detecta que "Adoptar" se cuele delante de "Reportes"
+  // —o que alguien mueva de sitio cualquiera de los otros seis— y evita índices
+  // mágicos: el caso se lee como la nav que se ve en pantalla.
+  it('la nav lista los ocho enlaces en su orden exacto, con Adoptar detrás de la emergencia (AD-08)', () => {
+    render(
+      <MemoryRouter initialEntries={['/registro']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    // El primero es el logo: su texto accesible vive en el `alt` de la imagen.
+    const etiqueta = (enlace: HTMLElement) =>
+      `${enlace.getAttribute('href')} ${
+        enlace.textContent || enlace.querySelector('img')?.getAttribute('alt') || ''
+      }`;
+
+    const enlaces = within(screen.getByRole('navigation')).getAllByRole('link');
+
+    expect(enlaces.map(etiqueta)).toEqual([
+      '/ Pet Finder Col',
+      '/reportar/perdido Perdí mi mascota',
+      '/reportar/encontrado Encontré una mascota',
+      '/reportes Reportes',
+      '/mapa Mapa',
+      '/mis-reportes Mis reportes',
+      '/adoptar Adoptar',
+      '/ayudar Centros de ayuda',
+    ]);
   });
 });
