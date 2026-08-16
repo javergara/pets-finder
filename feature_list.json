@@ -666,6 +666,19 @@
         "Sin perfil el deck funciona igual y muestra la invitación no bloqueante",
         "bash init.sh en verde; sin migración nueva (home_profiles ya se creó con AD-03)"
       ]
+    },
+    {
+      "id": "AD-05-solicitudes-de-adopcion",
+      "title": "Solicitudes: del swipe-derecha a la visita (match no mutuo)",
+      "description": "ADR 0002 vigente (restaurado en AD-03): el match NO es mutuo — el swipe-derecha crea la solicitud y quien publico la gestiona por estados. NUNCA se introduce un flujo de 'aceptar match': es lo que el revisor busca por contrato. Modelo Match (tabla 'matches', pero en API y copy se llama SIEMPRE 'solicitud'): user_id = el ADOPTANTE, pet_id, estado, mensaje y telefono_contacto (que entran ya aunque los use AD-06, para no abrir una segunda ventana de migracion), motivo_descarte, UniqueConstraint(user_id, pet_id). SIN columna de afinidad (ADR 0003) y SIN shelter_id: el dueño se resuelve por join a pets, para no duplicar el XOR ni arrastrar drift si una mascota cambia de dueño. Estados reales: solicitado, en_revision, visita_agendada, adoptado, cerrado — NUNCA 'aprobado' ni 'descartado', que solo existen en la prosa del backlog y harian caer calcular_etiqueta_solicitud al branch equivocado en silencio. services/solicitudes.py se porta casi literal con sus 14 tests, mas la accion 'aprobar'. La matriz de transiciones NO se duplica en el frontend: SolicitudOut incluye acciones_disponibles calculado por el backend con la misma funcion pura, y hay un test diseñado para fallar si alguien la vuelve a hardcodear. Aprobar es una sola transaccion: marca la mascota adoptada, sella adoptado_en y cierra las demas solicitudes con motivo automatico. Franja de celebracion en el catalogo, con el tono de los reencuentros. Migracion: CREATE TABLE matches + RLS antes del merge.",
+      "status": "in_progress",
+      "depends_on": ["AD-03-deck-swipe-y-afinidad"],
+      "acceptance": [
+        "El swipe-derecha crea la solicitud (una por user+pet, idempotente) visible en /adoptar/mis-solicitudes con su estado",
+        "Solo la organización/rescatista dueña avanza los estados (403 para otros) y las transiciones inválidas responden 409 (tests portados de solicitudes.py)",
+        "Aprobar una solicitud marca la mascota como adoptada, descarta las demás solicitudes y celebra la adopción en el catálogo",
+        "bash init.sh en verde; tabla matches creada en prod (RLS) antes del merge a main"
+      ]
     }
   ]
 }
