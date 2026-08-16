@@ -1294,3 +1294,21 @@ Revisión independiente de la rama `integracion-pr5` (HEAD `f2c75d3`). Evidencia
 **Condiciones de esta aprobación**: (1) ejecutar el ALTER de las 2 columnas en Supabase ANTES del merge (autorización ya dada, fase 3); (2) **añadir `options(defer(Report.embedding))` a la query de `buscar_por_descripcion`** antes del merge — el checklist lo exigía para todos los listados que no usan el vector y ese endpoint público anónimo arrastra hoy todos los vectores por request (exactamente el costo que el propio PR cuantifica); una línea, sin cambio de tests. **NO** añadirlo al radar: su motor sí lee los vectores.
 
 **Lo dudoso (no bloquea)**: (a) el desempate del sort cambió de "orden de inserción" a `(-afinidad, id)` — mejor (determinista entre DBs), pero en empates exactos el orden puede diferir del histórico y el test de la propiedad no lo cubre (usa puntajes distintos); cosmético; (b) el radar puede ahora emparejar candidatos de otra zona con parecido ≥ medio y coordenadas cercanas (p. ej. zona "Otro" limítrofe) — comportamiento nuevo documentado en el docstring pero sin test propio del radar; si molesta, un filtro de zona explícito en el radar es trivial; (c) los umbrales calibrados (0.80/0.90/0.9999) dependen de la calibración del ADR con fotos reales — versionada en `embeddings/ejemplos/calibracion.json` con tests, bien, pero re-calibrar exigirá disciplina de re-versionar.
+
+## AD-06 cerrada (2026-08-16): comunicación de la solicitud — WhatsApp directo, ADR 0013
+
+**APROBADA** por revisor independiente que corrió `bash init.sh`: **681 tests de Python + 419 de web**, todo en verde. La feature más pequeña del módulo precisamente porque la decisión la vacía: cero WebSockets, cero tabla `mensajes`, cero dependencias nuevas.
+
+- `docs/decisions/0013-comunicacion-solicitud-adopcion.md` evalúa las tres opciones (WhatsApp directo / Supabase Realtime / polling) y **supera explícitamente al ADR 0004**, cuyo `ConnectionManager` en memoria de un solo proceso es incompatible con el serverless de Vercel.
+- `lib/contacto.ts` gana `mensajeAdopcionAdoptante` y `mensajeAdopcionPublicador`: dos `Record<EstadoSolicitud, string>` **exhaustivos**, así que un sexto estado no compila sin decidir qué se dice en él.
+- Candado de no-regresión: `test_ninguna_dependencia_de_websockets` recorre `src/api/reencuentro_api/**/*.py` y asevera que no aparecen `WebSocket`, `websockets` ni `ConnectionManager`.
+
+**Fix de copy posterior al veredicto (`a82101a`)**, del hallazgo menor del revisor: los dos mensajes de `visita_agendada` preguntaban *"¿Te sirve el día y la hora que acordamos?"*, pero ese estado lo mueve quien publica desde un botón, **no hay campo de fecha en el modelo**, y muchas veces ese WhatsApp es la primera conversación. Ahora quien publica propone y quien pide pregunta. Los tests no cambiaron: aseveran la estructura de la URL y que cada estado y dirección digan algo distinto, **no las cadenas exactas**.
+
+**Deuda anotada en `memory/memory.md`**: `init.sh` corre `oxlint` pero **no `tsc -b`**, así que la exhaustividad de esos `Record` la aplica el build de Vercel, no la verificación local. Candidato a arreglo en AD-09.
+
+## AD-07 abierta (2026-08-16): favoritos — apadrinamiento recortado
+
+Copiada a `feature_list.json` como `in_progress` **sin el acceptance de apadrinamiento y sin la tabla `sponsorships`** en su línea de migración (recorte confirmado con el dueño: sin pasarela de pagos aporta poco hoy, y `Organizacion.como_donar` ya cubre la intención). Trae una tabla nueva: `CREATE TABLE favorites` + RLS.
+
+**Migraciones pendientes de ejecutar en Supabase, en este orden**: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → (al cerrar AD-07) `AD-07-favorites.sql`. Ninguna se ha ejecutado; el merge a `main` está bloqueado hasta que se ejecuten.

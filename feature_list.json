@@ -684,7 +684,7 @@
       "id": "AD-06-comunicacion-solicitud",
       "title": "Comunicación de la solicitud (ADR 0013: WhatsApp directo, sin WebSockets)",
       "description": "El chat de adopta-v1 (ADR 0004) usa WebSockets con un ConnectionManager en memoria de un solo proceso: INCOMPATIBLE con el serverless de Vercel, donde cada request es una funcion efimera. Escribir el ADR 0013 (NO el 0012, que Javier ocupo con coincidencias visuales) evaluando las tres opciones — WhatsApp directo, Supabase Realtime sobre una tabla mensajes, y polling — y justificando la (a): cero infraestructura, coherente con el ADR 0005 (sin chat interno) y con toda la app, que ya contacta por wa.me. El ADR declara explicitamente que SUPERA al 0004. Implementacion: lib/contacto.ts gana el mensaje precargado por estado de la solicitud en las DOS direcciones — hoy solo existe adoptante->publicador (mensajeAdoptarMascota) y en SolicitudDetalle el telefono del adoptante se pinta como tel: pelado. Ademas se arregla un defecto encontrado en el recorrido de AD-05: el copy del 409/403 filtra identificadores internos a una persona real ('No se puede pedir-informacion una solicitud en estado adoptado') cuando conventions.md §3 pide copy de producto; ojo que dos aserciones de test_solicitudes_acciones.py comparan accion in detail y estado in detail, asi que el fix las toca. Sin tabla nueva, sin migracion, y un test de guardarrail que recorre src/api y asevera que no aparece WebSocket ni ConnectionManager.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "ADR 0013 escrito con las 3 opciones evaluadas y la decisión justificada, declarando que supera al ADR 0004",
@@ -692,6 +692,18 @@
         "Ninguna dependencia de WebSockets ni de proceso persistente entra al código de producción (test de guardarraíl que recorre src/api)",
         "El copy de los errores 409/403 de las acciones no expone identificadores internos (slugs de acción ni nombres de estado) al usuario",
         "bash init.sh en verde; sin migración nueva"
+      ]
+    },
+    {
+      "id": "AD-07-favoritos",
+      "title": "Favoritos: guardar una mascota sin swipear",
+      "description": "RECORTE DE ALCANCE decidido con el dueño: el apadrinamiento NO se porta. Sin pasarela de pagos aporta poco hoy, y Organizacion.como_donar (Como donar de la red de apoyo) ya cubre la intencion. No se portan models/sponsorship.py, schemas/sponsorship.py, routers/sponsorships.py, screens/Apadrinar.tsx, GET /api/pets/necesitan-apoyo ni test_sponsorships.py, y por eso este item se copia SIN el acceptance de apadrinamiento y SIN la tabla sponsorships en su linea de migracion. Modelo Favorite (user_id, pet_id, creado_en) CON UniqueConstraint(user_id, pet_id) — adopta-v1 no lo tenia y resolvia la idempotencia solo en el router; con Postgres y concurrencia real conviene la garantia en DB, mismo criterio que uq_suscripcion_report_email. POST /api/users/{id}/favorites (201 nuevo, 200 si ya estaba), DELETE (204 siempre, idempotente, nunca 404 por 'no estaba marcada'), GET (200 vacio si no hay, 404 si el usuario no existe, y NO exige perfil de hogar). Regla heredada con test propio en adopta-v1 que hay que preservar: marcar favorito NO crea un Swipe ni una solicitud y NO saca la mascota del deck — son mecanismos independientes. Corazon en MascotaCard, MascotaSwipeCard y la ficha, con toggle optimista y catch vacio a proposito (nunca bloquear por red). Migracion: CREATE TABLE favorites + RLS.",
+      "status": "in_progress",
+      "depends_on": ["AD-05-solicitudes-de-adopcion"],
+      "acceptance": [
+        "Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)",
+        "Marcar favorito no crea swipe ni solicitud, y la mascota sigue apareciendo en el deck",
+        "bash init.sh en verde; tabla favorites creada en prod (RLS) antes del merge a main"
       ]
     }
   ]
