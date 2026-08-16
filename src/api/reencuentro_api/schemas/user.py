@@ -84,8 +84,10 @@ class HomeProfileIn(BaseModel):
 class HomeProfileOut(BaseModel):
     """Las 12 respuestas del cuestionario, sin `user_id`.
 
-    Quien lo recibe es siempre su dueño (el router responde 403 antes de llegar
-    aquí), así que devolver el id sería repetirle lo que acaba de poner en la URL.
+    Quien lo recibe es su dueño (el router responde 403 antes de llegar aquí),
+    así que devolver el id sería repetirle lo que acaba de poner en la URL — o,
+    desde AD-05, quien publicó la mascota que esa persona pidió: el cuestionario
+    es el contenido principal del detalle de la solicitud (ADR 0002).
 
     ⚠️ Las preferencias salen como `list[str]` y no con los `Literal`: son
     columnas JSON, y una fila vieja con un valor que ya no esté en catálogo tiene

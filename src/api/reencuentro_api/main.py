@@ -16,6 +16,7 @@ from .routers import (
     pets,
     radar,
     reports,
+    solicitudes,
     suscripciones,
     swipes,
     uploads,
@@ -77,6 +78,7 @@ app.include_router(suscripciones.router)
 app.include_router(radar.router)
 app.include_router(pets.router)
 app.include_router(swipes.router)
+app.include_router(solicitudes.router)
 # `paginas` va SIEMPRE último: registra rutas de raíz (/reporte/{id}, /zona/…)
 # sin prefijo, así que cualquier router nuevo se monta antes que él.
 app.include_router(paginas.router)

@@ -69,7 +69,7 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 ### Pasos
 
 1. ✅ **HECHO (2026-08-15)** — **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Ver "Resultado del paso 1".
-2. **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.**
+2. ✅ **HECHO (2026-08-15)** — **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.** Ver "Resultado del paso 2".
 3. **Las cuatro acciones**, con `aprobar` en **una sola transacción y una sola query de cierre** — nada de bucles, y hay un test que cuenta los `UPDATE`. ⚠️ El `UPDATE` masivo deja objetos rancios en la sesión compartida del `conftest`: `synchronize_session=False` + releer por HTTP, o el test miente en las dos direcciones.
 4. **El swipe-derecha crea la solicitud**, en el **mismo** commit que el swipe, copiando `mensaje` y `telefono_contacto` que hoy se descartan. Idempotente con select previo + `IntegrityError`.
 5. **Cliente y copy**: una función por endpoint; `listarSolicitudes` con firma en **unión** para que el 422 sea inalcanzable desde la app. `ETIQUETA_ACCION_SOLICITUD` es el **único** mapeo que el frontend tiene derecho a conocer. Nada de `danger`.
@@ -79,7 +79,19 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 **Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
 
-**Paso actual: 2.**
+**Paso actual: 3.**
+
+### Resultado del paso 2 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: `ModuleNotFoundError: No module named 'reencuentro_api.schemas.solicitud'` en la colección de `tests/api/test_solicitudes.py`.
+
+- `src/api/reencuentro_api/schemas/solicitud.py` — `EstadoSolicitud`/`AccionSolicitud` como `Literal` de módulo, `AdoptanteResumen` (**sin email**: sin contraseñas, el correo es la credencial de entrar-o-registrar), `SolicitudResumenOut` (la consumirá `SwipeOut` en el paso 4), `SolicitudOut`, `SolicitudDetalleOut`, `AccionSolicitudIn` y `DescartarIn` (`min_length=1, max_length=500` + validador que hace `strip()`). **Ningún schema declara `motivo_descarte`.**
+- `src/api/reencuentro_api/routers/solicitudes.py` — `_solicitudes_out` con un lote por tipo de entidad y `_cargar_solicitud_o_404` (devuelve match + mascota + adoptante: sin la mascota no se puede resolver quién autoriza). **Importa `_dueno_user_id` y `_publicadores_por_pet` de `.pets`**, con el porqué escrito en el docstring del módulo. `publicador_id` cubre las dos vías con un `IN` sobre las organizaciones propias, en la misma query. Orden `creado_en desc, id desc`.
+- `main.py` — `include_router(solicitudes.router)` antes de `paginas`. `schemas/user.py` — solo el docstring de `HomeProfileOut` (desde AD-05 también lo recibe quien publicó la mascota).
+- `tests/api/test_solicitudes.py` — 30 casos. Los dos candados de `Literal` contra el servicio, las tres vías de listado (incluida la de quien tiene fundación **y** mascotas propias), 422 sin filtro y con cada par, 404 por id inexistente en los tres filtros, 200 con `[]`, el detalle para publicador/autor de la organización/propio adoptante/tercero (403), `afinidad: null` sin perfil de hogar, y `"motivo_descarte" not in respuesta.text` en lista y detalle.
+- **Mutación verificada**: sustituir el batch de publicadores por un `_publicadores_por_pet` por fila deja rojo **solo** el test de conteo (`assert 7 == 11`: constante con 2 y con 6 solicitudes, contra 7 y 11 con la versión ingenua). Router restaurado con `diff` + md5 (`b06465ad70244602131b318f2ae421a3`).
+- ⚠️ El conteo se sostiene porque **ninguna fila comparte entidad con otra** —mascota, publicador, adoptante ni hogar—: las organizaciones de la siembra son distintas por fila aunque todas tengan el mismo dueño. Está dicho en el docstring del test, con la corrección de AD-03 paso 7 (el `expunge_all()` no es lo determinante).
+- Verificado: `bash init.sh` **exit 0 con 610 tests de Python + 345 de web** (580 y 345 al empezar; `tests/api` solo: 518 → 548), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto.
 
 ### Resultado del paso 1 (2026-08-15)
 
