@@ -1348,4 +1348,18 @@ Verificación: `bash init.sh` en verde — **698 tests de Python + 419 de web** 
 
 **Anotado para el líder** (no tocado, fuera del alcance del paso 1): el docstring de `tests/api/soporte_migraciones.py` sigue diciendo que lo comparten tres anti-drift; ahora son cuatro. Una línea, cuando toque.
 
-Siguiente: paso 2 (schema + `routers/favoritos.py` + registro en `main.py` antes de `paginas`).
+#### AD-07 paso 2 HECHO (2026-08-16): schema + `routers/favoritos.py` + registro en `main.py`
+
+Rojo→verde real. Rojo inicial: 14 de los 16 casos en rojo con `assert 404 == 201` / `assert 404 == 200` (la ruta no existía todavía); los 2 verdes desde el principio son los guardarraíles del acceptance 2 (favoritear no crea swipe/solicitud ni saca la carta del deck), que pasan a propósito porque prueban una ausencia.
+
+- `src/api/reencuentro_api/schemas/favorito.py` (nuevo) — `FavoritoIn` con solo `pet_id`; sin `FavoritoOut` (la respuesta del POST es `PetOut` con `es_favorito=True`).
+- `src/api/reencuentro_api/routers/favoritos.py` (nuevo) — POST (201/200 idempotente con select previo + `IntegrityError`/rollback/re-select), GET (`solicitante_id` requerido, **403 antes del 404**, una sola query con join y `ORDER BY creado_en desc, pet_id desc`, sin excluir adoptadas, sin exigir `HomeProfile`) y DELETE (204 siempre). Importa `_pet_out`/`_publicadores_por_pet` de `.pets` con el aviso del precedente de `solicitudes.py`; sin ciclo.
+- `src/api/reencuentro_api/main.py` — `include_router(favoritos.router)` después de `solicitudes` y antes de `paginas`, con la nota de por qué el segundo prefijo `/api/users` no eclipsa a `/{user_id}`.
+- `src/api/reencuentro_api/routers/pets.py` — **solo** el parámetro `favoritos: set[int] | None = None` en `_pet_out` + docstring. `listar_mascotas`, `obtener_mascota` y `deck_de_descubrimiento` **sin tocar**: los llena el paso 3.
+- `tests/api/test_favoritos.py` (nuevo, 16) — los 12 portados de `origin/adopta-v1:tests/api/test_favorites.py` + 403 ajeno, 403 sobre usuario inexistente (el oráculo), no-cruce de `user_id`, sin perfil de hogar y el orden explícito de la lista.
+
+Verificación: `bash init.sh` en verde — **714 tests de Python + 419 de web** (línea base 698 + 419). Mutación ejecutada con cuatro roturas y su fallo real citado en `changes.md`: `ORDER BY` quitado (`assert [1, 2, 3, 4] == [4, 2, 3, 1]`), 403/404 invertidos (`assert 404 == 403`), `session.get(Pet, ...)` borrado (`AttributeError: 'NoneType' object has no attribute 'organizacion_id'`) y la variante fina del 404 después del insert (`assert 1 == 0` en el conteo de `favorites`). Archivo restaurado idéntico tras cada una. Cero `.sql` ejecutado contra ninguna base; `scripts/seed.py` solo el que corre `init.sh` sobre la SQLite local.
+
+**Anotado para el líder** (no tocado, fuera de alcance): el docstring de `_pet_out` decía que `es_favorito` y `ya_solicitada` esperaban a "AD-05/07"; se reescribió la parte de `es_favorito`, pero **`ya_solicitada` sigue sin llenarse en ningún endpoint** aunque AD-05 esté cerrada — decidir si es deuda de AD-05 o entra en algún paso de AD-07.
+
+Siguiente: paso 3 (`es_favorito` real en catálogo, ficha y deck con `_ids_favoritos`, y la constante del test anti-N+1 del deck de 5 a 6 consultas con el porqué escrito).

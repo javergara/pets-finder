@@ -160,7 +160,10 @@ def _publicadores_por_pet(session: Session, pets: Sequence[Pet]) -> dict[int, Pu
 
 
 def _pet_out(
-    pet: Pet, publicadores: dict[int, PublicadorOut], home: HomeProfile | None = None
+    pet: Pet,
+    publicadores: dict[int, PublicadorOut],
+    home: HomeProfile | None = None,
+    favoritos: set[int] | None = None,
 ) -> PetOut:
     """`PetOut` con lo que el ORM no sabe calcular (patrón de
     `OrganizacionOut.necesidades_pendientes`).
@@ -168,14 +171,25 @@ def _pet_out(
     `home` llega solo desde el deck y **es opcional a propósito**: sin perfil de
     hogar la afinidad no se puede calcular, así que `afinidad` viaja en `None` y
     la tarjeta se muestra igual (decisión de AD-03; `adopta-v1` devolvía 404 y
-    eso rompía el onboarding entero). `es_favorito` y `ya_solicitada` se quedan
-    en su default hasta AD-05/07.
+    eso rompía el onboarding entero). `ya_solicitada` se queda en su default.
+
+    `favoritos` (AD-07) son los ids de mascota que **quien mira** tiene guardados.
+    Es un conjunto y no un `bool` a propósito: quien pinta una lista los resuelve
+    con **una sola query** para toda la página y se lo pasa igual a cada fila —
+    dos formas del mismo dato (un bool aquí, un conjunto allá) se separarían en la
+    primera corrección. `None` es "no hay a quién preguntarle" (tráfico anónimo, o
+    los endpoints que todavía no lo llenan) y `es_favorito` se queda en `False`.
+
+    ⚠️ El conjunto es de la persona que MIRA, nunca de quien publica: ver el aviso
+    de colisión de `user_id` en `models/favorite.py`.
 
     `razones` se convierte a lista aquí: `AfinidadResultado` es un dataclass
     `frozen` y las guarda como tupla.
     """
     out = PetOut.model_validate(pet)
     out.publicador = publicadores.get(pet.id)
+    if favoritos is not None:
+        out.es_favorito = pet.id in favoritos
     if home is not None:
         resultado = calcular_afinidad(pet, home)
         out.afinidad = AfinidadOut(
