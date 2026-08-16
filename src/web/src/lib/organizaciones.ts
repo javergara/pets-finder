@@ -10,6 +10,8 @@ export const ETIQUETA_TIPO_ORGANIZACION: Record<
   fundacion: { texto: 'Fundación', color: 'bg-forest' },
   tienda: { texto: 'Tienda de mascotas', color: 'bg-ink' },
   veterinaria: { texto: 'Veterinaria', color: 'bg-danger' },
+  // Entrenadores caninos (feature 47): vitrina + apoyo, contacto por WhatsApp.
+  entrenador: { texto: 'Entrenador', color: 'bg-forest-hover' },
 };
 
 export const TIPOS_ORGANIZACION = Object.keys(ETIQUETA_TIPO_ORGANIZACION) as TipoOrganizacion[];

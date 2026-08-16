@@ -20,6 +20,8 @@ const COLOR_POR_CLASE: Record<string, string> = {
   // Red de apoyo (feature 32): acopio=ochre, tienda=ink; el fallback sigue ochre.
   'bg-ochre': '#b57c2e',
   'bg-ink': '#1b1a17',
+  // Entrenadores (feature 47).
+  'bg-forest-hover': '#2e6e52',
 };
 
 type Props = {

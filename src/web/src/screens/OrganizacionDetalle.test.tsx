@@ -106,7 +106,7 @@ describe('OrganizacionDetalle', () => {
     );
   });
 
-  it('sin como_donar no muestra la sección Cómo donar', async () => {
+  it('sin como_donar no muestra la sección Cómo apoyar', async () => {
     vi.mocked(client.obtenerOrganizacion).mockResolvedValue(
       crearOrganizacion({ como_donar: null }),
     );
@@ -114,7 +114,7 @@ describe('OrganizacionDetalle', () => {
     renderDetalle();
 
     await screen.findByRole('heading', { name: 'Fundación Huellitas' });
-    expect(screen.queryByText('Cómo donar')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cómo apoyar')).not.toBeInTheDocument();
   });
 
   it('el bloque Administrar solo aparece para el autor', async () => {

@@ -62,8 +62,8 @@ export function RedDeApoyo() {
         <div>
           <h1 className="font-display text-3xl text-ink">Centros de ayuda</h1>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            Centros de acopio, fundaciones, tiendas y veterinarias que están ayudando. Encuentra
-            dónde llevar donaciones o a quién acudir.
+            Centros de acopio, fundaciones, tiendas, veterinarias y entrenadores que están ayudando.
+            Encuentra dónde llevar donaciones o a quién acudir.
           </p>
         </div>
         <Link

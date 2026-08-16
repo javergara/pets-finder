@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from ..media import borrar_foto
 from ..models.pet import Pet
@@ -27,7 +27,11 @@ from ..schemas.report import (
     SuscripcionOut,
 )
 from ..services.busqueda import ConsultaBusqueda, buscar_parecidos
-from ..services.coincidencias import ordenar_coincidencias, razones_coincidencia
+from ..services.coincidencias import (
+    banda_de_parecido,
+    ordenar_coincidencias,
+    razones_coincidencia,
+)
 from ..services.db import get_session
 from ..services.notificaciones import notificar_novedad
 from ..services.titulos import titulo_reporte
@@ -93,7 +97,14 @@ def buscar_por_descripcion(
     declarada antes de las dinámicas /{report_id}.
     """
     candidatos = (
-        session.execute(select(Report).where(Report.estado == "activo", Report.tipo == tipo))
+        session.execute(
+            # La búsqueda por descripción no usa el vector (su parecido es de
+            # atributos, feature 38): sin defer arrastraría los 384 floats de
+            # cada candidato en un endpoint público anónimo.
+            select(Report)
+            .where(Report.estado == "activo", Report.tipo == tipo)
+            .options(defer(Report.embedding))
+        )
         .scalars()
         .all()
     )
@@ -137,7 +148,12 @@ def listar_reportes(
     SIEMPRE en el header `X-Total-Count` — sin `limit`, la respuesta sigue
     siendo la lista completa (compatibilidad con mapa y mis-reportes).
     """
-    query = select(Report)
+    # `defer(embedding)`: el vector es ~93% del peso de la fila y este endpoint
+    # NO lo usa (ReportOut ni lo expone). Sin esto, cada carga del mapa —que pide
+    # el listado sin `limit`— arrastraría ~1 MB de vectores desde Postgres hasta
+    # la función serverless para tirarlos a la basura. Solo `/coincidencias` los
+    # necesita, y esa query los pide aparte.
+    query = select(Report).options(defer(Report.embedding))
     if estado != "todos":
         query = query.where(Report.estado == estado)
     if tipo is not None:
@@ -189,6 +205,7 @@ def resumen_reunidos(session: Session = Depends(get_session)) -> ReunidosResumen
     recientes = (
         session.execute(
             select(Report)
+            .options(defer(Report.embedding))  # la franja no usa el vector
             .where(Report.estado == "reunido")
             .order_by(Report.resuelto_en.desc())
             .limit(6)
@@ -250,23 +267,40 @@ def listar_coincidencias(
 ) -> list[CoincidenciaOut]:
     """Candidatos del tipo opuesto que podrían ser la misma mascota.
 
-    El router solo carga los candidatos crudos; el filtro y el orden viven en
-    la función pura `services/coincidencias.py::ordenar_coincidencias`.
+    El router solo carga los candidatos crudos; el filtro, el orden y la banda
+    de parecido viven en la función pura `services/coincidencias.py`.
     """
     reporte = session.get(Report, report_id)
     if reporte is None:
         raise HTTPException(404, f"El reporte {report_id} no existe")
 
-    candidatos = session.execute(select(Report).where(Report.id != report_id)).scalars().all()
+    # Los filtros baratos bajan a SQL: desde el ADR 0012 cada fila arrastra un
+    # vector de 384 floats (~3.8 KB de JSON), y traer la tabla entera para
+    # descartarla en Python costaba ~1 MB por request en un GET anónimo.
+    # `ordenar_coincidencias` vuelve a aplicarlos — sigue siendo pura y correcta
+    # con cualquier lista de candidatos; esto solo evita traer los que sobran.
+    candidatos = (
+        session.execute(
+            select(Report).where(
+                Report.id != report_id,
+                Report.tipo == ("encontrado" if reporte.tipo == "perdido" else "perdido"),
+                Report.especie == reporte.especie,
+                Report.estado == "activo",
+            )
+        )
+        .scalars()
+        .all()
+    )
     resultado = ordenar_coincidencias(reporte, list(candidatos))
 
     return [
         CoincidenciaOut(
             distancia_km=distancia,
             razones=razones_coincidencia(reporte, c, distancia),
+            parecido_foto=banda_de_parecido(similitud),
             **ReportOut.model_validate(c).model_dump(),
         )
-        for c, distancia in resultado
+        for c, distancia, similitud in resultado
     ]
 
 

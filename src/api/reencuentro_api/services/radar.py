@@ -23,13 +23,20 @@ def parejas_a_avisar(
     """[(perdido, candidato, distancia_km, razones)] — solo parejas nuevas.
 
     Por cada perdido activo: candidatos que el motor ya ordena (tipo opuesto,
-    misma especie/zona, activos), excluyendo las parejas ya avisadas, con tope
-    de `MAX_POR_REPORTE` y descartando puntajes peores que `PUNTAJE_MAX`.
+    misma especie y activos; la zona dejó de ser filtro duro con el ADR 0012,
+    pero la puerta de puntaje de abajo los descarta igual), excluyendo las
+    parejas ya avisadas, con tope de `MAX_POR_REPORTE` y descartando puntajes
+    peores que `PUNTAJE_MAX`.
     """
     resultado = []
     for perdido in perdidos:
         nuevas = 0
-        for candidato, distancia in ordenar_coincidencias(perdido, candidatos):
+        # El motor devuelve también la similitud visual (ADR 0012); el radar
+        # no la usa todavía: su puerta de calidad sigue siendo distancia+días,
+        # que ya descarta por sí sola a los candidatos de otra zona. Si algún
+        # día se quiere avisar por un parecido fuerte y lejano, este es el
+        # lugar — pero es una decisión de producto del radar, no del motor.
+        for candidato, distancia, _similitud in ordenar_coincidencias(perdido, candidatos):
             if nuevas >= MAX_POR_REPORTE:
                 break
             if (perdido.id, candidato.id) in ya_avisadas:

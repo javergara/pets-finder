@@ -163,3 +163,24 @@ def test_eliminar_solo_el_autor(client, usuario, otro_usuario):
 
 def test_obtener_inexistente_devuelve_404(client, db_session):
     assert client.get("/api/organizaciones/999").status_code == 404
+
+
+def test_crear_entrenador_devuelve_201_y_filtra(client, usuario):
+    """Entrenadores caninos (feature 47): tipo nuevo sin migración."""
+    r = client.post(
+        "/api/organizaciones",
+        json=_payload(
+            usuario,
+            tipo="entrenador",
+            nombre="Camilo Adiestramiento Canino",
+            como_donar="Primera valoración gratuita · Nequi 3001112233",
+        ),
+    )
+
+    assert r.status_code == 201
+    assert r.json()["tipo"] == "entrenador"
+
+    lista = client.get("/api/organizaciones", params={"tipo": "entrenador"}).json()
+    assert [o["nombre"] for o in lista] == ["Camilo Adiestramiento Canino"]
+    # El resto de tipos no se cuela en el filtro.
+    assert client.get("/api/organizaciones", params={"tipo": "fundacion"}).json() == []

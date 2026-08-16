@@ -4,7 +4,31 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Unreleased]
 
-Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance), `24-ai-matching-fotos` (ADR costo/proveedor) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
+### Added
+- **`24-ai-matching-fotos`** (ADR 0012): las coincidencias suman **parecido visual** de las fotos sobre la heurística explicable de siempre. Modelos abiertos (Apache 2.0) que corren en el worker `embeddings/` fuera de la API — costo $0 y las fotos no salen a ningún tercero. Chip "foto muy parecida"/"foto parecida" junto a las razones de la 37, nunca un porcentaje. El parecido solo suma y nunca resta, así que sin vectores el orden es idéntico al anterior.
+  - Motivo medido: 234 de los 260 reportes de producción comparten el mismo pin (el crawler los ubica en el centro de la zona), y el **89% de los pares candidatos empataba** bajo la heurística de distancia. La foto es la única señal que quedaba.
+  - Pendiente antes de desplegar: migración aditiva (`embedding`, `embedding_modelo`) y backfill del worker.
+
+### Fixed
+- `init.sh` corría `pytest tests/api`, así que los tests de `tests/crawler` (y los nuevos de `tests/embeddings`) nunca se ejecutaban ahí. Ahora corre `pytest` a secas, respetando `testpaths`.
+- La recencia de las tarjetas del listado se aseveraba con una redacción que dependía del reloj de pared ("hace X" → "ayer"), y rompía la suite al día siguiente.
+- `dev.sh` asumía `.venv/bin/activate` (Linux) y no arrancaba en Windows; ahora detecta el intérprete y respeta `DATABASE_URL` si viene del entorno.
+
+Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
+
+## [2.5.0] - 2026-08-15
+
+Jornada de colaboración: dos PRs externos integrados, módulo de adopción desplegado y dos fuentes de datos importadas.
+
+### Added
+- **Módulo de adopción (AD-01+AD-02, de un colaborador)**: catálogo público /adoptar, ficha con galería y checklist de salud, publicar por 3 caminos (organización, rescatista, y el puente "¿nadie la reclamó? dala en adopción" desde un reporte encontrado). Tabla `pets` con publicador exclusivo (CHECK) migrada.
+- **`47-entrenadores`**: quinto tipo de la Red de Apoyo — vitrina con WhatsApp y "Cómo apoyar".
+- **Sistema de deduplicación `dedup/` (PR 4, Javier Torres)**: detección por clusters con canónico cronológico, guarda anti-pérdida y juez LLM opcional que solo anota — herramienta de operador, nada se borra solo.
+- **Coincidencias visuales (feature 24 / ADR 0012, PR 5, Juan Andrés Ruiz)**: parecido de fotos con modelos locales (recorte YOLOS + DINOv2 de identidad animal, costo $0, fotos nunca salen a terceros), bandas "alto/medio" sin porcentajes, la zona deja de ser filtro duro, guarda antifraude de misma-imagen. Columnas `reports.embedding`/`embedding_modelo` migradas; worker `embeddings/` corre fuera del serverless.
+- **Datos**: 35 casos del export "Recupera Tu Mascota" (16 del Centro de Bienestar Animal) + 11 veterinarias de Cali + 16 fundaciones damnificadas.
+
+### Fixed
+- `init.sh` ahora corre TODOS los testpaths (crawler y dedup quedaban fuera: 45 tests invisibles al harness).
 
 ## [2.4.0] - 2026-08-14
 

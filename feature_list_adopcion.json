@@ -70,11 +70,11 @@
     {
       "id": "AD-06-comunicacion-solicitud",
       "title": "Comunicación de la solicitud (exige ADR nuevo — NO portar WebSockets)",
-      "description": "El chat de adopta-v1 (ADR 0004) usa WebSockets con estado en memoria: INCOMPATIBLE con Vercel serverless (integracion-adopcion.md §4.2). Escribir ADR 0012 eligiendo entre: (a) WhatsApp directo con mensaje precargado por estado de la solicitud — recomendada, coherente con ADR 0005 y cero infra; (b) Supabase Realtime sobre tabla mensajes; (c) polling. Implementar la opción elegida en las pantallas de solicitud de AD-05. Si se elige (a), MensajesMatch/MensajesSolicitud de adopta-v1 NO se portan y este item es pequeño.",
+      "description": "El chat de adopta-v1 (ADR 0004) usa WebSockets con estado en memoria: INCOMPATIBLE con Vercel serverless (integracion-adopcion.md §4.2). Escribir ADR 0013 (el 0012 quedó tomado por las coincidencias visuales) eligiendo entre: (a) WhatsApp directo con mensaje precargado por estado de la solicitud — recomendada, coherente con ADR 0005 y cero infra; (b) Supabase Realtime sobre tabla mensajes; (c) polling. Implementar la opción elegida en las pantallas de solicitud de AD-05. Si se elige (a), MensajesMatch/MensajesSolicitud de adopta-v1 NO se portan y este item es pequeño.",
       "status": "todo",
       "depends_on": ["AD-05-solicitudes-de-adopcion"],
       "acceptance": [
-        "ADR 0012 escrito con las 3 opciones evaluadas y la decisión justificada",
+        "ADR 0013 escrito con las 3 opciones evaluadas y la decisión justificada",
         "Adoptante y organización pueden comunicarse desde la solicitud según la opción elegida (hrefs o mensajes testeados)",
         "Ninguna dependencia de WebSockets/proceso persistente entra al código de producción",
         "bash init.sh en verde; si la opción trae tabla mensajes, migrada (RLS) antes del merge"

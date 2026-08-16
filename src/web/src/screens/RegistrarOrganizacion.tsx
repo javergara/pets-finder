@@ -272,7 +272,7 @@ export function RegistrarOrganizacion() {
 
         <div>
           <label htmlFor="registrar-donar" className="text-sm font-medium text-ink-soft">
-            Cómo donar (opcional — Nequi, cuenta, link)
+            Cómo apoyar (opcional — Nequi, cuenta, link o tus servicios)
           </label>
           <input
             id="registrar-donar"

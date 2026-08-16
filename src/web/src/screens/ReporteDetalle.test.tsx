@@ -228,6 +228,7 @@ describe('ReporteDetalle', () => {
         }),
         distancia_km: 0.6,
         razones: ['mismo perro', 'misma zona (Armenia)', 'a 0.6 km', '1 día de diferencia'],
+        parecido_foto: null,
       },
     ]);
 
@@ -240,6 +241,34 @@ describe('ReporteDetalle', () => {
     expect(screen.getByText('1 día de diferencia')).toBeInTheDocument();
     const links = screen.getAllByRole('link');
     expect(links.some((l) => l.getAttribute('href') === '/reporte/2')).toBe(true);
+    // Sin evidencia visual no se le dice nada al usuario sobre el parecido.
+    expect(screen.queryByText(/foto (muy )?parecida/)).not.toBeInTheDocument();
+  });
+
+  it('marca el parecido visual con una banda, nunca con un porcentaje', async () => {
+    vi.mocked(client.obtenerReporte).mockResolvedValue(crearReporte());
+    vi.mocked(client.listarCoincidencias).mockResolvedValue([
+      {
+        ...crearReporte({ id: 2, tipo: 'encontrado', descripcion: 'Muy parecido' }),
+        distancia_km: 28.9,
+        razones: ['mismo perro', 'otra zona (Pereira)', 'a 28.9 km', 'el mismo día'],
+        parecido_foto: 'alto',
+      },
+      {
+        ...crearReporte({ id: 3, tipo: 'encontrado', descripcion: 'Algo parecido' }),
+        distancia_km: 1.2,
+        razones: ['mismo perro', 'misma zona (Armenia)', 'a 1.2 km', 'el mismo día'],
+        parecido_foto: 'medio',
+      },
+    ]);
+
+    renderDetalle();
+
+    expect(await screen.findByText('foto muy parecida')).toBeInTheDocument();
+    expect(screen.getByText('foto parecida')).toBeInTheDocument();
+    // El ADR 0012 prohíbe el porcentaje: una certeza falsa entrega la mascota
+    // a quien no es.
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
   it('sin coincidencias no muestra la sección', async () => {

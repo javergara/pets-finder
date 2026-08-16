@@ -190,7 +190,7 @@ export function AdministrarOrganizacion({ organizacion, esAutor, onActualizada }
           </div>
           <div>
             <label htmlFor="org-donar" className="text-sm font-medium text-ink-soft">
-              Cómo donar (Nequi, cuenta, link — opcional)
+              Cómo apoyar (Nequi, cuenta, link — opcional)
             </label>
             <input
               id="org-donar"

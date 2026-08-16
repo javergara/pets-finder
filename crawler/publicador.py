@@ -36,6 +36,18 @@ def _telefono_saneado(crudo: str | None) -> str | None:
     return digitos if 7 <= len(digitos) <= 15 else None
 
 
+def cargar_existentes(api_url: str) -> list[dict[str, Any]]:
+    """Reportes ya publicados en la API destino, para el chequeo de duplicados.
+
+    Incluye reunidos: re-publicar un caso ya resuelto es peor que un duplicado
+    activo."""
+    respuesta = requests.get(
+        f"{api_url.rstrip('/')}/api/reports", params={"estado": "todos"}, timeout=30
+    )
+    respuesta.raise_for_status()
+    return respuesta.json()
+
+
 def convertir(
     post: PostExtraido,
     user_id: int,
