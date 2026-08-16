@@ -82,15 +82,27 @@ export function CatalogoAdopcion() {
               )}
             </p>
           </div>
-          {/* Dos entradas, ningún gate: mirar el catálogo o el deck nunca pide
-              cuenta (la del deck vive en su "Me interesa", AD-03). "Descubrir" va
-              con estilo secundario porque el catálogo entero ya está debajo. */}
+          {/* Tres entradas, ningún gate aquí: mirar el catálogo o el deck nunca
+              pide cuenta (la del deck vive en su "Me interesa", AD-03; la del
+              cuestionario, dentro de `CuestionarioHogar`, que es quien escribe).
+              "Descubrir" y "Mi hogar" van con estilo secundario porque el
+              catálogo entero ya está debajo.
+
+              "Mi hogar" existe porque la invitación del deck **desaparece justo
+              cuando ya contestaste** —es la señal de `afinidad === null`— y sin
+              esta entrada cambiar una respuesta exigiría recordar la URL. */}
           <div className="flex shrink-0 flex-wrap items-center gap-2">
             <Link
               to="/adoptar/descubrir"
               className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
             >
               Descubrir una por una
+            </Link>
+            <Link
+              to="/adoptar/mi-hogar"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mi hogar
             </Link>
             <Link
               to="/adoptar/publicar"

@@ -188,6 +188,20 @@ describe('CatalogoAdopcion', () => {
     );
   });
 
+  // Sin esto, el cuestionario solo se alcanza desde la invitación del deck — y
+  // esa invitación desaparece justo cuando ya lo contestaste, que es cuando hace
+  // falta para cambiar una respuesta. La ruta quedaría solo para quien recuerde
+  // la URL.
+  it('el header ofrece entrar al cuestionario de hogar para reeditarlo (AD-04)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('link', { name: 'Mi hogar' })).toHaveAttribute(
+      'href',
+      '/adoptar/mi-hogar',
+    );
+  });
+
   it('si la API falla muestra un mensaje en español y quita el esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 
