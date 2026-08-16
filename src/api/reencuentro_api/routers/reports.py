@@ -97,7 +97,14 @@ def buscar_por_descripcion(
     declarada antes de las dinámicas /{report_id}.
     """
     candidatos = (
-        session.execute(select(Report).where(Report.estado == "activo", Report.tipo == tipo))
+        session.execute(
+            # La búsqueda por descripción no usa el vector (su parecido es de
+            # atributos, feature 38): sin defer arrastraría los 384 floats de
+            # cada candidato en un endpoint público anónimo.
+            select(Report)
+            .where(Report.estado == "activo", Report.tipo == tipo)
+            .options(defer(Report.embedding))
+        )
         .scalars()
         .all()
     )
