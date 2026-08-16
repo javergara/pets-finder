@@ -45,7 +45,7 @@
       "id": "AD-04-perfil-de-hogar",
       "title": "Perfil de hogar: cuestionario interactivo del adoptante",
       "description": "Portar HomeProfile (home_profile.py cuelga de users — el modelo User actual es idéntico al de Adopta, ver integracion-adopcion.md §4.1) y la pantalla Cuestionario.tsx (onboarding interactivo: tipo de vivienda, niños, otras mascotas, horas solo, experiencia, energía buscada). Endpoints GET/PUT /api/users/{id}/home-profile (solo el propio usuario, 403). La afinidad de AD-03 pasa a usar el perfil real cuando existe; sin perfil, el deck invita a completarlo ('mejora tus coincidencias') sin bloquear.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-03-deck-swipe-y-afinidad"],
       "acceptance": [
         "El cuestionario guarda el perfil de hogar del usuario activo y se puede reeditar desde su perfil",

@@ -658,7 +658,7 @@
       "id": "AD-04-perfil-de-hogar",
       "title": "Perfil de hogar: cuestionario interactivo del adoptante",
       "description": "Es lo que vuelve real la afinidad de AD-03: hoy el deck calcula el score con los valores por defecto y todo el mundo ve el mismo orden. El modelo HomeProfile y su tabla YA ENTRARON EN AD-03 (calcular_afinidad no podia existir sin el, y sin la tabla el deck responde 500 en prod), asi que AD-04 NO trae migracion: solo schemas, endpoints y wizard. HomeProfileIn/Out en schemas/user.py con Literals de catalogo, presupuesto_mensual_cop opcional (pedir un presupuesto mensual en plena emergencia añade friccion; afinidad.py ya degrada a solo-experiencia cuando falta). GET/PUT /api/users/{id}/home-profile declarados ANTES de GET /{user_id}, con solicitante_id requerido en el GET y 403 antes del 404-de-perfil (no filtrar si un tercero tiene o no cuestionario); el 404 sin perfil es el que bendice conventions.md §3, y el cliente TS lo mapea a null explicitamente para que las pantallas no traguen errores reales con un catch generico. Pantalla /adoptar/mi-hogar: wizard de 6 pasos adaptado de Cuestionario.tsx de adopta-v1, reusando OpcionCard/OpcionesSiNo/GrupoOpciones ya extraidos, con precarga para reeditar. La invitacion no bloqueante del deck (hoy texto sin link, porque la ruta no existia) pasa a ser enlace. Sin perfil el deck sigue funcionando igual: nada de RequiereHomeProfile, un guard bloqueante contradice la cuenta liviana del ADR 0005.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["AD-03-deck-swipe-y-afinidad"],
       "acceptance": [
         "El cuestionario guarda el perfil de hogar del usuario activo y se puede reeditar desde su perfil",
