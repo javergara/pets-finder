@@ -1,5 +1,6 @@
 from .aviso_ayuda import AvisoAyuda
 from .base import Base, SessionLocal, engine
+from .favorite import Favorite
 from .home_profile import HomeProfile
 from .match import Match
 from .necesidad import Necesidad
@@ -30,4 +31,5 @@ __all__ = [
     "HomeProfile",
     "Swipe",
     "Match",
+    "Favorite",
 ]

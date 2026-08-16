@@ -1333,3 +1333,19 @@ Copiada a `feature_list.json` como `in_progress` **sin el acceptance de apadrina
 7. **Corazón en la ficha** + `changes.md` + paquete para el revisor.
 
 **Riesgo mayor identificado**: `Favorite.user_id` y `Pet.user_id` son ambas FK a `users.id` — ninguna DB avisa del cruce. Candado: `test_los_favoritos_no_se_cruzan_con_quien_publico_la_mascota` (A publica, B favoritea: la lista de A sale vacía) + el helper se llama `_ids_favoritos(session, adoptante_id)`, nunca `user_id` a secas.
+
+#### AD-07 paso 1 HECHO (2026-08-16): modelo `Favorite` + migración escrita + anti-drift
+
+Rojo→verde real. Rojo inicial: los dos archivos de test sin poder importar `reencuentro_api.models.favorite` (`ModuleNotFoundError`, error de colección); tras el modelo, los 11 del anti-drift en `AssertionError: Falta la migración versionada …/AD-07-favorites.sql`.
+
+- `src/api/reencuentro_api/models/favorite.py` (nuevo) — `favorites` con `uq_favorite_user_pet` (que `adopta-v1` NO tenía), FK indexadas, `creado_en` con `timezone.utc`, **sin `relationship()`**, y el aviso de colisión en el docstring (`Favorite.user_id` = quien mira; `Pet.user_id` = quien publica).
+- `src/api/reencuentro_api/models/__init__.py` — import + `__all__`.
+- `migrations/AD-07-favorites.sql` (nuevo) — **escrito, NO ejecutado**; cuarto de la cola (`AD-03-swipes` → `AD-03-home-profiles` → `AD-05-matches` → este). Cero sentencias corridas contra ninguna base.
+- `tests/api/test_favorito_modelo.py` (6) y `tests/api/test_migracion_favorites.py` (11, reusando `soporte_migraciones.py`).
+- `migrations/README.md` — fila nueva en el índice, cuarta en la cola.
+
+Verificación: `bash init.sh` en verde — **698 tests de Python + 419 de web** (línea base 681 + 419). Mutación del anti-drift ejecutada con tres roturas (columna borrada, RLS quitado, constraint renombrada): rojo en cada una, archivo restaurado con el mismo sha1.
+
+**Anotado para el líder** (no tocado, fuera del alcance del paso 1): el docstring de `tests/api/soporte_migraciones.py` sigue diciendo que lo comparten tres anti-drift; ahora son cuatro. Una línea, cuando toque.
+
+Siguiente: paso 2 (schema + `routers/favoritos.py` + registro en `main.py` antes de `paginas`).
