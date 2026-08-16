@@ -4,14 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from './api/client';
 import App from './App';
 
-// La landing pide el resumen de reencuentros al montar.
+// La landing pide el resumen de reencuentros al montar; el deck de AD-03 pide su
+// baraja. Se mockean las dos para que ninguna ruta salga a la red de verdad.
 vi.mock('./api/client', async () => {
   const actual = await vi.importActual<typeof client>('./api/client');
-  return { ...actual, obtenerReunidos: vi.fn() };
+  return { ...actual, obtenerReunidos: vi.fn(), listarDeck: vi.fn() };
 });
 
 beforeEach(() => {
   vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 0, recientes: [] });
+  vi.mocked(client.listarDeck).mockResolvedValue([]);
 });
 
 // `App` no envuelve un `BrowserRouter` internamente (eso vive en `main.tsx`), así que
@@ -41,6 +43,19 @@ describe('App', () => {
     expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Mis reportes' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Entra o crea tu cuenta' })).toBeInTheDocument();
+  });
+
+  // La ruta del deck (AD-03) existe y es compartible aunque todavía no se anuncie
+  // en la nav: va DENTRO de AppLayout, como el resto del módulo de adopción.
+  it('en "/adoptar/descubrir" monta el deck con el <Nav/> interno', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adoptar/descubrir']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Descubrir' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
   });
 
   it('la marca de la nav es el logo oficial y la pestaña de ayuda dice Centros de ayuda (feature 35)', () => {

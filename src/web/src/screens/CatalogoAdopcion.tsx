@@ -82,14 +82,23 @@ export function CatalogoAdopcion() {
               )}
             </p>
           </div>
-          {/* Entrada al formulario de rescatista (AD-02). El gate de cuenta vive
-              en la pantalla destino, no aquí: mirar el catálogo nunca pide cuenta. */}
-          <Link
-            to="/adoptar/publicar"
-            className="shrink-0 rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"
-          >
-            Dar en adopción
-          </Link>
+          {/* Dos entradas, ningún gate: mirar el catálogo o el deck nunca pide
+              cuenta (la del deck vive en su "Me interesa", AD-03). "Descubrir" va
+              con estilo secundario porque el catálogo entero ya está debajo. */}
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              to="/adoptar/descubrir"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Descubrir una por una
+            </Link>
+            <Link
+              to="/adoptar/publicar"
+              className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"
+            >
+              Dar en adopción
+            </Link>
+          </div>
         </div>
         <FiltrosAdopcion
           filtros={filtros}

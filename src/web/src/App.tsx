@@ -2,6 +2,7 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
 import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
+import { DescubrirMascotas } from './screens/DescubrirMascotas';
 import { EditarMascota } from './screens/EditarMascota';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
@@ -94,6 +95,9 @@ function App() {
           <Route path="/adoptar" element={<CatalogoAdopcion />} />
           {/* Literal antes que dinámica, como en el router de la API. */}
           <Route path="/adoptar/publicar" element={<PublicarMascota />} />
+          {/* Deck de descubrimiento (AD-03). Se entra desde /adoptar; mirarlo no
+              pide cuenta, y el gate de "Me interesa" vive en la pantalla. */}
+          <Route path="/adoptar/descubrir" element={<DescubrirMascotas />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
               ficha, igual que /reporte/:id/editar en el otro dominio. */}

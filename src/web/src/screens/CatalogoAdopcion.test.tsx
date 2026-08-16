@@ -176,6 +176,18 @@ describe('CatalogoAdopcion', () => {
     );
   });
 
+  // El deck (AD-03) no se anuncia en la nav hasta AD-08: esta es su única puerta
+  // de entrada, así que el href tiene que ser exacto o la pantalla queda huérfana.
+  it('el header lleva al deck de descubrimiento (AD-03)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('link', { name: 'Descubrir una por una' })).toHaveAttribute(
+      'href',
+      '/adoptar/descubrir',
+    );
+  });
+
   it('si la API falla muestra un mensaje en español y quita el esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 
