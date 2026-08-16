@@ -85,7 +85,14 @@ Ya cubierto en AD-03 y **no se toca**: que las razones citen energía/vivienda/h
 - **El test `84 == EDAD_MESES_SENIOR` entra aquí** (paso 1): una línea, no toca producción, y AD-05/AD-07 no vuelven a pasar por `afinidad.py`.
 - **Los filtros a 360px NO entran en AD-04**: ningún acceptance lo cubre, `FiltrosAdopcion` lo comparten dos pantallas, y es una decisión de diseño. **Se agenda en AD-08** —que ya toca nav y landing— con un acceptance añadido al copiar el item, del estilo *"a 360px la primera tarjeta del catálogo y la del deck son visibles sin scroll; los filtros van plegados por defecto en móvil"*. Editar acceptances al copiar ya estaba previsto (AD-07 borra el de apadrinamiento).
 
-**Paso actual: 3.**
+**Paso actual: 6** (pasos 1-5 hechos; queda el cierre: recorrido en navegador real, `npm run build` y base local al seed).
+
+### Resultado de los pasos 3 y 5 (2026-08-15)
+
+- **Paso 3** (`fa6e498`) — `api/client.ts`: `guardarPerfilHogar` (PUT) y `obtenerPerfilHogar`, **con el 404 mapeado a `null` y solo el 404**. `fetch` propio (precedente `subirFoto`/`listarReportesPaginado`) porque `request<T>()` no expone el status. **Dos mutaciones verificadas**: sin el mapeo del 404 cae solo ese caso; con "cualquier error → `null`" caen solo el 403 y el 500. `client.ts` restaurado con el mismo md5 (`54d516becf7ad691f3b4c2851a904846`). `types.ts` **solo adiciones** (revertido a mano el reformateo de tres uniones ajenas que metió el prettier local 3.9.6). El `user_id` de más en `PerfilHogar` —el desajuste que levantó el paso 2— lo corrigió el paso 4 al integrarlo.
+- **Paso 5** (`d621068`) — la invitación del deck pasa a **enlace** a `/adoptar/mi-hogar` y `/adoptar` gana "Mi hogar" en el header. ⚠️ Único punto de AD-04 que **reemplaza** una aserción: el caso de AD-03 "la invitación todavía no es un enlace" perdió su premisa al existir la ruta (mismo patrón que los chips de edad); el porqué quedó escrito encima del caso nuevo. **Rojo inicial** en los dos casos (el `href` no existía). El header hace falta porque la invitación **se apaga justo cuando ya contestaste** (se pinta con `afinidad === null`), que es cuando alguien querría cambiar una respuesta.
+- El wizard del paso 4 quedó partido en tres para no pasar de 400 líneas y porque eran cosas distintas: `lib/hogar.ts` (dato puro), `components/PasosHogar.tsx` (formulario), `screens/CuestionarioHogar.tsx` (flujo, 169 líneas). De paso desaparecieron los avisos de fast-refresh de oxlint.
+- Verificado con todo integrado: `bash init.sh` **exit 0 con 508 tests de API + 345 de web** (478 y 330 al empezar la feature), `npx tsc -b` y oxlint limpios, prettier del hook en verde. Sin migración y sin tocar `feature_list.json`.
 
 ### Resultado del paso 2 (2026-08-15)
 
