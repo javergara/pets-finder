@@ -4,10 +4,10 @@ Cubre el invariante del CHECK a nivel de DB, las reglas del `model_validator` de
 `PetIn`, la publicación por HTTP (paso 5) y las lecturas del catálogo (paso 6:
 listado con filtros, resumen de adopciones y ficha).
 
-⚠️ `Pet` se importa a nivel de módulo a propósito: el fixture `db_session` hace
-`create_all` con lo que esté registrado en `Base.metadata` en ese instante, y un
-import perezoso produce un `no such table: pets` intermitente según el orden de
-colección de pytest.
+⚠️ `Pet` (y `Favorite`, desde AD-07) se importan a nivel de módulo a propósito: el
+fixture `db_session` hace `create_all` con lo que esté registrado en
+`Base.metadata` en ese instante, y un import perezoso produce un `no such table:
+pets` intermitente según el orden de colección de pytest.
 """
 
 from contextlib import contextmanager
@@ -18,6 +18,7 @@ from pydantic import ValidationError
 from sqlalchemy import event
 from sqlalchemy.exc import IntegrityError
 
+from reencuentro_api.models.favorite import Favorite
 from reencuentro_api.models.organizacion import Organizacion
 from reencuentro_api.models.pet import Pet
 from reencuentro_api.models.report import Report
@@ -833,15 +834,16 @@ def test_listado_trae_el_publicador_de_cada_mascota(
     assert por_nombre["Rocky"]["nombre"] == "Carlos"
 
 
-def test_listado_no_hace_una_consulta_por_publicador(client, db_session):
-    """Anti-N+1: el número de consultas NO crece con el tamaño de la página.
+def _sembrar_con_publicadores_distintos(db_session, cantidad: int) -> list[Pet]:
+    """Dos mascotas por iteración, cada una con un publicador propio.
 
-    Son siempre 4 — el total, las mascotas, y **una** query con `IN` por cada
-    tabla de publicador — aunque cada mascota tenga un publicador distinto. Con
-    `session.get` por mascota serían 2 + N: contra el pooler de Supabase, ~40
-    round-trips por página.
+    Que cada fila cuelgue de una organización y de un rescatista **distintos** es
+    lo que hace reales a los tests anti-N+1 de abajo: si todas compartieran
+    publicador, el `IN` de una sola fila escondería el problema (receta medida de
+    `memory/memory.md`). Gemelo del helper del mismo nombre en `test_deck.py`.
     """
-    for n in range(6):
+    mascotas: list[Pet] = []
+    for n in range(cantidad):
         rescatista = User(nombre=f"Rescatista {n}", email=f"r{n}@example.co", ciudad="Armenia")
         db_session.add(rescatista)
         db_session.flush()
@@ -858,11 +860,29 @@ def test_listado_no_hace_una_consulta_por_publicador(client, db_session):
         )
         db_session.add(fundacion)
         db_session.flush()
-        db_session.add(_pet(organizacion_id=fundacion.id, nombre=f"Fundada {n}"))
-        db_session.add(
+        mascotas.append(_pet(organizacion_id=fundacion.id, nombre=f"Fundada {n}"))
+        mascotas.append(
             _pet(user_id=rescatista.id, telefono_contacto="3105558899", nombre=f"Rescatada {n}")
         )
+    db_session.add_all(mascotas)
     db_session.commit()
+    return mascotas
+
+
+def test_listado_no_hace_una_consulta_por_publicador(client, db_session):
+    """Anti-N+1: el número de consultas NO crece con el tamaño de la página.
+
+    Son siempre 4 — el total, las mascotas, y **una** query con `IN` por cada
+    tabla de publicador — aunque cada mascota tenga un publicador distinto. Con
+    `session.get` por mascota serían 2 + N: contra el pooler de Supabase, ~40
+    round-trips por página.
+
+    ⚠️ Este es el catálogo **anónimo**: 4 y no 5. Es también el candado de que la
+    query de favoritos de AD-07 se omita entera sin `adoptante_id` — si se
+    ejecutara siempre, el tráfico anónimo (la mayoría) pagaría una consulta por
+    request y este test se pondría rojo.
+    """
+    _sembrar_con_publicadores_distintos(db_session, cantidad=6)
 
     # El identity map de la sesión del fixture escondería el N+1 (en producción
     # cada request abre su propia sesión): se vacía antes de contar para que las
@@ -979,6 +999,118 @@ def test_detalle_de_mascota_inexistente_devuelve_404(client, db_session):
 
     assert respuesta.status_code == 404
     assert respuesta.json()["detail"] == "La mascota 9999 no existe"
+
+
+# --- `es_favorito` real en el catálogo y en la ficha (AD-07 paso 3) ------------
+#
+# El contrato no se amplía: `adoptante_id` ya se aceptaba desde AD-01 en el
+# listado y en la ficha, y `es_favorito` ya viajaba en la respuesta — en `False`
+# fijo. Lo que cambia aquí es que se llena de verdad.
+
+
+def _favoritear(db_session, adoptante_id: int, *mascotas: Pet) -> None:
+    """Guarda esas mascotas en la lista de quien MIRA.
+
+    ⚠️ `Favorite.user_id` es el adoptante; `Pet.user_id` es quien publicó. Las dos
+    son FK a `users.id` y ninguna base de datos avisa si se cruzan (ver
+    `models/favorite.py`), por eso los tests de abajo miran las dos direcciones.
+    """
+    db_session.add_all(Favorite(user_id=adoptante_id, pet_id=m.id) for m in mascotas)
+    db_session.commit()
+
+
+def test_el_catalogo_marca_las_favoritas_de_quien_mira(
+    client, db_session, usuario, otro_usuario, organizacion
+):
+    mascotas = _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    _favoritear(db_session, usuario.id, mascotas["canela"], mascotas["rocky"])
+
+    por_nombre = {
+        m["nombre"]: m["es_favorito"]
+        for m in client.get(f"/api/pets?adoptante_id={usuario.id}").json()
+    }
+
+    assert por_nombre["Canela"] is True
+    assert por_nombre["Rocky"] is True
+    assert por_nombre["Mishi"] is False
+
+    # El candado de la colisión de `user_id`: `otro_usuario` **publicó** Rocky y
+    # no guardó nada, así que a él no le sale ninguna marcada. Con el cruce
+    # (`Favorite.user_id` leído como el publicador) esto saldría en True.
+    del_publicador = client.get(f"/api/pets?adoptante_id={otro_usuario.id}").json()
+    assert all(m["es_favorito"] is False for m in del_publicador)
+
+
+def test_el_catalogo_sin_adoptante_no_marca_ninguna(
+    client, db_session, usuario, otro_usuario, organizacion
+):
+    """Tráfico anónimo (la mayoría): sin `adoptante_id` no hay a quién
+    preguntarle, así que `es_favorito` se queda en su default aunque la mascota
+    esté guardada por alguien.
+
+    Que además no cueste una consulta lo fija
+    `test_listado_no_hace_una_consulta_por_publicador`, que sigue aseverando 4.
+    """
+    mascotas = _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    _favoritear(db_session, usuario.id, mascotas["canela"])
+
+    cuerpo = client.get("/api/pets").json()
+
+    assert [m["nombre"] for m in cuerpo] == ["Canela", "Mishi", "Rocky"]
+    assert all(m["es_favorito"] is False for m in cuerpo)
+
+
+def test_la_ficha_marca_la_favorita_de_quien_mira(
+    client, db_session, usuario, otro_usuario, organizacion
+):
+    mascotas = _sembrar_catalogo(db_session, otro_usuario, organizacion)
+    _favoritear(db_session, usuario.id, mascotas["canela"])
+    canela, mishi = mascotas["canela"].id, mascotas["mishi"].id
+
+    con_adoptante = client.get(f"/api/pets/{canela}?adoptante_id={usuario.id}")
+
+    assert con_adoptante.status_code == 200
+    assert con_adoptante.json()["es_favorito"] is True
+    # La otra mascota de la misma persona: guardada no está.
+    assert client.get(f"/api/pets/{mishi}?adoptante_id={usuario.id}").json()["es_favorito"] is False
+    # Y el heredado de AD-01 sigue igual: sin `adoptante_id`, `False`.
+    assert client.get(f"/api/pets/{canela}").json()["es_favorito"] is False
+
+
+def test_el_catalogo_con_adoptante_no_hace_una_consulta_por_favorito(client, db_session, usuario):
+    """Anti-N+1 de AD-07: los favoritos son **una** query, no una por mascota.
+
+    Son siempre 5 — las 4 del catálogo anónimo (el total, las mascotas y una con
+    `IN` por cada tabla de publicador) más **una sola** con los ids que guardó
+    quien mira. Constante con el tamaño de la página: con una consulta por fila
+    serían 4 + N, y contra el pooler de Supabase eso es ~40 round-trips extra por
+    página solo para pintar un corazón.
+
+    ⚠️ Lo que hace real a este test es que cada fila tenga un publicador propio
+    (receta medida en `memory/memory.md`, AD-03 paso 7): si todas colgaran del
+    mismo, el identity map respondería dentro del request y una implementación
+    ingenua pasaría igual. `expunge_all()` se conserva por la misma receta,
+    aunque aquí no sea lo que sostiene la aserción.
+    """
+    mascotas = _sembrar_con_publicadores_distintos(db_session, cantidad=6)
+    _favoritear(db_session, usuario.id, *mascotas[:5])
+    # El **id**, no la instancia: `expunge_all()` la deja detached y leerle un
+    # atributo después lanzaría `DetachedInstanceError`.
+    adoptante_id = usuario.id
+
+    db_session.expunge_all()
+    with _contar_consultas(db_session) as pagina_corta:
+        corta = client.get(f"/api/pets?limit=3&adoptante_id={adoptante_id}").json()
+
+    db_session.expunge_all()
+    with _contar_consultas(db_session) as pagina_completa:
+        completa = client.get(f"/api/pets?adoptante_id={adoptante_id}").json()
+
+    assert len(corta) == 3
+    assert len(completa) == 12
+    assert sum(1 for m in completa if m["es_favorito"]) == 5
+    assert len(pagina_corta) == 5
+    assert len(pagina_completa) == 5
 
 
 # --- Filtro por tramo de edad (AD-03 paso 5) -----------------------------------

@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..media import borrar_foto
+from ..models.favorite import Favorite
 from ..models.home_profile import HomeProfile
 from ..models.organizacion import Organizacion
 from ..models.pet import Pet
@@ -157,6 +158,35 @@ def _publicadores_por_pet(session: Session, pets: Sequence[Pet]) -> dict[int, Pu
                 foto_url=usuario.avatar_url,
             )
     return publicadores
+
+
+def _ids_favoritos(session: Session, adoptante_id: int | None) -> set[int]:
+    """Qué mascotas tiene guardadas quien mira, en **una** consulta constante.
+
+    Es lo que llena `es_favorito` en el catálogo, la ficha y el deck (AD-07). Se
+    trae la lista entera de esa persona y no se acota con un `IN (...)` de los
+    pet_ids de la página a propósito: los favoritos de alguien son decenas de
+    filas —el índice por `user_id` las resuelve de un golpe—, mientras que el `IN`
+    viajaría con cientos de parámetros en el deck y haría que el costo dependiera
+    del tamaño de página en vez de ser fijo. Lo que este helper NO puede ser es
+    una consulta por mascota: eso serían ~40 round-trips extra por página contra
+    el pooler de Supabase solo para pintar un corazón (mismo criterio que
+    `_publicadores_por_pet`; hay tests de conteo de consultas que lo fijan).
+
+    **Sin adoptante no toca la base**: devuelve el conjunto vacío. El tráfico
+    anónimo es la mayoría en esta app y no tiene por qué pagar una consulta para
+    que le respondan que no tiene favoritos.
+
+    ⚠️ El parámetro se llama `adoptante_id` y no `user_id` a secas por el aviso de
+    colisión de `models/favorite.py`: en `favorites` el `user_id` es quien MIRA y
+    en `pets` es quien PUBLICA, las dos son FK a `users.id` y ninguna base de
+    datos avisa si se cruzan. El síntoma sería que a quien publica le salieran sus
+    propias mascotas con el corazón encendido.
+    """
+    if adoptante_id is None:
+        return set()
+    filas = session.execute(select(Favorite.pet_id).where(Favorite.user_id == adoptante_id))
+    return set(filas.scalars().all())
 
 
 def _pet_out(
@@ -314,10 +344,11 @@ def listar_mascotas(
     ⚠️ `user_id` aquí es **el rescatista que publicó** la mascota, nunca el
     adoptante que mira (en `adopta-v1` significaba justo lo contrario, y
     confundirlos filtra "mis mascotas" por quien no es). El adoptante viaja como
-    `adoptante_id`, que en AD-01 se acepta pero **no altera la respuesta**:
-    `afinidad`, `es_favorito` y `ya_solicitada` se quedan en su default hasta
-    AD-03/05/07. Filtrar por `organizacion_id` y por `user_id` son cosas
-    distintas y excluyentes por el CHECK del modelo.
+    `adoptante_id` y desde AD-07 **sí altera la respuesta**: llena `es_favorito`
+    con lo que esa persona tenga guardado, en **una** consulta para toda la página
+    (`_ids_favoritos`) que sin él ni se ejecuta. `afinidad` sigue siendo cosa del
+    deck y `ya_solicitada` se queda en su default. Filtrar por `organizacion_id` y
+    por `user_id` son cosas distintas y excluyentes por el CHECK del modelo.
 
     El total sin paginar viaja SIEMPRE en el header `X-Total-Count`; sin `limit`
     la respuesta es la lista completa (patrón de `listar_reportes`).
@@ -358,7 +389,8 @@ def listar_mascotas(
 
     pets = list(session.execute(query).scalars().all())
     publicadores = _publicadores_por_pet(session, pets)
-    return [_pet_out(p, publicadores) for p in pets]
+    favoritos = _ids_favoritos(session, adoptante_id)
+    return [_pet_out(p, publicadores, favoritos=favoritos) for p in pets]
 
 
 # Ruta literal declarada ANTES que la dinámica /{pet_id} (regla del docstring del
@@ -470,7 +502,8 @@ def deck_de_descubrimiento(
 
     pets = list(session.execute(query).scalars().all())
     publicadores = _publicadores_por_pet(session, pets)
-    resultados = [_pet_out(pet, publicadores, home) for pet in pets]
+    favoritos = _ids_favoritos(session, adoptante_id)
+    resultados = [_pet_out(pet, publicadores, home, favoritos) for pet in pets]
 
     resultados = aplicar_filtros(
         resultados,
@@ -503,15 +536,21 @@ def obtener_mascota(
 ) -> PetOut:
     """Ficha completa con su publicador.
 
-    `adoptante_id` se acepta desde ya (el cliente lo manda igual) pero en AD-01
-    no cambia la respuesta: la afinidad, el favorito y la solicitud los llenan
-    AD-03/05/07.
+    `adoptante_id` es opcional (la ficha es pública y se comparte por WhatsApp):
+    cuando viene, `es_favorito` dice si esa persona ya guardó esta mascota —una
+    consulta más, la de `_ids_favoritos`— y cuando no, se queda en su default sin
+    tocar la base. La afinidad de esta pantalla la sigue calculando el deck, y
+    `ya_solicitada` sigue esperando (deuda de AD-05, anotada para el líder).
     """
     pet = session.get(Pet, pet_id)
     if pet is None:
         raise HTTPException(404, f"La mascota {pet_id} no existe")
 
-    return _pet_out(pet, _publicadores_por_pet(session, [pet]))
+    return _pet_out(
+        pet,
+        _publicadores_por_pet(session, [pet]),
+        favoritos=_ids_favoritos(session, adoptante_id),
+    )
 
 
 @router.put("/{pet_id}", response_model=PetOut)

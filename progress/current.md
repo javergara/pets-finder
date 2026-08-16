@@ -1362,4 +1362,18 @@ Verificación: `bash init.sh` en verde — **714 tests de Python + 419 de web** 
 
 **Anotado para el líder** (no tocado, fuera de alcance): el docstring de `_pet_out` decía que `es_favorito` y `ya_solicitada` esperaban a "AD-05/07"; se reescribió la parte de `es_favorito`, pero **`ya_solicitada` sigue sin llenarse en ningún endpoint** aunque AD-05 esté cerrada — decidir si es deuda de AD-05 o entra en algún paso de AD-07.
 
-Siguiente: paso 3 (`es_favorito` real en catálogo, ficha y deck con `_ids_favoritos`, y la constante del test anti-N+1 del deck de 5 a 6 consultas con el porqué escrito).
+#### AD-07 paso 3 HECHO (2026-08-16): `es_favorito` real en catálogo, ficha y deck
+
+Rojo→verde real. Rojo inicial: `assert False is True` en el catálogo, la ficha y el deck; `assert 0 == 5` en el anti-N+1 nuevo del catálogo; `AssertionError: assert 5 == 6` en `test_el_deck_no_hace_una_consulta_por_publicador`. (`test_el_catalogo_sin_adoptante_no_marca_ninguna` nació verde a propósito: prueba una ausencia.)
+
+- `src/api/reencuentro_api/routers/pets.py` — helper `_ids_favoritos(session, adoptante_id) -> set[int]` junto a `_publicadores_por_pet` (**una** query constante, `select(Favorite.pet_id) where user_id`, sin `IN` de pet_ids; sin adoptante devuelve `set()` **sin tocar la DB**), usado en `listar_mascotas`, `obtener_mascota` y `deck_de_descubrimiento`. Docstrings de `listar_mascotas` y `obtener_mascota` actualizados (ya no dicen que `adoptante_id` no altera la respuesta).
+- `tests/api/test_pets.py` — 4 tests nuevos (catálogo marcado + la dirección del cruce de `user_id`, catálogo anónimo, ficha marcada + el heredado `False` sin adoptante, anti-N+1 con adoptante) y el sembrado de publicadores distintos extraído a `_sembrar_con_publicadores_distintos`, que ahora comparten los dos tests de conteo.
+- `tests/api/test_deck.py` — 1 test nuevo (deck marcado, y la carta favoriteada **sigue en el deck**) y la constante del anti-N+1 de **5 a 6** con el porqué en el docstring: la sexta es una sola query para todo el deck, no una por carta; lo que el test protege es la **constancia** con el tamaño del deck.
+
+Conteos de consultas medidos (coinciden con la tabla comprometida): `GET /api/pets` anónimo **4** (sin cambio), `?adoptante_id` **5** constante entre página de 3 y de 12, deck con adoptante **6** constante entre 4 y 16 cartas, ficha con adoptante **+1** (2 → 3).
+
+Verificación: `bash init.sh` en verde — **719 tests de Python + 419 de web** (línea base 714 + 419). Mutación ejecutada con dos roturas: query por fila → `assert (7, 16) == (5, 5)` en el catálogo (crece con la página) y `assert 9 == 6` en el deck; esa misma mutación, sin el corte por `adoptante_id is None`, deja el catálogo anónimo en `assert 7 == 4` con `WHERE favorites.user_id IS NULL` en el SQL registrado. Router restaurado con el mismo sha1 (`6140307b…`) y `git diff` limpio de la mutación. Cero `.sql` ejecutado contra ninguna base; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin tocar `src/web/`, ni el router de favoritos, ni el modelo.
+
+**Anotado para el líder** (no tocado, fuera de alcance): `ya_solicitada` sigue en `False` en toda la app (deuda de AD-05, ya anotada en el paso 2) — el docstring de `obtener_mascota` ahora lo dice explícitamente para que no parezca un olvido de AD-07.
+
+Siguiente: paso 4 (cliente + corazón en `MascotaCard` y catálogo; primer paso de frontend, con `npx tsc -b` a mano además de `init.sh`).

@@ -11,10 +11,10 @@ de la dinámica, FastAPI intentaría convertir "deck" en un `pet_id` y responder
 `test_deck_no_se_parsea_como_pet_id_y_responde_200` es la garantía viva de ese
 orden.
 
-⚠️ `Pet`, `Swipe`, `HomeProfile`, `Organizacion` y `User` se importan a nivel de
-módulo a propósito: el fixture `db_session` hace `create_all` con lo que esté
-registrado en `Base.metadata` en ese instante, y un import perezoso produce un
-`no such table` intermitente según el orden de colección de pytest.
+⚠️ `Pet`, `Swipe`, `Favorite`, `HomeProfile`, `Organizacion` y `User` se importan
+a nivel de módulo a propósito: el fixture `db_session` hace `create_all` con lo
+que esté registrado en `Base.metadata` en ese instante, y un import perezoso
+produce un `no such table` intermitente según el orden de colección de pytest.
 """
 
 from contextlib import contextmanager
@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import event
 
+from reencuentro_api.models.favorite import Favorite
 from reencuentro_api.models.home_profile import HomeProfile
 from reencuentro_api.models.organizacion import Organizacion
 from reencuentro_api.models.pet import Pet
@@ -534,9 +535,19 @@ def _sembrar_con_publicadores_distintos(db_session, desde: int, cantidad: int) -
 def test_el_deck_no_hace_una_consulta_por_publicador(client, db_session, adoptante):
     """Anti-N+1: el número de consultas NO crece con el tamaño del deck.
 
-    Son siempre 5 — el adoptante, su perfil de hogar, las mascotas y **una** query
-    con `IN` por cada tabla de publicador — aunque cada mascota tenga un
-    publicador distinto.
+    Son siempre 6 — el adoptante, su perfil de hogar, las mascotas, **una** query
+    con `IN` por cada tabla de publicador y **una** con los favoritos de quien
+    mira — aunque cada mascota tenga un publicador distinto.
+
+    ⚠️ **Eran 5 hasta AD-07 paso 3 y ahora son 6, y eso NO es una regresión de
+    N+1 tapada subiendo la constante**: la sexta es
+    `_ids_favoritos(session, adoptante_id)`, **una sola** consulta
+    (`select(Favorite.pet_id) where user_id = …`) para todo el deck, no una por
+    carta. Lo que este test protege es que el conteo sea **constante** entre un
+    deck de 4 y uno de 16, y sigue siéndolo: si alguien resolviera `es_favorito`
+    fila por fila, el número crecería con el deck y las dos aserciones finales se
+    separarían. Sin `adoptante_id` la consulta ni se ejecuta, así que el deck
+    anónimo sigue en 5.
 
     ⚠️ **Lo que hace real a este test es que cada fila tenga un publicador
     propio**, no el `expunge_all()`. Medido por mutación (2026-08-15, AD-03 paso
@@ -572,8 +583,29 @@ def test_el_deck_no_hace_una_consulta_por_publicador(client, db_session, adoptan
     assert len(cuerpo_corto) == 4
     assert len(cuerpo_largo) == 16
     assert all(m["publicador"] is not None for m in cuerpo_largo)
-    assert len(deck_corto) == 5
-    assert len(deck_largo) == 5
+    assert len(deck_corto) == 6
+    assert len(deck_largo) == 6
+
+
+def test_el_deck_marca_las_favoritas_de_quien_mira(client, db_session, adoptante, publicador):
+    """AD-07 paso 3: el corazón del deck sabe qué guardó ya quien mira.
+
+    Y el guardarraíl que importa: **guardar no es decidir**. Rocky está
+    favoriteada y sigue en el deck — solo un `Swipe` saca una carta.
+    """
+    mascotas = _sembrar(db_session, publicador, ("Canela", {}), ("Rocky", {}), ("Mishi", {}))
+    db_session.add(Favorite(user_id=adoptante.id, pet_id=mascotas["Rocky"].id))
+    db_session.commit()
+
+    cuerpo = client.get(f"/api/pets/deck?adoptante_id={adoptante.id}").json()
+    por_nombre = {m["nombre"]: m["es_favorito"] for m in cuerpo}
+
+    assert sorted(por_nombre) == ["Canela", "Mishi", "Rocky"]
+    assert por_nombre["Rocky"] is True
+    assert por_nombre["Canela"] is False
+    assert por_nombre["Mishi"] is False
+    # Sin `adoptante_id` no hay a quién preguntarle: nada marcado (y cero consultas).
+    assert all(m["es_favorito"] is False for m in client.get("/api/pets/deck").json())
 
 
 # --- De extremo a extremo con el endpoint del perfil (AD-04, acceptance 2) -----
