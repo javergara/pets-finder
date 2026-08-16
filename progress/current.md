@@ -51,7 +51,45 @@ Alcance real en producción (dato del líder): las 27 organizaciones importadas 
 
 **La UI es hoy la única barrera de autoría de toda la app.** El backend acepta estas escrituras porque el `user_id` que manda el cliente **es** el del autor: nada impide que alguien llame al endpoint a mano con el id correcto. `esUsuarioActivo()` cierra la puerta que se abría sola en el navegador, pero no cambia eso. Es deuda directa del "registro mínimo sin contraseña" (ADR 0005) y **merece un ADR propio** que decida el mecanismo (token de sesión firmado, magic link por email, o aceptar el riesgo por escrito con su alcance). No se implementa nada de esto aquí.
 
-## Feature activa: AD-03-deck-swipe-y-afinidad (in_progress)
+## Feature activa: AD-04-perfil-de-hogar (in_progress)
+
+Rama **`feat/adoptar`** (antes `feat/adopcion-ad03-ad09`): rama única donde caen AD-01…AD-09, para enviar el módulo entero a `develop` de una vez. Ya integrada con `origin/main`.
+
+**Línea base tras integrar el trabajo paralelo de Javier: 478 tests de API + 330 de web.** (`init.sh` cambió en `main`: ahora corre también los testpaths de crawler y dedup.)
+
+⚠️ **Cambios del entorno que hay que tener presentes:**
+- **AD-01 y AD-02 están EN PRODUCCIÓN.** Javier mergeó el PR #6, ejecutó `AD-01-pets.sql` y las revisó por su cuenta (`a995bdf`). `GET /api/pets` responde 200 en petfinder-col.com y el catálogo está vivo.
+- **El ADR del chat de AD-06 pasa de 0012 a 0013**: el 0012 lo ocupó *coincidencias visuales* (feature 24). El plan maestro ya está corregido.
+- Siguen **sin ejecutar** en prod `AD-03-swipes.sql` y `AD-03-home-profiles.sql`.
+
+**AD-04 NO trae migración**: el modelo `HomeProfile` y su tabla entraron en AD-03 porque `calcular_afinidad(pet, home)` no podía existir sin ellos. Si aparece un `migrations/AD-04-*.sql`, el paso está mal planteado.
+
+### Qué le falta exactamente al acceptance 2 (y qué NO duplicar)
+
+Ya cubierto en AD-03 y **no se toca**: que las razones citen energía/vivienda/horas de *un* hogar, el mínimo de dos razones, la degradación sin presupuesto, y el deck con y sin perfil. Falta solo esto:
+- Que el score **cambie**: hoy ningún test compara la **misma** mascota contra **dos hogares distintos**.
+- Que las razones **cambien** con las respuestas: hoy se comprueban las de un hogar fijo.
+- El camino **de extremo a extremo por HTTP**: guardar el perfil con el endpoint nuevo (no sembrando la fila a mano) y ver el deck pasar de `afinidad: null` a scores reales.
+
+### Pasos de AD-04
+
+1. **La cobertura pura que falta + el guard del 84** (solo tests, sin código de producto). Tres casos en `test_afinidad.py`: dos hogares distintos dan **scores exactos** distintos a la misma mascota; las razones cambian y citan sus propios valores; y **`EDAD_MESES_SENIOR == 84`** con el borde 84/85 — la deuda que dejó el revisor de AD-03. Va pegado a `test_afinidad_no_importa_descubrir`: uno prohíbe el import, el otro prohíbe el drift. ⚠️ Este paso **no puede tener rojo inicial** (el código ya existe), así que la prueba son **mutaciones reportadas**.
+2. **`HomeProfileIn/Out` + `PUT`/`GET /api/users/{id}/home-profile`.** Los `Literal` se **importan de `schemas/pet.py`**, no se reescriben. `PUT` → 200 upsert (nunca 201: obligaría al cliente a ramificar) / 404 / **403** si el `user_id` del body no es el de la ruta. `GET` con `solicitante_id` requerido → 200 / **403** / 404. ⚠️ Las dos rutas **antes** de `GET /{user_id}`, y el **403 antes del 404-de-perfil**, con **dos** tests (tercero con perfil y tercero sin) — con uno solo, invertir el orden pasaría inadvertido. `GET /api/users/{id}` **no cambia**: hay un test candado contra portar `UserOut.home_profile`/`metricas`.
+3. **Cliente TS: el 404 se mapea a `null`, y solo el 404.** `request<T>()` no expone el status, así que hace falta un `fetch` propio (precedente: `subirFoto`, `listarReportesPaginado`). **Prohibido** resolverlo con `.catch(() => null)` en la pantalla: se tragaría el 403 y los errores de red. Tests: 404 → `null`; 403 y 500 → `ApiError`.
+4. **`CuestionarioHogar` en `/adoptar/mi-hogar`** (wizard de 6 pasos). Reusa `OpcionCard`/`OpcionesSiNo`/`GrupoOpciones` ya extraídos; `CampoNumero` local. Presupuesto **opcional** de verdad: nada del `300000` por defecto de adopta-v1, que mete un dato que nadie dio. La preferencia de especie ofrece **las tres** (incluida "Otro animal"): excluirla condenaría a cero a toda mascota que no sea perro ni gato. Gate `hasActiveUser()` **antes de leer ningún id** — sin él un visitante sobrescribe el perfil del usuario 1, y aquí es una **escritura**. < 400 líneas.
+5. **La invitación del deck pasa a enlace** y el header de `/adoptar` gana el acceso para reeditar. ⚠️ Es el único paso que **reemplaza** una aserción existente: el test que decía "todavía no es un enlace" pierde su premisa, igual que pasó con los chips de edad en AD-03. Dejarlo escrito.
+6. **Cierre**: `init.sh` > 478/330, build, recorrido real (precarga, cambiar horas y ver el score moverse, cuenta nueva en incógnito, 360px), DB al seed.
+
+### Decisiones del líder sobre lo que dejó abierto el revisor de AD-03
+
+- **El test `84 == EDAD_MESES_SENIOR` entra aquí** (paso 1): una línea, no toca producción, y AD-05/AD-07 no vuelven a pasar por `afinidad.py`.
+- **Los filtros a 360px NO entran en AD-04**: ningún acceptance lo cubre, `FiltrosAdopcion` lo comparten dos pantallas, y es una decisión de diseño. **Se agenda en AD-08** —que ya toca nav y landing— con un acceptance añadido al copiar el item, del estilo *"a 360px la primera tarjeta del catálogo y la del deck son visibles sin scroll; los filtros van plegados por defecto en móvil"*. Editar acceptances al copiar ya estaba previsto (AD-07 borra el de apadrinamiento).
+
+**Paso actual: 1.**
+
+---
+
+## Feature cerrada: AD-03-deck-swipe-y-afinidad (done, 2026-08-15)
 
 Rama **`feat/adopcion-ad03-ad09`**, salida de `develop`. El PR #6 (`develop` → `main`) está en revisión de Javier y **no debe crecer**, por eso AD-03 en adelante va en rama propia (convención `feat/<slug>`, `docs/conventions.md` §6).
 
