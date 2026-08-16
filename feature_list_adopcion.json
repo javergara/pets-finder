@@ -84,7 +84,7 @@
       "id": "AD-07-favoritos-y-apadrinamiento",
       "title": "Favoritos y apadrinamiento (paridad opcional con Adopta 1.0)",
       "description": "Portar Favorite (favorites.py + Favoritos.tsx: guardar mascotas sin swipe, lista propia) y Sponsorship (sponsorship.py + Apadrinar.tsx: compromiso de apadrinamiento SIN pasarela de pagos — registro en DB + contacto WhatsApp, igual que 'Cómo donar' de la red de apoyo). Ambos son independientes y pueden recortarse si el dueño prioriza cerrar antes: confirmar alcance con él antes de arrancar este item.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)",

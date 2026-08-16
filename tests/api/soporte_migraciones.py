@@ -1,8 +1,9 @@
 """Herramientas compartidas por los tests anti-drift de `migrations/*.sql`.
 
 No es un test (por eso no se llama `test_*.py` y pytest no lo colecta): es el
-parser mínimo de `create table` que necesitan `test_migracion_pets.py`,
-`test_migracion_swipes.py` y `test_migracion_matches.py` para comparar el SQL
+parser mínimo de `create table` que necesitan los cuatro anti-drift
+(`test_migracion_pets.py`, `test_migracion_swipes.py`, `test_migracion_matches.py`
+y `test_migracion_favorites.py`) para comparar el SQL
 versionado contra los modelos.
 
 Vive aparte porque el segundo anti-drift habría copiado los mismos 60 renglones

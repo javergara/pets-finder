@@ -1464,3 +1464,33 @@ Sin `adoptante_id` no se toca la base: `_ids_favoritos` devuelve `set()` y el tr
 ⚠️ **`migrations/AD-07-favorites.sql` está ESCRITO y NO EJECUTADO.** Es el **cuarto** de la cola y **ninguno de los cuatro se ha ejecutado**: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. El merge a `main` está bloqueado hasta que los cuatro corran en Supabase con autorización explícita del dueño; con `SKIP_DB_CREATE_ALL=1` en prod no hay red de seguridad y la API fallaría al instante. En toda AD-07 no se ejecutó ni una sentencia contra ninguna base, y `scripts/seed.py` solo corrió el de `init.sh` sobre la SQLite local.
 
 **Deuda anotada durante la feature, para que el revisor no la lea como olvido**: (a) `ya_solicitada` sigue en `False` en toda la app — deuda de AD-05, con el docstring de `obtener_mascota` diciéndolo; (b) el docstring de `tests/api/soporte_migraciones.py` dice que lo comparten tres anti-drift y ya son cuatro; (c) el test "si la API falla, el catálogo no repone la tarjeta" (paso 4) sobrevive a su mutación y necesita la misma línea `await act(async () => {})` que se aplicó en los pasos 6 y 7; (d) `npx prettier` local (3.9.6) y el del hook (v3.1.0) no formatean igual — manda el hook.
+
+## Veredicto del revisor — AD-07 favoritos (2026-08-16): APROBADA
+
+Revisión independiente sobre `23d9e49`. `bash init.sh` corrido por el revisor **tres veces** (dos completas + una final tras deshacer sus mutaciones): **719 tests de Python + 460 de web, `Todo en verde.`, EXIT=0**, más `npx tsc -b --force` a mano porque `init.sh` no typechequea.
+
+**Corrección de dato**: la línea base al empezar AD-07 eran **681** tests de Python, no 698 (el 698 ya incluía el paso 1). El revisor lo comprobó creando un worktree en `35240c8`. Delta real de la feature: **+38 Python / +41 web**, y **ningún test borrado** — el único `-def test_` del diff es `test_listado_no_hace_una_consulta_por_publicador`, modificado in situ y vivo.
+
+**Todo verificado por rotura, no por lectura:**
+
+- **Acceptance 1** — quitar el borrado del DELETE y vaciar `__table_args__` ponen rojos sus tests. Los casos aseveran **estado en la DB**, no status HTTP: el del 404 comprueba `_contar_favoritos(...) == 0`, precisamente porque SQLite no fuerza las FK.
+- **Acceptance 2** — hacer que el POST inserte un `Swipe`, que el deck excluya las favoriteadas, y que el corazón del deck haga `slice(1)`: rojo en los tres.
+- **Acceptance 3** — `init.sh` verde; la migración **sigue sin ejecutar**, y el revisor aprueba con ese criterio explícito: es un **gate de merge, no un gate de `done`**, el mismo con el que ya están `done` AD-03 y AD-05.
+- **La colisión `user_id`** — cambió `listar_favoritos` a filtrar por `Pet.user_id` y el candado cayó con el síntoma exacto que documenta (la lista de quien publica devolvía la mascota en vez de vacío). 4 tests rojos.
+- **El anti-N+1 del 5→6 es legítimo**: implementación real `corto=6 largo=6` con 4 vs 16 cartas (constante); con la mutación por fila, `corto=9 largo=21`, o sea `5 + n`.
+- **La migración**: 8 mutaciones (sin unique, sin RLS, con drop, nullable, sin índice, columna extra, timestamptz, unique mal) → **8 rojos**.
+- **El gate de cuenta**: quitado por separado en las cuatro pantallas → las cuatro caen.
+- **Tests decorativos**: rompió **cuatro** aserciones de ausencia fuera de la lista conocida y las cuatro son reales; y confirmó que los tres documentados **ya no** lo son tras `23d9e49`.
+- Sin dependencias nuevas (diff vacío en los cuatro manifiestos), cero rastro de apadrinamiento o WebSockets, `origin/adopta-v1` y el tag intactos en `cde337f`.
+
+**Un mutante que sobrevive (no bloquea, anotado)**: quitar `e.stopPropagation()` de `MascotaCard.tsx:100` deja los 15 casos en verde. Diagnóstico del revisor: el `onClick` de `<Link>` mira `event.defaultPrevented`, así que el `preventDefault()` ya frena la navegación del router por sí solo. El `stopPropagation` es defensa redundante **hoy**; pasaría a importar si la tarjeta se anidara bajo otro clickable que no mire `defaultPrevented`. Sin regresión de comportamiento — lo que sobra es la afirmación del comentario de que los dos son necesarios.
+
+**Tres correcciones de prosa aplicadas tras el veredicto** (los dos primeros eran comentarios que afirmaban protecciones inexistentes, que es peor que no tenerlos):
+
+1. `listar_favoritos` decía que el `solicitante_id` requerido impide la fuga del `DEMO_USER_ID = 1`. **No la impide**: `listarFavoritas(userId)` manda el mismo valor en el path y en la query, así que si cayera a 1, ambos serían 1 y el 403 no dispararía nunca. Quien evita esa fuga es el `hasActiveUser()` de la pantalla. El docstring ahora lo dice y aclara lo que el parámetro sí aporta (olvidarlo es 422, y deja dónde colgar la comprobación real cuando haya login).
+2. El `DELETE` afirmaba seguir "el mismo trueque que los DELETE del resto de la app". **Falso**: `eliminar_reporte` y `despublicar_mascota` sí comparan autoría y responden 403. Sin auth las tres son igual de falsificables y el riesgo práctico no cambia, pero aquí no queda sitio donde colgar el check el día que haya login. El docstring lo dice y señala este endpoint como el primero a revisar entonces.
+3. `tests/api/soporte_migraciones.py` decía que su parser lo comparten tres anti-drift; ya son **cuatro**.
+
+**AD-07 marcada `done` en los dos JSON.** `validate_feature_list.py` exit 0, cero `in_progress`.
+
+⚠️ **Merge a `main` bloqueado**: cuatro migraciones escritas y **ninguna ejecutada**, en este orden — `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. Con `SKIP_DB_CREATE_ALL=1` en producción no hay red de seguridad: si el código llega antes que las tablas, cae la API entera, no solo las pantallas nuevas.

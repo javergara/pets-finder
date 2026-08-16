@@ -130,13 +130,18 @@ def listar_favoritos(
     de esta app son secuenciales y adivinables. Una lista de favoritos es un
     historial de navegación con nombre propio.
 
-    ⚠️ **Esto NO es autenticación.** La app no tiene login (ADR 0005) y
-    `solicitante_id` es autodeclarado: quien quiera leer favoritos ajenos solo
-    tiene que cambiar un número. Lo que sí impide es la fuga *accidental* —el
-    frontend cayendo a `DEMO_USER_ID = 1`, que es una persona real en producción—
-    y que una fuga pueda ocurrir sin ser deliberada. Es requerido, sin default,
-    por la misma razón: opcional convertiría "olvidé mandar el parámetro" en una
-    lista ajena servida sin más.
+    ⚠️ **Esto NO es autenticación, y tampoco tapa el `DEMO_USER_ID`.** La app no
+    tiene login (ADR 0005) y `solicitante_id` es autodeclarado: quien quiera leer
+    favoritos ajenos solo tiene que cambiar un número. Y ojo con lo que este
+    parámetro NO hace: `listarFavoritas(userId)` manda el mismo valor en el path y
+    en la query, así que si el frontend cayera a `DEMO_USER_ID = 1` —una persona
+    real en producción— los dos serían 1 y este 403 no dispararía nunca. Lo que
+    evita esa fuga es el `hasActiveUser()` de la pantalla, que está y está
+    testeado; esto no lo sustituye.
+
+    Lo que sí aporta: es requerido y sin default, así que olvidarlo es un 422 y no
+    una lista ajena servida sin más, y deja el sitio donde colgar la comprobación
+    real el día que haya autenticación.
 
     ⚠️ **Una sola query con join y `ORDER BY` explícito.** `adopta-v1` hacía dos
     (los ids primero, las mascotas después) y **sin orden**: en SQLite parece
@@ -183,9 +188,15 @@ def desmarcar_favorito(user_id: int, pet_id: int, session: Session = Depends(get
     **No lleva `solicitante_id`** por el mismo motivo que el POST: el `user_id`
     del path ya es el actor. Como no hay autenticación, ese path es también todo
     lo que hace falta para borrar el favorito de otra persona — el daño posible es
-    el mínimo del módulo (quitar una tarjeta de una lista privada, sin perder nada
-    que no se pueda volver a guardar con un toque), y es el mismo trueque que ya
-    asumen los DELETE del resto de la app.
+    el mínimo del módulo: quitar una tarjeta de una lista privada, sin perder nada
+    que no se pueda volver a guardar con un toque.
+
+    Precisión que conviene no perder: esto **no** es lo que hacen los otros DELETE
+    de la app. `eliminar_reporte` y `despublicar_mascota` sí comparan la autoría y
+    responden 403. Sin autenticación las tres son igual de falsificables, así que
+    el riesgo práctico no cambia; lo que cambia es que aquí no queda ningún sitio
+    donde colgar esa comprobación cuando haya login. Si algún día se añade, este
+    endpoint es el que hay que revisar primero.
     """
     favorito = _favorito_existente(session, user_id, pet_id)
     if favorito is None:
