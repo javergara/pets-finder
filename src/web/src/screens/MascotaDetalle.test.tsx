@@ -546,3 +546,50 @@ describe('MascotaDetalle — corazón de favoritos (AD-07)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });
+
+// Compartir la ficha (AD-08, paso 5). Es lo que le da uso a los og tags del
+// paso 2: sin este botón, la vista previa que sirve `/adoptar/mascota/{id}` a
+// los rastreadores solo se alcanza si alguien pega la URL a mano en WhatsApp.
+// Mismo patrón que `ReporteDetalle` —Web Share API nativa con fallback a
+// portapapeles— y sus dos casos calcados, porque es el mismo trato con el
+// navegador: en móvil abre la hoja del sistema, en escritorio copia el link.
+describe('MascotaDetalle — compartir', () => {
+  it('compartir usa navigator.share cuando existe', async () => {
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+    const share = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, share });
+
+    renderFicha();
+
+    (await screen.findByRole('button', { name: 'Compartir esta mascota' })).click();
+
+    await waitFor(() =>
+      expect(share).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Pet Finder Col',
+          // El título lo compone `tituloMascota` (el mismo espejo que usa
+          // `titulo_pet` en el backend para el og:title), y el estado viaja
+          // dentro: compartir "En adopción" una mascota que ya tiene hogar
+          // manda gente a escribir en vano.
+          text: 'Nala — En adopción en Armenia. Ayuda a difundir:',
+          url: window.location.href,
+        }),
+      ),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  it('sin navigator.share copia el link y lo confirma', async () => {
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { ...navigator, share: undefined, clipboard: { writeText } });
+
+    renderFicha();
+
+    (await screen.findByRole('button', { name: 'Compartir esta mascota' })).click();
+
+    expect(await screen.findByText('Link copiado — pégalo donde quieras.')).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(window.location.href);
+    vi.unstubAllGlobals();
+  });
+});

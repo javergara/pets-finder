@@ -70,6 +70,7 @@ export function MascotaDetalle() {
   const [confirmandoDespublicar, setConfirmandoDespublicar] = useState(false);
   const [despublicando, setDespublicando] = useState(false);
   const [errorDespublicar, setErrorDespublicar] = useState<string | null>(null);
+  const [avisoCompartir, setAvisoCompartir] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -247,6 +248,44 @@ export function MascotaDetalle() {
           </button>
         </div>
       </header>
+
+      {/* Difusión (AD-08, mismo patrón que `ReporteDetalle`): Web Share API
+          nativa con fallback a copiar el link. Es lo que le da uso al endpoint
+          de vista previa del paso 2 — hasta ahora esos og tags solo los veía
+          quien pegara la URL a mano. La vista previa bonita la ponen ellos
+          (ADR 0010); esto solo pone el link en manos de alguien.
+
+          El estado viaja DENTRO del texto: anunciar "En adopción" una mascota
+          que ya tiene hogar manda gente a escribir en vano, que es la misma
+          razón por la que el og:title del backend cambia con `adoptado`. La
+          única diferencia con él es `en_proceso` —aquí dice "En proceso", como
+          el badge que se está viendo al lado, y allí "En adopción"—: quien
+          comparte lee lo que comparte, y quien recibe el link no necesita ese
+          matiz interno. */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={async () => {
+            const url = window.location.href;
+            const texto = `${titulo} — ${estado.texto} en ${lugar}. Ayuda a difundir:`;
+            if (navigator.share) {
+              try {
+                await navigator.share({ title: 'Pet Finder Col', text: texto, url });
+              } catch {
+                // Compartir cancelado por el usuario: no es un error.
+              }
+            } else {
+              await navigator.clipboard.writeText(url);
+              setAvisoCompartir('Link copiado — pégalo donde quieras.');
+              setTimeout(() => setAvisoCompartir(null), 3000);
+            }
+          }}
+          className="rounded-full border border-line px-5 py-2 font-medium text-ink-soft"
+        >
+          Compartir esta mascota
+        </button>
+        {avisoCompartir && <span className="text-sm text-forest">{avisoCompartir}</span>}
+      </div>
 
       {mascota.estado === 'adoptado' && (
         <p className="rounded-2xl border border-forest-tint-line bg-forest-tint p-4 text-sm text-forest">
