@@ -1404,4 +1404,15 @@ Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — 
 
 ⚠️ **Hallazgo del paso (candidato a `memory/memory.md`)**: el test de "si quitar falla, la tarjeta NO reaparece" **sobrevivió a la mutación** que sí reponía la tarjeta — `await Promise.resolve()` no basta, porque la promesa rechazada se resuelve en un microtask y React no vuelca ese `setState` hasta el siguiente `act`. Con `waitFor` antes de aseverar la ausencia, la mutación cae. Mismo género que el `preventDefault` del paso 4: **aseverar una ausencia exige forzar antes el flush, o el test pasa por llegar temprano**.
 
-Siguiente: paso 6 (corazón en el deck de `DescubrirMascotas`, con la aserción de que favoritear no saca la carta ni llama a `registrarSwipe`).
+#### AD-07 paso 6 HECHO (2026-08-16): corazón en el deck
+
+Rojo→verde real. Rojo inicial: los 5 casos nuevos con `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Guardar en favoritos"`.
+
+- `src/web/src/screens/DescubrirMascotas.tsx` — `onAlternarFavorita={() => alternarFavorita(actual)}` en `MascotaSwipeCard` y borrado el comentario de que la prop no se pasaba (dejó de ser cierto). `alternarFavorita` solo cambia `es_favorito` de la carta: **sin `slice` y sin `registrarSwipe`**, gate `hasActiveUser()` antes de leer ningún id (→ `/registro?volver=%2Fadoptar%2Fdescubrir`), optimista con `.catch` vacío comentado y sin refetch. Cabecera del archivo con el porqué ("el corazón no es un cuarto botón de decisión").
+- **`MascotaSwipeCard.tsx` NO se tocó**: su firma, su `stopPropagation` de `pointerdown` y sus dos tests siguen igual.
+- `src/web/src/screens/DescubrirMascotas.test.tsx` — **+5 en un `describe` aparte** (los de AD-03/AD-05 no cambian ni una línea): corazón presente, guardar con la carta quieta + `registrarSwipe` sin llamar + sin refetch, segundo toque que quita, gate sin cuenta (no llama a la API y navega con el `?volver=` exacto) y fallo de red sin error en pantalla. Único cambio a líneas previas: la factory del `vi.mock` gana `marcarFavorita`/`desmarcarFavorita` y el `beforeEach` sus dos `mockResolvedValue`.
+- **Ningún test previo de esta pantalla aseveraba la ausencia del corazón** (verificado por grep): el que lo hace es `MascotaSwipeCard.test.tsx` ("sin la prop no pinta ningún corazón") y sigue siendo cierto, porque la prop es opcional. No hubo premisa caducada que reescribir.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 453 de web** (línea base 719 + 448; el backend no se tocó). Mutación ejecutada con cuatro roturas: `.slice(1)` junto al toggle → `Unable to find … "button" … "Quitar de favoritos"` (3 casos); la variante **diferida** (sacar la carta al resolver la promesa) → `Unable to find … "heading" … "Canela"` **en la aserción de ausencia**, que es la prueba de que el `waitFor` previo no es decorativo; `registrarSwipe` añadido al corazón → `expected "vi.fn()" to not be called at all, but actually been called 1 times`; gate de cuenta quitado → la misma forma con `[1, 7]` (el `DEMO_USER_ID`). Archivo restaurado con el mismo sha1 (`b63f073b…`) y `git diff` limpio de mutaciones. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+Siguiente: paso 7 (corazón en la ficha `MascotaDetalle` + `changes.md` + paquete para el revisor).

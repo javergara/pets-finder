@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { type FiltrosMascotas, listarDeck, registrarSwipe } from '../api/client';
+import {
+  desmarcarFavorita,
+  type FiltrosMascotas,
+  listarDeck,
+  marcarFavorita,
+  registrarSwipe,
+} from '../api/client';
 import type { DireccionSwipe, Mascota, SolicitudResumen } from '../api/types';
 import { FiltrosAdopcion } from '../components/FiltrosAdopcion';
 import { MascotaSwipeCard } from '../components/MascotaSwipeCard';
@@ -24,6 +30,12 @@ import { getActiveUserId, hasActiveUser } from '../lib/session';
 // antes de mirar contradice la cuenta liviana del ADR 0005 y es justo la fricción
 // que este producto no puede permitirse en una emergencia. Lo que queda es una
 // invitación no bloqueante.
+//
+// **El corazón (AD-07) no es un cuarto botón de decisión**: guardar una mascota
+// no la saca del deck ni registra un swipe. Son mecanismos independientes a
+// propósito — guardar es "quiero pensarlo", swipear es "ya decidí" — y por eso
+// `alternarFavorita` no toca la posición de la carta. Sin cuenta lleva al
+// registro, igual que "Me interesa".
 //
 // **La carta se quita en optimista y no vuelve**: un fallo de `registrarSwipe` se
 // traga en silencio (`docs/conventions.md` §3) y no repone la mascota ni dispara
@@ -99,6 +111,38 @@ export function DescubrirMascotas() {
     }
   }
 
+  /** Guarda o quita la mascota de arriba, en optimista y **sin moverla**. */
+  function alternarFavorita(mascota: Mascota) {
+    // La cuenta se pide ANTES de tocar nada, como en "Me interesa": sin ella,
+    // `getActiveUserId()` escribiría en la lista del usuario 1.
+    if (!hasActiveUser()) {
+      navigate(`/registro?volver=${encodeURIComponent(RUTA)}`);
+      return;
+    }
+
+    const adoptanteId = getActiveUserId();
+    const guardada = mascota.es_favorito;
+    // Solo cambia el corazón: la carta se queda donde está y el deck no se
+    // re-consulta. Guardar no es decidir (ver la cabecera), así que ni `slice`
+    // ni `registrarSwipe` entran aquí.
+    setMascotas((previas) =>
+      previas
+        ? previas.map((m) => (m.id === mascota.id ? { ...m, es_favorito: !guardada } : m))
+        : previas,
+    );
+
+    const peticion = guardada
+      ? desmarcarFavorita(adoptanteId, mascota.id)
+      : marcarFavorita(adoptanteId, mascota.id);
+    peticion.catch(() => {
+      // Vacío A PROPÓSITO, no por descuido (`docs/conventions.md` §3, mismo
+      // criterio que el swipe de arriba y que el corazón del catálogo): un
+      // favorito no bloquea el deck ni merece un error rojo encima de la carta.
+      // Tampoco se revierte el corazón: lo que se pierde es una fila de una
+      // lista privada, y volver a tocarlo lo reintenta.
+    });
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6 pb-24 lg:flex-row lg:items-start">
       {/* En móvil los filtros van arriba y apilados (nada de columnas ni anchos
@@ -145,8 +189,7 @@ export function DescubrirMascotas() {
             mascota={actual}
             onSwipe={decidir}
             onAbrirFicha={() => navigate(`/adoptar/mascota/${actual.id}`)}
-            // `onAlternarFavorita` NO se pasa: los favoritos son de AD-07 y un
-            // corazón que no guarda nada es peor que ningún corazón.
+            onAlternarFavorita={() => alternarFavorita(actual)}
           />
         )}
 

@@ -29,7 +29,13 @@ import { DescubrirMascotas } from './DescubrirMascotas';
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarDeck: vi.fn(), registrarSwipe: vi.fn() };
+  return {
+    ...actual,
+    listarDeck: vi.fn(),
+    registrarSwipe: vi.fn(),
+    marcarFavorita: vi.fn(),
+    desmarcarFavorita: vi.fn(),
+  };
 });
 
 function mascota(overrides: Partial<Mascota> = {}): Mascota {
@@ -123,6 +129,8 @@ beforeEach(() => {
     creado_en: '2026-08-15T10:00:00',
     solicitud: null,
   });
+  vi.mocked(client.marcarFavorita).mockResolvedValue(mascota({ es_favorito: true }));
+  vi.mocked(client.desmarcarFavorita).mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -361,5 +369,111 @@ describe('DescubrirMascotas', () => {
       /No pudimos cargar las mascotas para descubrir/i,
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+// ── Corazón de favoritos (AD-07, paso 6) ─────────────────────────────────────
+// Bloque aparte para no tocar una línea del de arriba: esos casos son la
+// garantía de que el deck de AD-03/AD-05 no cambió de comportamiento.
+//
+// Lo que estos casos protegen, por gravedad:
+//
+// 1. **Favoritear y swipear son mecanismos independientes** (acceptance 2 de
+//    AD-07). El corazón vive DENTRO de la carta, a un centímetro de "Me
+//    interesa": si guardar se llevara la carta —o registrara un swipe—, quien
+//    guarda una mascota para pensarla la perdería de vista en el mismo gesto y
+//    el backend la contaría como decidida. Por eso el caso central asevera las
+//    dos ausencias: la mascota sigue en pantalla **y** `registrarSwipe` no se
+//    llamó.
+// 2. **Sin cuenta no se escribe nada a nombre de nadie**, igual que "Me
+//    interesa": `getActiveUserId()` cae al `DEMO_USER_ID = 1`, una persona real
+//    en producción, y guardar con él le ensuciaría su lista privada.
+//
+// El corazón se pinta también sin cuenta, a propósito (decisión 4 del plan):
+// esconderlo ocultaría que los favoritos existen a quien todavía no se registró.
+describe('DescubrirMascotas — corazón de favoritos (AD-07)', () => {
+  it('la carta de arriba trae el corazón', async () => {
+    setActiveUserId(7);
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    expect(screen.getByRole('button', { name: 'Guardar en favoritos' })).toBeInTheDocument();
+    // Uno solo: el deck enseña una carta a la vez, y el corazón es de la de arriba.
+    expect(screen.getAllByRole('button', { name: /favoritos/i })).toHaveLength(1);
+  });
+
+  it('con cuenta, guardar llama a la API y la carta NO se va del deck', async () => {
+    setActiveUserId(7);
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    expect(client.marcarFavorita).toHaveBeenCalledWith(7, 7);
+    // El corazón lleno es el flush: aseverar las ausencias de abajo sin esperar
+    // antes a que el cambio de estado baje a pantalla dejaría un test que pasa
+    // por llegar temprano, no por ser cierto (`memory/memory.md`, 2026-08-16).
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument(),
+    );
+    // Acceptance 2 de AD-07, las dos mitades: ni la carta se fue…
+    expect(screen.getByRole('heading', { name: 'Canela' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Rocky' })).not.toBeInTheDocument();
+    // …ni se registró un swipe que la daría por decidida.
+    expect(client.registrarSwipe).not.toHaveBeenCalled();
+    // Tampoco se re-consulta el deck: un refetch reordenaría las cartas debajo
+    // de la mano de quien está decidiendo.
+    expect(client.listarDeck).toHaveBeenCalledTimes(1);
+  });
+
+  it('el segundo toque sobre la misma carta la quita', async () => {
+    setActiveUserId(7);
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Quitar de favoritos' }));
+
+    expect(client.desmarcarFavorita).toHaveBeenCalledWith(7, 7);
+    expect(client.marcarFavorita).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Guardar en favoritos' })).toBeInTheDocument(),
+    );
+    // La carta sigue siendo la misma después de los dos toques.
+    expect(screen.getByRole('heading', { name: 'Canela' })).toBeInTheDocument();
+    expect(client.registrarSwipe).not.toHaveBeenCalled();
+  });
+
+  it('sin cuenta el corazón se pinta igual, pero lleva al registro sin llamar a la API', async () => {
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    // El orden importa: lo grave no es dejar de navegar, es escribir. Sin el
+    // gate, esta llamada saldría con el `DEMO_USER_ID = 1` y guardaría la
+    // mascota en la lista de una persona real.
+    expect(client.marcarFavorita).not.toHaveBeenCalled();
+    expect(client.desmarcarFavorita).not.toHaveBeenCalled();
+    // El `?volver=` codificado: si se rompe, el registro no sabe adónde devolver
+    // a quien acaba de crear la cuenta para guardar una mascota.
+    expect(
+      await screen.findByText('registro /registro?volver=%2Fadoptar%2Fdescubrir'),
+    ).toBeInTheDocument();
+  });
+
+  it('si la API falla, el deck no muestra error ni deshace el corazón', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.marcarFavorita).mockRejectedValue(new client.ApiError('offline'));
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Canela' })).toBeInTheDocument();
   });
 });
