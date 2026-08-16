@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -406,6 +406,13 @@ describe('CatalogoAdopcion', () => {
       expect(
         await screen.findByRole('button', { name: 'Quitar de favoritos' }),
       ).toBeInTheDocument();
+      // El `act` vacío NO es ceremonia: sin él este caso es decorativo. Lo que se
+      // asevera es que *nada cambia* — el corazón ya está lleno desde el clic
+      // optimista —, así que un `.catch` que lo revirtiera volcaría su `setState`
+      // DESPUÉS de que `findByRole` haya pasado en su primera comprobación. Medido:
+      // con `findByRole` a secas la mutación sobrevive; con el `act` cae.
+      await act(async () => {});
+      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument();
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });

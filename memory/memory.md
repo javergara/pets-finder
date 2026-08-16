@@ -124,3 +124,11 @@ Registro de decisiones de proceso, comandos clave, aprendizajes y gotchas. No es
 - Arreglo: `waitFor` antes de aseverar la ausencia. Con eso la mutación cae con `expected document not to contain element, found <h3`.
 - Es el mismo género de error que el `preventDefault` de jsdom del mismo día: **un test que se queda verde ante la mutación no está protegiendo nada**. Los dos casos comparten la forma "asevero que algo NO ocurre" — la más fácil de escribir mal, porque el verde inicial no distingue entre "no ocurre" y "todavía no ocurrió".
 - Regla práctica para este repo: toda aserción de ausencia sobre un estado que llega por promesa va detrás de un `waitFor`, y **se verifica por mutación** (haz que el efecto SÍ ocurra y confirma que el test cae). Si no cae, el test es decorativo.
+
+## 2026-08-16 — `waitFor`/`findBy` NO bastan cuando lo que aseveras es que NADA cambia
+
+- Corrección de la entrada anterior del mismo día. `waitFor` sirve cuando esperas a que un estado **llegue**; no sirve cuando aseveras que un estado **se queda como está**. Si la aserción ya es cierta desde el primer render (p. ej. un corazón que se llenó de forma optimista al hacer clic), `waitFor`/`findBy` **pasan en su primera comprobación y vuelven** antes de que la mutación —un `.catch` que revierte— haya volcado su `setState`. El test se queda verde y no protege nada.
+- Lo que sí funciona: `await act(async () => {})` antes de la aserción, que vacía la cola de microtasks y fuerza el re-render pendiente.
+- Medido en tres casos de AD-07 (ficha, deck y catálogo): con `findByRole` a secas la mutación sobrevive; con el `act` cae.
+- Cómo distinguir los dos casos: pregúntate si la aserción **ya era cierta antes** de la operación asíncrona. Si sí, es una aserción de no-cambio y necesita el `act`. Si no (esperas a que aparezca algo), `waitFor` es correcto.
+- Y en los dos casos: **verifícalo por mutación**. Es la única forma de saber en cuál de los dos estás.
