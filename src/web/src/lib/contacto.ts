@@ -97,9 +97,9 @@ export function mensajeAdopcionAdoptante(estado: EstadoSolicitud, nombre: string
   const POR_ESTADO: Record<EstadoSolicitud, string> = {
     solicitado: `pedí a ${nombre} en adopción y me encantaría contarte cómo es mi hogar. ¿Cuándo podemos hablar?`,
     en_revision: `te escribo por mi solicitud de adopción de ${nombre}. ¿Cómo va? Quedo pendiente de lo que necesites saber de mí.`,
-    visita_agendada: `te escribo para confirmar la visita para conocer a ${nombre}. ¿Te sirve el día y la hora que acordamos?`,
+    visita_agendada: `me avisaron que puedo ir a conocer a ${nombre}. ¿Qué día y a qué hora te queda bien?`,
     adoptado: `¡gracias por confiarme a ${nombre}! Coordinemos la entrega: dime qué día te queda bien.`,
-    cerrado: `te escribo por mi solicitud de ${nombre}. Sigo buscando a quién darle un hogar, así que si tienes otra mascota en adopción cuenta conmigo.`,
+    cerrado: `te escribo por mi solicitud de ${nombre}. Sigo buscando una mascota a la que darle un hogar, así que si tienes otra en adopción cuenta conmigo.`,
   };
   return `Hola, te escribo desde Pet Finder Col: ${POR_ESTADO[estado]}`;
 }
@@ -116,7 +116,7 @@ export function mensajeAdopcionPublicador(
   const POR_ESTADO: Record<EstadoSolicitud, string> = {
     solicitado: `recibí tu solicitud para adoptar a ${nombre} y me encantaría conocerte. ¿Cuándo puedes hablar?`,
     en_revision: `estoy revisando tu solicitud para adoptar a ${nombre} y quiero preguntarte un par de cosas.`,
-    visita_agendada: `te escribo para confirmar tu visita para conocer a ${nombre}. ¿Te sirve el día y la hora que acordamos?`,
+    visita_agendada: `ya puedes venir a conocer a ${nombre}. ¿Te sirve este fin de semana, o prefieres que busquemos otro día?`,
     adoptado: `${nombre} ya tiene hogar contigo. Coordinemos la entrega: dime qué día te queda bien.`,
     cerrado: `te escribo por tu solicitud para adoptar a ${nombre}. Esta vez no siguió adelante, pero me quedo con tus datos: en cuanto tengamos otra mascota buscando hogar te escribo.`,
   };
