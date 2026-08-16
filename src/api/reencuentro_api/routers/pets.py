@@ -1,10 +1,10 @@
-"""Mascotas en adopción (AD-01/AD-02), el módulo `/adoptar`.
+"""Mascotas en adopción (AD-01/AD-02/AD-03), el módulo `/adoptar`.
 
 ⚠️ Orden obligatorio de las rutas en este archivo: **literal antes que
-dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"` →
-`PUT "/{pet_id}"` → `DELETE "/{pet_id}"`. Si `/adopciones` se registrara después
-de `/{pet_id}`, FastAPI intentaría parsearla como int y respondería 422 (misma
-regla que ya sigue `routers/reports.py`).
+dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/deck"` →
+`GET "/{pet_id}"` → `PUT "/{pet_id}"` → `DELETE "/{pet_id}"`. Si `/adopciones` o
+`/deck` se registraran después de `/{pet_id}`, FastAPI intentaría parsearlas como
+int y responderían 422 (misma regla que ya sigue `routers/reports.py`).
 """
 
 import math
@@ -18,20 +18,25 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from ..media import borrar_foto
+from ..models.home_profile import HomeProfile
 from ..models.organizacion import Organizacion
 from ..models.pet import Pet
 from ..models.report import Report
+from ..models.swipe import Swipe
 from ..models.user import User
 from ..schemas.pet import (
     AdopcionesResumenOut,
+    AfinidadOut,
     PetIn,
     PetOut,
     PetResumenOut,
     PetUpdate,
     PublicadorOut,
 )
+from ..services.afinidad import calcular_afinidad
 from ..services.db import get_session
-from ..services.filtros import EDAD_CATEGORIA_RANGOS
+from ..services.descubrir import ordenar_deck
+from ..services.filtros import EDAD_CATEGORIA_RANGOS, FiltrosDeck, aplicar_filtros
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -154,15 +159,31 @@ def _publicadores_por_pet(session: Session, pets: Sequence[Pet]) -> dict[int, Pu
     return publicadores
 
 
-def _pet_out(pet: Pet, publicadores: dict[int, PublicadorOut]) -> PetOut:
+def _pet_out(
+    pet: Pet, publicadores: dict[int, PublicadorOut], home: HomeProfile | None = None
+) -> PetOut:
     """`PetOut` con lo que el ORM no sabe calcular (patrón de
     `OrganizacionOut.necesidades_pendientes`).
 
-    En AD-01 solo se llena `publicador`; `afinidad`, `es_favorito` y
-    `ya_solicitada` se quedan en su default hasta AD-03/05/07.
+    `home` llega solo desde el deck y **es opcional a propósito**: sin perfil de
+    hogar la afinidad no se puede calcular, así que `afinidad` viaja en `None` y
+    la tarjeta se muestra igual (decisión de AD-03; `adopta-v1` devolvía 404 y
+    eso rompía el onboarding entero). `es_favorito` y `ya_solicitada` se quedan
+    en su default hasta AD-05/07.
+
+    `razones` se convierte a lista aquí: `AfinidadResultado` es un dataclass
+    `frozen` y las guarda como tupla.
     """
     out = PetOut.model_validate(pet)
     out.publicador = publicadores.get(pet.id)
+    if home is not None:
+        resultado = calcular_afinidad(pet, home)
+        out.afinidad = AfinidadOut(
+            score=resultado.score,
+            explicacion=resultado.explicacion,
+            razones=list(resultado.razones),
+            incompatible=resultado.incompatible,
+        )
     return out
 
 
@@ -351,6 +372,102 @@ def resumen_adopciones(session: Session = Depends(get_session)) -> AdopcionesRes
     return AdopcionesResumenOut(
         total=total, recientes=[PetResumenOut.model_validate(p) for p in recientes]
     )
+
+
+# Segunda ruta literal, también ANTES de /{pet_id} (ver el docstring del módulo):
+# si quedara después, "deck" se parsearía como pet_id y esto sería un 422.
+# `test_deck_no_se_parsea_como_pet_id_y_responde_200` es la garantía viva.
+@router.get("/deck", response_model=list[PetOut])
+def deck_de_descubrimiento(
+    adoptante_id: int | None = None,
+    especie: list[str] | None = Query(default=None),
+    tamano: list[str] | None = Query(default=None),
+    energia: list[str] | None = Query(default=None),
+    edad_categoria: list[str] | None = Query(default=None),
+    zona: list[str] | None = Query(default=None),
+    apto_ninos: bool | None = None,
+    apto_perros: bool | None = None,
+    apto_gatos: bool | None = None,
+    distancia_km: float | None = None,
+    incluir_incompatibles: bool = False,
+    limit: int = Query(default=20, ge=1, le=50),
+    session: Session = Depends(get_session),
+) -> list[PetOut]:
+    """El deck de descubrimiento: qué mascotas ve quien está buscando adoptar.
+
+    Pipeline, en este orden exacto: solo `disponible` → quitar las que ese
+    adoptante ya swipeó → `_pet_out` con su perfil de hogar si lo tiene →
+    `aplicar_filtros` (que además calcula `distancia_km`) → quitar incompatibles
+    → `ordenar_deck` → recortar a `limit`.
+
+    ⚠️ **`adoptante_id` es opcional**, no requerido como en el plan original.
+    Exigirlo forzaría al frontend a mandar el id de una persona real cuando no
+    hay cuenta —`getActiveUserId()` cae al `DEMO_USER_ID = 1`—, que es
+    exactamente el bug de autoría del fix `cc4de85`. Sin él: 200, sin excluir
+    swipeadas y sin afinidad. Con un id inexistente sí es 404: es un dato
+    equivocado, no la ausencia del dato.
+
+    ⚠️ **Sin `HomeProfile` responde 200 con `afinidad: null`**, no 404 como
+    `adopta-v1`: un guard bloqueante rompe el onboarding entero y contradice el
+    acceptance de AD-04 (la cuenta liviana del ADR 0005). La invitación a
+    completar el cuestionario la decide el frontend viendo `afinidad === null`.
+
+    ⚠️ **`ordenar_deck` se llama SIEMPRE**, también sin perfil. `adopta-v1` solo
+    ordenaba cuando había `home`, y sin eso las mascotas difíciles de ubicar no
+    se intercalan para quien no completó el cuestionario —la mayoría de la
+    gente— y quedan enterradas al final. Con las afinidades empatadas en `None`
+    la inserción de difíciles es lo único que ordena algo.
+
+    `user_lat`/`user_lng` salen del `User` y **pueden ser `None`**: la mayoría no
+    tiene coordenadas. `services/filtros.py` degrada con elegancia (nadie se
+    excluye por distancia) en vez de devolver un deck vacío.
+
+    Los filtros se aplican en Python y no en SQL, al revés que en el catálogo:
+    aquí no hay paginación que hacer mentir a un `X-Total-Count`, `tags` no es
+    filtrable en SQL de forma portable, y la distancia se calcula al vuelo.
+    """
+    home: HomeProfile | None = None
+    user_lat: float | None = None
+    user_lng: float | None = None
+
+    query = select(Pet).where(Pet.estado == "disponible")
+
+    if adoptante_id is not None:
+        adoptante = session.get(User, adoptante_id)
+        if adoptante is None:
+            raise HTTPException(404, f"El usuario {adoptante_id} no existe")
+        user_lat, user_lng = adoptante.lat, adoptante.lng
+        home = session.get(HomeProfile, adoptante_id)
+        # ⚠️ `Swipe.user_id` es el ADOPTANTE, no quien publicó la mascota (esa es
+        # `Pet.user_id`). Confundirlas mostraría el deck de una persona a otra.
+        ya_swipeadas = select(Swipe.pet_id).where(Swipe.user_id == adoptante_id)
+        query = query.where(Pet.id.not_in(ya_swipeadas))
+
+    pets = list(session.execute(query).scalars().all())
+    publicadores = _publicadores_por_pet(session, pets)
+    resultados = [_pet_out(pet, publicadores, home) for pet in pets]
+
+    resultados = aplicar_filtros(
+        resultados,
+        FiltrosDeck(
+            especie=especie,
+            tamano=tamano,
+            energia=energia,
+            edad_categoria=edad_categoria,
+            zona=zona,
+            apto_ninos=apto_ninos,
+            apto_perros=apto_perros,
+            apto_gatos=apto_gatos,
+            distancia_km=distancia_km,
+        ),
+        user_lat,
+        user_lng,
+    )
+
+    if not incluir_incompatibles:
+        resultados = [r for r in resultados if not (r.afinidad and r.afinidad.incompatible)]
+
+    return ordenar_deck(resultados)[:limit]
 
 
 @router.get("/{pet_id}", response_model=PetOut)
