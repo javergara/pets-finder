@@ -903,3 +903,8 @@ App viva en https://pets-finder-sable.vercel.app (repo github.com/javergara/pets
 - **`services/radar.py` (feature 43)** consumía `ordenar_coincidencias` y la firma pasó de 2 a 3 valores; ajustado sin tocar su semántica.
 - **Auditoría del merge línea por línea**: se revisó cada eliminación respecto a `main`. Apareció una pérdida real — la resolución del `CHANGELOG.md` se había comido las secciones `[2.4.0]` y `[2.3.0]` enteras (8 features de main + la ingesta de Cali) — y se reconstruyó desde la versión de `main`. `changes.md` y `progress/current.md` conservan todos los encabezados de main.
 - Verificación sobre el resultado: **228 tests de Python + 148 de web**, ruff y ruff-format limpios, build de producción limpio, `feature_list.json` válido (0 in_progress).
+
+## 2026-08-15 — PR 5 integrado y desplegado: coincidencias visuales (feature 24, ADR 0012) de Juan Andrés Ruiz
+
+- Rebasado sobre develop (post PR-4/adopción/36-47) con 4 conflictos resueltos sin pérdidas + renumeración del ADR del chat de AD-06 a 0013. Revisor: APROBADA con 2 condiciones, ambas cumplidas antes del merge — (1) ALTER TABLE reports ADD embedding JSON + embedding_modelo VARCHAR(80) ejecutado y verificado en Supabase (crítico: sin las columnas, todo SELECT de Report caía — el deploy sin migrar tumbaba la app entera, no una feature), (2) defer(embedding) añadido también a la búsqueda por descripción.
+- En verde: 368 Python (api+crawler+dedup+embeddings) + 287 web. Fase 4 pendiente (dueño): correr el worker embeddings/ en local para vectorizar las fotos de prod — hasta entonces las coincidencias siguen con el orden histórico exacto (propiedad testeada).
