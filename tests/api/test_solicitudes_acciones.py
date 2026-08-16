@@ -38,6 +38,8 @@ from reencuentro_api.models.pet import Pet
 from reencuentro_api.models.user import User
 from reencuentro_api.routers.solicitudes import ACCION_AJENA, ESTADOS_TERMINALES
 from reencuentro_api.services.solicitudes import (
+    ACCION_LEGIBLE,
+    ESTADO_LEGIBLE,
     ESTADOS_SOLICITUD,
     MOTIVO_ADOPTADA_POR_OTRA,
     ORDEN_ACCIONES,
@@ -347,6 +349,20 @@ def test_un_tercero_no_puede_ejecutar_ninguna_accion(
     assert db_session.get(Pet, pet.id).estado == "disponible"
 
 
+def test_el_copy_del_403_tampoco_nombra_identificadores_internos():
+    """El otro `detail` que ve una persona al pulsar un botón (`conventions.md` §3).
+
+    Lo mira quien no publicó la mascota —incluido quien la pidió, que es el caso
+    frecuente— y ya estaba escrito como copy de producto: este caso lo fija para
+    que siga siéndolo. La aserción se deriva de los catálogos del servicio, no de
+    una lista escrita a mano, para que un estado o una acción nueva entren aquí
+    solos.
+    """
+    assert not any(accion in ACCION_AJENA for accion in ORDEN_ACCIONES)
+    assert not any(estado in ACCION_AJENA for estado in ESTADOS_SOLICITUD)
+    assert "user_id" not in ACCION_AJENA
+
+
 def test_el_autor_de_la_organizacion_si_puede(client, db_session, adoptante, rescatista):
     """La autoría sale de `_dueno_user_id` (importado de `routers/pets.py`): quien
     registró la fundación gestiona sus mascotas aunque `Pet.user_id` sea nulo."""
@@ -424,8 +440,15 @@ def test_toda_transicion_invalida_es_409_y_no_muta_nada(
     respuesta = _ejecutar(client, solicitud.id, accion, rescatista.id)
 
     assert respuesta.status_code == 409
-    assert accion in respuesta.json()["detail"]
-    assert estado in respuesta.json()["detail"]
+    # El `detail` se le muestra tal cual a quien pulsó el botón (la pantalla lo
+    # pinta en su `role="alert"`), así que es copy de producto y no un código:
+    # dice qué se intentó y en qué punto está la solicitud, sin el slug de la
+    # ruta ni el nombre del estado que guarda la columna (`conventions.md` §3).
+    detalle = respuesta.json()["detail"]
+    assert ACCION_LEGIBLE[accion] in detalle
+    assert ESTADO_LEGIBLE[estado] in detalle
+    assert accion not in detalle
+    assert estado not in detalle
 
     db_session.expire_all()
     guardada = db_session.get(Match, solicitud.id)

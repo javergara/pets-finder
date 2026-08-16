@@ -567,11 +567,11 @@ describe('las cuatro acciones sobre una solicitud', () => {
     // Es el error que de verdad va a ver quien publica (dos pestañas abiertas,
     // o un botón que quedó pintado sobre un estado viejo), y el texto del
     // backend es el que explica qué pasó.
-    espiarFetchError(409, "No se puede 'pedir-informacion' una solicitud en estado 'cerrado'");
+    const MENSAJE =
+      'Ya no puedes pedir más información: esta solicitud ya está cerrada. Actualiza la página para verla como está ahora.';
+    espiarFetchError(409, MENSAJE);
 
     await expect(pedirInformacion(5, 4)).rejects.toThrow(ApiError);
-    await expect(pedirInformacion(5, 4)).rejects.toThrow(
-      "No se puede 'pedir-informacion' una solicitud en estado 'cerrado'",
-    );
+    await expect(pedirInformacion(5, 4)).rejects.toThrow(MENSAJE);
   });
 });

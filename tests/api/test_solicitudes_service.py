@@ -15,11 +15,14 @@ Los tests de integración HTTP (`GET /api/solicitudes`, las cuatro acciones) son
 de los pasos 2 y 3 y viven en `test_solicitudes.py`.
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from reencuentro_api.services.solicitudes import (
+    ACCION_LEGIBLE,
+    ESTADO_LEGIBLE,
     ESTADOS_SOLICITUD,
     MOTIVO_ADOPTADA_POR_OTRA,
     ORDEN_ACCIONES,
@@ -55,8 +58,14 @@ def test_validar_transicion_agendar_visita_valida_desde_en_revision():
 
 
 def test_validar_transicion_pedir_informacion_invalida_desde_en_revision():
-    """Pedir información dos veces no es un paso adelante: ya se pidió."""
-    with pytest.raises(TransicionInvalidaError, match="en_revision"):
+    """Pedir información dos veces no es un paso adelante: ya se pidió.
+
+    El `match` va contra la constante de copy, no contra `"en_revision"`: ese
+    texto se le muestra tal cual a una persona (llega como `detail` de un 409) y
+    el nombre interno del estado no le dice nada. Comparar contra la constante
+    —y no contra la frase escrita a mano aquí— deja el copy con una sola fuente.
+    """
+    with pytest.raises(TransicionInvalidaError, match=re.escape(ESTADO_LEGIBLE["en_revision"])):
         validar_transicion("en_revision", "pedir-informacion")
 
 
@@ -88,8 +97,54 @@ def test_aprobar_invalido_desde_adoptado_y_cerrado():
     """Aprobar dos veces volvería a mover `pet.estado` y a cerrar solicitudes ya
     cerradas; aprobar una descartada resucitaría una decisión ya tomada."""
     for estado in ("adoptado", "cerrado"):
-        with pytest.raises(TransicionInvalidaError, match=estado):
+        with pytest.raises(TransicionInvalidaError, match=re.escape(ESTADO_LEGIBLE[estado])):
             validar_transicion(estado, "aprobar")
+
+
+# --- El mensaje del 409 es copy de producto, no identificadores ----------------
+
+
+def test_el_copy_cubre_exactamente_los_estados_y_las_acciones_reales():
+    """Los dos catálogos de copy no pueden quedarse cortos ni sobrar.
+
+    Es el mismo candado que `test_orden_acciones_cubre_toda_la_matriz`: un
+    estado nuevo sin su frase reventaría el mensaje del 409 con un `KeyError`
+    (500 con traza en vez de un 409 explicado), y una frase huérfana es copy que
+    nadie lee y que nadie va a mantener.
+    """
+    assert set(ESTADO_LEGIBLE) == set(ESTADOS_SOLICITUD)
+    assert set(ACCION_LEGIBLE) == set(ORDEN_ACCIONES)
+
+
+#: Las 11 combinaciones que lanzan, derivadas de la matriz del servicio y no
+#: escritas a mano: si mañana cambia, este test cambia con ella.
+COMBINACIONES_INVALIDAS = [
+    (estado, accion)
+    for accion in sorted(TRANSICIONES_VALIDAS)
+    for estado in ESTADOS_SOLICITUD
+    if estado not in TRANSICIONES_VALIDAS[accion]
+]
+
+
+@pytest.mark.parametrize(("estado", "accion"), COMBINACIONES_INVALIDAS)
+def test_ningun_mensaje_de_transicion_invalida_filtra_identificadores(estado, accion):
+    """Toda la matriz inválida, comprobada contra `docs/conventions.md` §3.
+
+    El texto viaja como `detail` de un 409 y la pantalla lo muestra tal cual, así
+    que es copy de producto: tiene que decir **qué pasó** ("ya no puedes
+    confirmar la adopción: esta solicitud ya está cerrada"), nunca el slug de la
+    ruta ni el nombre de la columna. Se recorre la matriz entera en vez de un
+    caso de ejemplo porque el descuido aparece de a una combinación.
+    """
+    with pytest.raises(TransicionInvalidaError) as exc_info:
+        validar_transicion(estado, accion)
+
+    mensaje = str(exc_info.value)
+    assert accion not in mensaje
+    assert estado not in mensaje
+    # Y dice de verdad qué se intentó y en qué punto está la solicitud.
+    assert ACCION_LEGIBLE[accion] in mensaje
+    assert ESTADO_LEGIBLE[estado] in mensaje
 
 
 # --- acciones_disponibles ------------------------------------------------------

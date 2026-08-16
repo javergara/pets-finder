@@ -251,7 +251,7 @@ describe('SolicitudDetalle — ejecutar una acción', () => {
   // del backend, que ya es copy de producto en español: un 409 (pestaña vieja,
   // la solicitud avanzó por otro lado) y un 403 (no es quien publicó).
   const ERRORES = [
-    "No se puede 'agendar-visita' una solicitud en estado 'adoptado'",
+    'Ya no puedes agendar una visita: esta solicitud ya terminó con la adopción confirmada. Actualiza la página para verla como está ahora.',
     'Solo quien publicó la mascota puede gestionar esta solicitud',
   ];
 

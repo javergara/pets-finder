@@ -94,6 +94,40 @@ class TransicionInvalidaError(Exception):
     """El publicador intentó una acción sobre una solicitud en un estado que no la permite."""
 
 
+#: Copy de producto de cada acción y de cada estado, para el mensaje del 409.
+#:
+#: ⚠️ **Ese mensaje lo lee una persona**: viaja como `detail` del 409 y la
+#: pantalla lo pinta tal cual en su aviso (`docs/conventions.md` §3). Hasta AD-06
+#: decía *"No se puede 'pedir-informacion' una solicitud en estado 'adoptado'"* —
+#: el slug de la ruta y el nombre de la columna, delante de quien solo pulsó un
+#: botón. Los identificadores son de quien programa; el estado ya tiene copy en
+#: `ETIQUETA_ESTADO_SOLICITUD` del frontend y estos son su equivalente aquí.
+#:
+#: Los dos diccionarios cubren `ORDEN_ACCIONES` y `ESTADOS_SOLICITUD` completos,
+#: con un candado en `tests/api/test_solicitudes_service.py`: sin él, un estado
+#: nuevo sin frase convertiría el 409 explicado en un 500 con traza.
+ACCION_LEGIBLE: dict[str, str] = {
+    "agendar-visita": "agendar una visita",
+    "pedir-informacion": "pedir más información",
+    "aprobar": "confirmar la adopción",
+    "descartar": "cerrar esta solicitud",
+}
+
+ESTADO_LEGIBLE: dict[str, str] = {
+    "solicitado": "todavía está esperando respuesta",
+    "en_revision": "ya está en revisión",
+    "visita_agendada": "ya tiene una visita agendada",
+    "adoptado": "ya terminó con la adopción confirmada",
+    "cerrado": "ya está cerrada",
+}
+
+#: Qué decir cuando el estado no está en el catálogo. No debería ocurrir nunca
+#: —los cinco estados salen de un `Literal` y el candado los cubre—, pero un
+#: `KeyError` aquí sería un 500 con traza en la cara de quien pulsó el botón, y
+#: el caso de negocio (la acción no aplica) es cierto igual.
+ESTADO_LEGIBLE_DESCONOCIDO = "ya no admite esta acción"
+
+
 TRANSICIONES_VALIDAS: dict[str, set[str]] = {
     "agendar-visita": {"solicitado", "en_revision"},
     "pedir-informacion": {"solicitado"},
@@ -123,8 +157,10 @@ def validar_transicion(estado_actual: str, accion: str) -> None:
     solicitud en esos estados siempre lanza — no hace falta un caso especial.
     """
     if estado_actual not in TRANSICIONES_VALIDAS[accion]:
+        estado = ESTADO_LEGIBLE.get(estado_actual, ESTADO_LEGIBLE_DESCONOCIDO)
         raise TransicionInvalidaError(
-            f"No se puede '{accion}' una solicitud en estado '{estado_actual}'"
+            f"Ya no puedes {ACCION_LEGIBLE[accion]}: esta solicitud {estado}. "
+            "Actualiza la página para verla como está ahora."
         )
 
 

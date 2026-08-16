@@ -199,8 +199,9 @@ export function SolicitudDetalle() {
       setDescartando(false);
       setMotivo('');
     } catch (err) {
-      // 409 ("No se puede 'aprobar' una solicitud en estado 'cerrado'") y 403
-      // llegan con el texto del backend, que ya es copy en español.
+      // El 409 ("Ya no puedes confirmar la adopción: esta solicitud ya está
+      // cerrada…") y el 403 llegan con el texto del backend, que desde AD-06 es
+      // copy de producto en español y no lleva dentro ningún identificador.
       setErrorAccion(err instanceof ApiError ? err.message : MENSAJE_ERROR_ACCION);
     } finally {
       setEnviando(false);
