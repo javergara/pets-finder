@@ -404,6 +404,35 @@ export type MascotaUpdate = {
   estado?: EstadoMascota;
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Deck de descubrimiento (AD-03) — espejo de `schemas/swipe.py`
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Qué decidió quien mira el deck sobre una mascota.
+ *
+ * Los valores persistidos son `like`/`pass` (columna `swipes.direccion`), pero
+ * el copy visible es **"Me interesa" / "Ahora no"** y nunca "rechazar": el match
+ * no es mutuo (ADR 0002), así que un `pass` no rechaza a nadie — solo saca esa
+ * tarjeta del deck de esa persona. */
+export type DireccionSwipe = 'like' | 'pass';
+
+export type Swipe = {
+  id: number;
+  // ⚠️ El ADOPTANTE que miró el deck, no quien publicó la mascota (eso es
+  // `Mascota.user_id`). Las dos son FK a `users.id` y ninguna base avisa si se
+  // cruzan: mismo aviso que llevan el modelo, el schema y el router.
+  user_id: number;
+  pet_id: number;
+  direccion: DireccionSwipe;
+  creado_en: string;
+  // Siempre `null` en AD-03: el swipe no crea nada más. La solicitud (tabla
+  // `matches`, "solicitud" en el copy) la crea AD-05, que ampliará este campo a
+  // `SolicitudResumen | null` cuando ese schema exista. Se tipa como `null` a
+  // propósito: inventarle hoy una forma que nada llena sería declarar un
+  // contrato que el backend no cumple.
+  solicitud: null;
+};
+
 /** Tarjeta mínima de la franja de celebración (espejo de `PetResumenOut`): el
  * resumen de adopciones NO devuelve la mascota completa. */
 export type MascotaResumen = {

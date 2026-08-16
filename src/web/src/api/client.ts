@@ -10,6 +10,7 @@ import {
   type ConsultaBusqueda,
   type ResultadoBusqueda,
   type Conteos,
+  type DireccionSwipe,
   type EnergiaMascota,
   type EspecieAdopcion,
   type EstadoMascota,
@@ -22,6 +23,7 @@ import {
   type Reporte,
   type ReporteIn,
   type ReunidosResumen,
+  type Swipe,
   type TamanoMascota,
   type TipoOrganizacion,
   type UserProfile,
@@ -421,4 +423,59 @@ export function editarMascota(mascotaId: number, datos: MascotaUpdate): Promise<
  * sabe no parsear. `userId` va en la query: un DELETE no lleva body aquí. */
 export function eliminarMascota(mascotaId: number, userId: number): Promise<void> {
   return request(`/api/pets/${mascotaId}?user_id=${userId}`, { method: 'DELETE' });
+}
+
+// ── Deck de descubrimiento (AD-03) ───────────────────────────────────────────
+// Las dos funciones son del **adoptante**, no de quien publica: aquí `user_id`
+// significa lo contrario que en las escrituras de arriba (`Swipe.user_id` es
+// quien mira). Por eso el parámetro se llama `adoptanteId` en las dos.
+
+/** Registra la decisión sobre una mascota del deck.
+ *
+ * El adoptante va **en el body** (`user_id`, como lo espera `SwipeIn`) y no en
+ * la query: mandarlo como query param da un 422 sin pista útil para el usuario.
+ *
+ * Repetir el mismo swipe no es un error: el backend responde 200 con la misma
+ * fila en vez de 409 (un doble-tap del gesto en móvil es un accidente del dedo).
+ * `Swipe.solicitud` viaja siempre en `null` hasta AD-05.
+ */
+export function registrarSwipe(
+  adoptanteId: number,
+  mascotaId: number,
+  direccion: DireccionSwipe,
+): Promise<Swipe> {
+  return request('/api/swipes', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: adoptanteId, pet_id: mascotaId, direccion }),
+  });
+}
+
+/** Las mascotas que le tocan a quien está descubriendo: solo disponibles, sin
+ * las que ya swipeó, con su afinidad si tiene perfil de hogar.
+ *
+ * ⚠️ `adoptanteId` es **opcional y solo viaja si existe de verdad**. Sin cuenta
+ * no se manda: `getActiveUserId()` cae al `DEMO_USER_ID = 1` y mandarlo haría
+ * que un visitante viera el deck de otra persona —con sus swipes ya
+ * descontados—, que es el bug de autoría del fix `cc4de85`. Sin él el backend
+ * responde 200 igual, con `afinidad: null` y sin excluir nada.
+ *
+ * Multivalor con `append` (nunca `set`), por la misma razón que
+ * `listarMascotas`: `set` pisa el valor anterior y deja la multi-selección
+ * reducida a uno solo, así que el filtro parecería funcionar a medias.
+ */
+export function listarDeck(
+  adoptanteId?: number,
+  filtros: Partial<FiltrosMascotas> = {},
+): Promise<Mascota[]> {
+  const params = new URLSearchParams();
+  filtros.especie?.forEach((valor) => params.append('especie', valor));
+  filtros.tamano?.forEach((valor) => params.append('tamano', valor));
+  filtros.energia?.forEach((valor) => params.append('energia', valor));
+  filtros.edad?.forEach((valor) => params.append('edad_categoria', valor));
+  // El deck acepta `zona` multivalor, pero en la UI sigue siendo de valor único
+  // (mismo criterio que el resto de la app): '' = todas las zonas.
+  if (filtros.zona) params.append('zona', filtros.zona);
+  if (adoptanteId !== undefined) params.append('adoptante_id', String(adoptanteId));
+  const query = params.toString();
+  return request(`/api/pets/deck${query ? `?${query}` : ''}`);
 }

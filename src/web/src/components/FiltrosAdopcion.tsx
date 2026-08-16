@@ -1,7 +1,9 @@
 import type { FiltrosMascotas } from '../api/client';
 import {
+  CATEGORIAS_EDAD,
   ENERGIAS,
   ESPECIES_ADOPCION,
+  ETIQUETA_CATEGORIA_EDAD,
   ETIQUETA_ENERGIA,
   ETIQUETA_ESPECIE_ADOPCION,
   ETIQUETA_TAMANO_MASCOTA,
@@ -26,10 +28,11 @@ import { NOMBRES_ZONAS, ZONA_OTRO } from '../lib/ciudades';
 // el header; en el deck de AD-03, un `aside` lateral). Nada de anchos fijos — a
 // 360px los grupos bajan de línea en vez de desbordar la página (feature 16).
 //
-// ⚠️ No hay grupo de tramo de edad a propósito: `GET /api/pets` recibe
-// `edad_categoria` pero todavía lo ignora (su dueño es `services/filtros.py`, que
-// llega en AD-03). Un chip que no filtra es peor que un chip ausente. Ese grupo se
-// añade aquí en AD-03, con `CATEGORIAS_EDAD` de `lib/adopcion.ts`.
+// El grupo de tramo de edad se añadió en AD-03, cuando `GET /api/pets` empezó a
+// traducir `edad_categoria` a SQL (`services/filtros.py`): antes el backend
+// recibía el param y lo ignoraba, y un chip que no filtra es peor que un chip
+// ausente. Los tramos no se declaran aquí — salen de `CATEGORIAS_EDAD` de
+// `lib/adopcion.ts`, que comparte cortes con `EDAD_CATEGORIA_RANGOS`.
 
 type Props = {
   filtros: FiltrosMascotas;
@@ -91,6 +94,7 @@ export function FiltrosAdopcion({ filtros, onChange, onReset }: Props) {
     filtros.especie.length > 0 ||
     filtros.tamano.length > 0 ||
     filtros.energia.length > 0 ||
+    filtros.edad.length > 0 ||
     filtros.zona !== '';
 
   return (
@@ -115,6 +119,13 @@ export function FiltrosAdopcion({ filtros, onChange, onReset }: Props) {
         etiquetas={ETIQUETA_ENERGIA}
         seleccionados={filtros.energia}
         onAlternar={(valor) => onChange({ ...filtros, energia: alternar(filtros.energia, valor) })}
+      />
+      <GrupoChips
+        titulo="Edad"
+        opciones={CATEGORIAS_EDAD}
+        etiquetas={ETIQUETA_CATEGORIA_EDAD}
+        seleccionados={filtros.edad}
+        onAlternar={(valor) => onChange({ ...filtros, edad: alternar(filtros.edad, valor) })}
       />
 
       {/* La zona es de valor único en toda la app (mismo criterio que el resto de

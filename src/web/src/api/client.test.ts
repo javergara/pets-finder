@@ -4,10 +4,12 @@ import {
   crearMascota,
   editarMascota,
   eliminarMascota,
+  listarDeck,
   listarMascotas,
   mediaUrl,
   obtenerAdopcionesResumen,
   obtenerMascota,
+  registrarSwipe,
 } from './client';
 import type { MascotaIn } from './types';
 
@@ -256,6 +258,80 @@ describe('eliminarMascota', () => {
     await expect(eliminarMascota(3, 99)).rejects.toThrow(
       'Solo quien publicó la mascota puede despublicarla',
     );
+  });
+});
+
+// ── Deck de descubrimiento (AD-03) ───────────────────────────────────────────
+
+describe('registrarSwipe', () => {
+  it('manda user_id, pet_id y direccion EN EL BODY, sin nada en la query', async () => {
+    const fetchMock = espiarFetch({ id: 1 });
+
+    await registrarSwipe(7, 3, 'like');
+
+    // La URL va pelada a propósito: `SwipeIn` es un body, y mandar el adoptante
+    // como query param daría un 422 sin pista útil para el usuario.
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/swipes');
+    expect(initPedido(fetchMock).method).toBe('POST');
+    expect(bodyEnviado(fetchMock)).toEqual({ user_id: 7, pet_id: 3, direccion: 'like' });
+  });
+
+  it('"ahora no" viaja como pass, la otra mitad del contrato', async () => {
+    const fetchMock = espiarFetch({ id: 2 });
+
+    await registrarSwipe(7, 3, 'pass');
+
+    expect(bodyEnviado(fetchMock).direccion).toBe('pass');
+  });
+
+  it('el 409 de una mascota ya adoptada llega como ApiError con el mensaje en español', async () => {
+    espiarFetchError(409, 'Esta mascota ya encontró hogar');
+
+    await expect(registrarSwipe(7, 3, 'like')).rejects.toThrow(ApiError);
+    await expect(registrarSwipe(7, 3, 'like')).rejects.toThrow('Esta mascota ya encontró hogar');
+  });
+});
+
+describe('listarDeck', () => {
+  it('lleva al adoptante y repite los multivalor en vez de colapsarlos', async () => {
+    const fetchMock = espiarFetch();
+
+    await listarDeck(7, {
+      especie: ['perro', 'gato'],
+      edad: ['senior'],
+      tamano: [],
+      energia: [],
+      zona: '',
+    });
+
+    const url = new URL(urlPedida(fetchMock));
+    expect(url.pathname).toBe('/api/pets/deck');
+    expect(url.searchParams.get('adoptante_id')).toBe('7');
+    // `params.set` habría dejado especie=gato a secas: el deck parecería filtrar
+    // a medias en vez de fallar de frente.
+    expect(url.searchParams.getAll('especie')).toEqual(['perro', 'gato']);
+    expect(url.searchParams.getAll('edad_categoria')).toEqual(['senior']);
+    expect(url.search).toBe('?especie=perro&especie=gato&edad_categoria=senior&adoptante_id=7');
+  });
+
+  it('sin adoptante NO manda adoptante_id (visitante sin cuenta)', async () => {
+    const fetchMock = espiarFetch();
+
+    await listarDeck();
+
+    // Mandar el `DEMO_USER_ID = 1` por defecto sería tratar a un visitante como
+    // el usuario 1: el bug de autoría del fix `cc4de85`, ahora en el deck.
+    expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/pets/deck');
+  });
+
+  it('la zona solo viaja si se eligió una; vacía no deja la clave suelta', async () => {
+    const conZona = espiarFetch();
+    await listarDeck(7, { zona: 'Armenia' });
+    expect(new URL(urlPedida(conZona)).searchParams.get('zona')).toBe('Armenia');
+
+    const sinZona = espiarFetch();
+    await listarDeck(7, { zona: '', especie: [], tamano: [], energia: [], edad: [] });
+    expect(urlPedida(sinZona)).toBe('http://127.0.0.1:8000/api/pets/deck?adoptante_id=7');
   });
 });
 

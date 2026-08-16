@@ -217,13 +217,27 @@ describe('CatalogoAdopcion', () => {
     expect(screen.queryByText(/adopción lograda/i)).not.toBeInTheDocument();
   });
 
-  it('no ofrece chips de tramo de edad: el backend todavía los ignora (AD-03)', async () => {
+  // Este caso reemplaza al que aseveraba que NO había chips de edad. Su premisa
+  // ("el backend los ignora") dejó de ser cierta en el paso 5 de AD-03, cuando
+  // `GET /api/pets` empezó a traducir `edad_categoria` a SQL: mantenerlo sería
+  // fijar por test una limitación que ya no existe.
+  it('el chip "Cachorra" filtra por tramo de edad y queda marcado como presionado', async () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
-    expect(screen.queryByRole('button', { name: /cachorr/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /joven/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /adulta/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /senior/i })).not.toBeInTheDocument();
+    const chipCachorra = screen.getByRole('button', { name: 'Cachorra' });
+    expect(chipCachorra).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(chipCachorra);
+
+    await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
+    expect(client.listarMascotas).toHaveBeenLastCalledWith({
+      ...FILTROS_ADOPCION_DEFAULT,
+      edad: ['cachorro'],
+    });
+    expect(screen.getByRole('button', { name: 'Cachorra' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });
