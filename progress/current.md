@@ -1766,3 +1766,45 @@ Verificación: `bash init.sh` con `Todo en verde.` — **738 tests de Python + 4
 **AD-08 marcada `done` en los dos JSON.** Cero `in_progress`, `validate_feature_list.py` exit 0.
 
 ⚠️ AD-08 **no añadió esquema**: la cola sigue en cuatro migraciones escritas y **ninguna ejecutada** — `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. El merge a `main` sigue bloqueado.
+
+## AD-09 en curso (2026-08-16): la mitad que NO toca producción, entregada
+
+Rama `feat/adoptar`. **Línea base: 738 tests de Python + 487 de web**, que no se mueve: este trabajo es solo `.md`. AD-09 **sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json`; **no se puede marcar `done`** hasta que las cuatro migraciones corran en Supabase y el módulo se verifique en producción.
+
+**Encargo explícito de esta sesión: cero autorización para tocar producción.** No se ejecutó ningún `.sql` contra ninguna base (solo la SQLite local de `init.sh`), no se mergeó ni se pusheó nada, y no se escribió una sola fila en `petfinder-col.com`. Lo único que se hizo contra producción son **GET de solo lectura** para constatar su estado, citados abajo.
+
+### Los cuatro acceptance de AD-09: dónde está la línea
+
+| # | Acceptance | Estado | Por qué |
+|---|---|---|---|
+| 1 | *Todas las tablas del módulo existen en prod (verificadas contra `information_schema`) con RLS y cero errores en los endpoints* | ❌ **ABIERTO** | Exige ejecutar las cuatro migraciones en el SQL Editor de Supabase. **Solo el dueño**, con autorización explícita. Lo que sí queda listo: el orden, el porqué y las tres consultas de verificación, listas para pegar |
+| 2 | *El flujo completo funciona en producción con un caso real de prueba, documentado con evidencia en `progress/`* | ❌ **ABIERTO** | Exige que el código esté mergeado y desplegado, es decir, exige el 1 primero. El recorrido de 10 pasos y su limpieza quedan escritos |
+| 3 | *CHANGELOG 3.0.0 publicado y `main`/`develop` sincronizadas* | 🟡 **MITAD CERRADA** | El `CHANGELOG.md` con el release **3.0.0 está escrito**. Sincronizar `main`/`develop` es merge + push: **no autorizado en esta sesión**, y además bloqueado por el acceptance 1 |
+| 4 | *`validate_feature_list.py` sale 0 con los items de este módulo `done` en ambos JSON* | ❌ **ABIERTO** | `validate_feature_list.py` sale **0 hoy** (comprobado), pero con AD-09 en `in_progress`, que es lo correcto: el `done` lo pone el revisor y solo tiene sentido cuando 1 y 2 estén cerrados |
+
+**Dos de los cuatro solo los puede cerrar el dueño del repo, y eso es lo esperado**, no un fallo de la feature.
+
+### Lo entregado
+
+- **`CHANGELOG.md` — release 3.0.0** (Keep a Changelog, estilo de los releases anteriores). Cubre AD-01…AD-08 y dice con la misma claridad lo añadido y **lo recortado a propósito**: apadrinamiento (sin pasarela de pagos aporta poco; `Organizacion.como_donar` ya cubre la intención) y chat interno (el `ConnectionManager` en memoria del ADR 0004 no funciona ni una vez en serverless → **ADR 0013**, WhatsApp, que lo supera). Encabeza el aviso de que **el release no está desplegado**.
+- **`migrations/README.md`** — índice al día con las cinco migraciones y sección nueva **"Cierre del módulo (AD-09)"**: el orden obligatorio con su porqué, las tres consultas de verificación (5 tablas con `rowsecurity`, `ck_pets_publicador_exclusivo`, los tres `UNIQUE`) y el aviso del `SKIP_DB_CREATE_ALL=1`.
+- **`docs/despliegue-modulo-adopcion.md`** (nuevo) — el paquete operativo para el dueño, en el tono de `docs/revision-modulo-adopcion.md`: TL;DR con los `pbcopy`, estado medido de producción hoy, las cuatro migraciones una por una, verificación conjunta, qué pasa si se salta el orden, checklist post-merge con `curl` y **poll del bundle por string marcador**, el recorrido manual de 10 pasos y qué no entra en el release.
+
+### Lo medido contra producción (solo GET, 2026-08-16)
+
+`/health` → `200 {"status":"ok"}` · `/api/pets` → `200 []` (tabla migrada, **cero mascotas publicadas**) · `/api/pets/adopciones` → `200 {"total":0,...}` · `/api/pets/deck` → **422** `int_parsing` sobre `pet_id` (hoy `deck` lo captura `GET /{pet_id}`) · `/api/solicitudes`, `/api/users/1/home-profile`, `/api/users/1/favorites` → **404 `{"detail":"Not Found"}`** · `/adoptar/mascota/1` con user-agent de WhatsApp → el `index.html` estático con og genéricos (el rewrite de bots de AD-08 no está; el de `/reporte/1` sí llega a la API). Bundle servido `/assets/index-CtFTkjan.js`: contiene `"Dar en adopción"` (AD-02) y **no** contiene `"Mis favoritas"` ni `"mascotas rescatadas que buscan hogar"` — de ahí el marcador elegido para el poll.
+
+Comprobado también por comando, no de memoria: **cero dependencias nuevas** (`git diff origin/main...feat/adoptar` sobre los cuatro manifiestos, **sin salida**), cero variables de entorno nuevas, **75 commits** pendientes de merge, y `origin/adopta-v1` + tag `adopta-v1.0.0` intactos en `cde337f`. ⚠️ Ojo con la referencia: el `main` **local** está rancio (`1593f0e`, feature 46); lo desplegado es `origin/main` (`7c4d391`). Comparar contra `main` a secas da resultados falsos — se detectó en esta sesión.
+
+### Tres hallazgos para el líder (medidos, no tocados)
+
+1. **En producción no existe el usuario `id = 1`**: `GET /api/users/1` → `404 {"detail":"El usuario 1 no existe"}`. Varios comentarios del repo (gates de `hasActiveUser()`, `changes.md`, `docs/`) afirman que el `DEMO_USER_ID = 1` "es una persona real en producción" — hoy es falso. **No cambia nada del arreglo `esUsuarioActivo()`**, que sigue siendo correcto, pero sí desmiente la justificación tal como está escrita. Decidir si se corrige la prosa o se deja.
+2. **La limpieza del acceptance 2 no se puede completar por la API tal como está hoy.** No hay endpoint para borrar un swipe ni una solicitud (`routers/swipes.py` solo `POST`; `routers/solicitudes.py` solo `GET` + las cuatro acciones), y `swipes.pet_id`/`matches.pet_id` son FK **sin `ON DELETE`** (`grep -i "on delete" migrations/*.sql` sin salida), así que en Postgres el `DELETE` de una mascota con swipe o solicitud **debería fallar por integridad** — `despublicar_mascota` no lo contempla. **Predicho por el esquema, no medido**: SQLite no fuerza FKs y la suite no puede verlo (`memory/memory.md`, 2026-08-15). Las tres salidas posibles quedan escritas en `docs/despliegue-modulo-adopcion.md` §6 para que el dueño elija **antes** de swipear; la cuarta (que el `DELETE` limpie sus filas hijas o responda 409, como `eliminar_reporte` con el puente) **es código nuevo y no entra en AD-09**.
+3. **La cabecera de `migrations/AD-01-pets.sql` quedó rancia**: sigue diciendo "ESCRITO, NO EJECUTADO" aunque se ejecutó el 2026-08-15. Anotado en `migrations/README.md`; no se tocó el `.sql` para no meter un cambio de contenido en un archivo ya aplicado dentro de un trabajo puramente documental.
+
+### Lo que falta para cerrar AD-09 (requiere autorización explícita del dueño)
+
+1. Ejecutar las cuatro migraciones en Supabase, en orden, y correr las tres consultas de verificación → cierra el acceptance 1.
+2. Mergear `feat/adoptar` y comprobar que el deployment existió de verdad (poll del bundle; el auto-deploy de `main` ya falló en silencio una vez) → media parte del 3.
+3. Recorrido manual en `petfinder-col.com` con evidencia aquí, decidiendo antes la salida de limpieza del hallazgo 2 → cierra el acceptance 2.
+4. Revisor independiente: `init.sh`, veredicto y `done` en los dos JSON → cierra el 4.
