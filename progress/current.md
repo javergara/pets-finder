@@ -1664,3 +1664,35 @@ Revisado antes de tocarlo (el líder pidió parar si había una razón): es un *
 Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 487 de web** (línea base 738 + 486; el backend no se tocó). Mutación ejecutada con dos roturas: `shrink-0` repuesto → `expected element not to have class "shrink-0" / Received: flex shrink-0 flex-wrap items-center gap-2`; el enlace "Descubrir una por una" envuelto en un `<span>` (la reestructuración que dejaría verde a un test ingenuo) → `<span /> does not contain: <a … href="/adoptar/mi-hogar">`. Componente restaurado con `cp` desde scratch y sha1 verificado (`1cc02287…`). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local. `feature_list.json` sin tocar.
 
 **Pendientes de AD-08 para el líder**: pasos 9 (`docs/architecture.md`) y 10 (docs + paquete para el revisor).
+
+#### AD-08 paso 9 HECHO (2026-08-16): `docs/architecture.md` reescrito contra el código
+
+**Sin rojo inicial y sin test nuevo, a propósito**: son `.md`. El oráculo de este paso es `CHECKPOINTS.md:35` ("documentación que describe un comportamiento que el código no tiene" no es un checkpoint válido), y la regla de trabajo fue **si no se puede comprobar con un comando, no se escribe**. Cada afirmación del archivo se midió antes de reemplazarla.
+
+**Las seis falsedades del líder: las seis confirmadas.** Con dos correcciones de conteo a su favor y en su contra:
+
+| § | Decía | Medido | Comando |
+| --- | --- | --- | --- |
+| 1 | única dep nueva: `python-multipart` | + `requests`, `httpx`, `psycopg[binary]` / + `leaflet`, `qrcode`, `react-easy-crop` | `cat src/api/requirements.txt src/web/package.json` |
+| 2 | 2 modelos | **14** | `grep -c __tablename__ models/*.py` |
+| 2 | "sin migraciones formales; `seed.py` hace `drop_all`" | `migrations/` con 5 `.sql` + README + **4** anti-drift | `ls migrations/ tests/api/ \| grep migracion` |
+| 3 | 3 servicios | **12** (11 puros + `db.py`), **no 13** | `ls services/*.py` |
+| 4 | 6 grupos de endpoints | **12 routers**, **no 13** | `grep -c include_router main.py` |
+| 5 | mapa = lienzo CSS/SVG en `lib/mapa.ts` | `import L from 'leaflet'` (ADR 0008) y **`lib/mapa.ts` no existe** | `head -2 components/MapaLienzo.tsx; ls src/web/src/lib/` |
+
+⚠️ **Dos conteos del plan no cuadran, y mandan los medidos**: servicios son **12** y routers **12** (el plan decía 13 y 13 — la diferencia en ambos casos es `__init__.py`, que está vacío en las dos carpetas). Y las rutas de `/adoptar` son **9**, no 8: `grep -c 'path="/adoptar' src/web/src/App.tsx` → 9 (la novena es `/adoptar/mascota/:id/editar`).
+
+**Lo que se escribió, además de corregir**:
+
+- §2 agrupa los 14 modelos por dominio (cuenta transversal / emergencia 5 / red de apoyo 3 / adopción 5) y señala la **colisión de `user_id`** (`pets` = quien publica; `swipes`, `matches`, `favorites` = quien mira).
+- §2 gana la sección de migraciones: SQL aditivo a mano en Supabase, RLS obligatorio en tabla nueva, anti-drift por migración, **estado real** (`AD-01-pets.sql` ejecutada; las cuatro de adopción no) y `seed.py` acotado a la SQLite local **con el motivo escrito** (datos reales de gente que perdió a su mascota).
+- §4 explica la regla de orden literal-antes-que-dinámica y por qué `paginas.py` va último; incluye la ruta de bots nueva del paso 2 y el bucle de zonas.
+- §5 lista las pantallas reales por dominio y deja escrito que `MapaLienzo.tsx` **conserva el nombre del lienzo que reemplazó**, que es exactamente lo que hizo sobrevivir la mentira dos ADRs.
+- §6 añade `hasActiveUser()` (lo que distingue "nunca se registró" del fallback a `DEMO_USER_ID = 1`).
+- §7 añade `SKIP_DB_CREATE_ALL`, el inventario de env vars (`grep -rn "os.environ.get" src/api api`) y el **flujo numerado del ALTER aditivo antes del merge**, con el porqué operativo.
+
+**Nits cerrados**: `CHECKPOINTS.md` (`psycopg2-binary` → `psycopg[binary]==3.3.4`, con el motivo del driver v3) y `docs/conventions.md` (`mapa` fuera de los ejemplos de `lib/`).
+
+**Deuda encontrada de paso y anotada, no arreglada** (es del líder): `qrcode` (feature 44) y `react-easy-crop` (feature 35) entraron **sin ADR**, con su justificación solo en `changes.md`, y `CHECKPOINTS.md` exige un ADR por dependencia nueva. Queda dicho en los dos archivos en vez de dejar la lista pareciendo completa.
+
+Verificación: `bash init.sh` con `Todo en verde.` — **738 tests de Python + 487 de web**, la misma cuenta que al cerrar el paso 8 (solo se tocaron `.md`). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. `feature_list.json` sin tocar.

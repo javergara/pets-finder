@@ -6,7 +6,7 @@
 src/api/reencuentro_api/
   models/      # entidades SQLAlchemy (1 archivo por entidad o grupo pequeño relacionado)
   schemas/     # Pydantic, contrato HTTP — nunca se exponen los modelos SQLAlchemy directo
-  services/    # lógica de negocio pura (geo.py, ciudades.py, coincidencias.py), testeable sin FastAPI/DB
+  services/    # lógica de negocio pura (geo.py, ciudades.py, coincidencias.py, afinidad.py), testeable sin FastAPI/DB
   routers/     # endpoints delgados: parsean input, llaman a services/, devuelven schemas
   main.py      # arma la app FastAPI, monta routers, CORS
 
@@ -14,7 +14,7 @@ src/web/src/
   screens/     # una pantalla por archivo (routing)
   components/  # componentes compartidos entre pantallas
   api/         # cliente HTTP tipado hacia src/api
-  lib/         # utilidades sin estado de UI (mapa, ciudades, contacto, session)
+  lib/         # utilidades sin estado de UI (ciudades, contacto, session, adopcion, titulo)
 ```
 
 Regla: si un archivo mezcla lógica de negocio con manejo de HTTP/DB, se está poniendo en el lugar equivocado — la lógica va a `services/`, no a `routers/` ni a componentes de React con `fetch` embebido y cálculo a la vez.
