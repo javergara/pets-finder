@@ -1494,3 +1494,41 @@ Revisión independiente sobre `23d9e49`. `bash init.sh` corrido por el revisor *
 **AD-07 marcada `done` en los dos JSON.** `validate_feature_list.py` exit 0, cero `in_progress`.
 
 ⚠️ **Merge a `main` bloqueado**: cuatro migraciones escritas y **ninguna ejecutada**, en este orden — `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. Con `SKIP_DB_CREATE_ALL=1` en producción no hay red de seguridad: si el código llega antes que las tablas, cae la API entera, no solo las pantallas nuevas.
+
+## Plan del líder para AD-08 (2026-08-16): 10 pasos
+
+Línea base: **719 tests de Python + 460 de web**. Cero dependencias nuevas en todo el plan.
+
+### Lo que el líder verificó contra el código, no asumió
+
+1. **El aviso de seguridad YA está en los tres sitios** del módulo (`PublicarMascota.tsx:362`, `MascotaDetalle.tsx:364`, `SolicitudDetalle.tsx:316`, desde AD-02/AD-06) — pero **dos no tienen test**. El acceptance 2 se cierra con **dos tests y cero código de producto**, y por eso su paso **no puede tener rojo inicial**: se prueba borrando la línea del componente y comprobando el rojo. Detalle no obvio: en `SolicitudDetalle` el aviso vive dentro de la rama `otroLado.telefono`, así que el test necesita fixture con teléfono; sin teléfono no hay aviso, y eso es correcto (no hay encuentro que coordinar).
+2. **`docs/architecture.md` está mucho peor de lo que decía el plan maestro.** No es solo el "lienzo CSS/SVG" del §5. Inventario medido: §1 afirma que la única dependencia nueva del pivot es `python-multipart` (**falso**: también `requests`, `httpx`, `psycopg[binary]`, `leaflet`, `qrcode`, `react-easy-crop`); §2 lista **2 modelos de 14** y dice *"sin migraciones formales: `seed.py` hace `drop_all`"*, que es **falso y peligroso** — existe `migrations/` con 5 `.sql` versionados y cuatro anti-drift; §3 lista 3 servicios de 13; §4 lista 6 grupos de endpoints de 13 routers; §5 dice que el mapa es un lienzo propio en `lib/mapa.ts`, cuando usa **Leaflet desde el ADR 0008** y **`lib/mapa.ts` ya no existe**. Por eso los docs son **dos pasos**, no una viñeta.
+3. **Los 360px: los filtros NO arrancan plegados hoy y la primera tarjeta no se ve.** Presupuesto vertical medido sobre el código: en el catálogo la rejilla empieza cerca de **800px** con un viewport de 640-740; en el deck, la carta sobre los 590px. Con los filtros plegados bajan a ~420 y ~225, y la foto 4:3 entra entera en ambos. Estaba agendado por escrito desde AD-04 (`progress/current.md:235`).
+4. **Bug real encontrado de paso**: el `hayFiltros` de `CatalogoAdopcion.tsx:102-106` **no mira `filtros.edad`**, mientras el de `FiltrosAdopcion.tsx:93-98` sí. Con solo un tramo de edad activo y cero resultados, el vacío dice "Todavía no hay mascotas publicadas" en vez de "Ninguna coincide con estos filtros". Se arregla extrayendo `contarFiltrosActivos` a una sola fuente de verdad.
+5. **`titulo_pet(pet: Pet) -> str`**: `services/titulos.py` recibe el **modelo ORM**, no un dict. Su espejo `tituloMascota` ya existe en `lib/adopcion.ts:204` y hay que copiar su regla literalmente.
+
+### Honestidad sobre el acceptance de 360px
+
+Partido en dos mitades, porque **jsdom no puede probar la segunda**:
+- *"los filtros arrancan plegados"* → **sí es jsdom**: al montar los chips no están en el documento y `aria-expanded="false"`. Cae ante la mutación.
+- *"la primera tarjeta se ve sin scroll"* → **jsdom NO puede**: no tiene motor de layout, `getBoundingClientRect()` devuelve ceros. Un test ahí sería decorativo, justo el género de las tres entradas del 2026-08-16 de `memory/memory.md`. Se mide en **Chrome real** a 360×740 y 360×640, con criterio numérico explícito (`img[alt^="Foto de"]` con `rect.top >= 0 && rect.bottom <= innerHeight`, `aria-expanded === "false"`, `scrollWidth === clientWidth === 360`), no con adjetivos. Precedente: el navegador real encontró el bug de `setPointerCapture` que 18 tests verdes no vieron.
+
+### Los 10 pasos
+
+1. **Fijar los avisos de seguridad que ya existen** (2 tests, cero código; se prueba por mutación).
+2. **Backend**: `titulo_pet` + `GET /adoptar/mascota/{pet_id}` calcado de `/reporte/{id}`, con `html.escape` en todo y og:title consciente del estado ("Ya tiene hogar" si está adoptada — compartirla diciendo "En adopción" sería falso).
+3. **`vercel.json`**: rewrite de bots **antes** del catch-all, con test que asevera el **orden** y compara el bloque de bots byte a byte.
+4. **Nav y landing**, con tres candados: los dos CTAs de emergencia siguen siendo los dos primeros links de la landing, el enlace a `/adoptar` **no** lleva borde (es terciario), y la nav tiene la secuencia exacta.
+5. **Botón "Compartir esta mascota"** en la ficha (sin él, los og tags que añadimos se alcanzarían por accidente).
+6. **Cruce**: la Comunidad de `/ayudar` enlaza al catálogo, como línea permanente y no condicionada a filtrar por `hogar_de_paso` (un cruce que exige filtrar primero no lo ve nadie).
+7. **Filtros plegados en móvil** + `contarFiltrosActivos` (arregla el bug 4). ⚠️ Toca **actualizar 7 tests existentes** que pulsan chips: su premisa caducó a propósito, se les añade `abrirFiltros()` con el porqué escrito. **Cero tests borrados.**
+8. **La medición real en Chrome a 360px**, con números guardados.
+9. **`docs/architecture.md`**: pasada de verdad sobre §1-§5 y §7. Regla del paso: **si no lo puedes comprobar con un comando, no lo escribas**.
+10. **`CLAUDE.md`, `AGENTS.md`, `product-research.md`** + paquete para el revisor.
+
+### Qué NO se sigue del plan maestro
+
+- **La línea de adopciones en la franja verde de la landing**: metería una tercera llamada de red en la landing de emergencia y mezclaría dos métricas en una franja cuyo número significa hoy "reencuentros". No la pide ningún acceptance y la franja de adopciones ya vive en `/adoptar`.
+- **"El rewrite se verifica en prod en AD-09"**: dejar `vercel.json` sin test hasta AD-09 apuesta toda la difusión de fichas a que nadie lo coloque en el sitio equivocado. Es JSON estático: cuesta un test.
+- **Los avisos de seguridad como trabajo pendiente**: ya están; implementarlos otra vez los duplicaría en pantalla.
+- **La búsqueda por descripción con mascotas** sigue fuera de alcance (media integración es peor que ninguna). Queda como nota de backlog en `product-research.md`.
