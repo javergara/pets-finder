@@ -132,3 +132,10 @@ Registro de decisiones de proceso, comandos clave, aprendizajes y gotchas. No es
 - Medido en tres casos de AD-07 (ficha, deck y catálogo): con `findByRole` a secas la mutación sobrevive; con el `act` cae.
 - Cómo distinguir los dos casos: pregúntate si la aserción **ya era cierta antes** de la operación asíncrona. Si sí, es una aserción de no-cambio y necesita el `act`. Si no (esperas a que aparezca algo), `waitFor` es correcto.
 - Y en los dos casos: **verifícalo por mutación**. Es la única forma de saber en cuál de los dos estás.
+
+## 2026-08-16 — `git checkout -- <archivo>` para deshacer una mutación se lleva también el trabajo sin commitear
+
+- Al verificar un test por mutación, el reflejo es romper el archivo y luego restaurarlo con `git checkout -- <archivo>`. **Eso restaura el archivo al último commit**, así que si el paso en curso todavía no está commiteado, borra también la implementación recién escrita — no solo la mutación.
+- Pasó de verdad en AD-08 paso 4 con `App.tsx` y `LandingEmergencia.tsx`. **Lo peor es lo silencioso que es**: `init.sh` no falla, porque el código simplemente vuelve a un estado anterior coherente. Solo se detectó porque la mutación siguiente falló con `Unable to find` en vez de con el síntoma que se esperaba.
+- Forma correcta: copiar el archivo a la carpeta de scratch **antes** de mutarlo y restaurar con `cp`, verificando después el sha1 (o `git diff` vacío si el paso ya estaba commiteado). `git checkout --` solo es seguro cuando lo que quieres restaurar ya está en un commit.
+- Señal de alarma para el futuro: si una mutación falla con un mensaje que no es el que esperabas, sospecha del estado del árbol antes de sospechar del test.
