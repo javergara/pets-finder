@@ -464,3 +464,42 @@ export type AdopcionesResumen = {
   total: number;
   recientes: MascotaResumen[];
 };
+
+/** El cuestionario de hogar de quien adopta (espejo de `HomeProfileOut`, AD-04).
+ *
+ * Es la entrada del cálculo de afinidad: sin él el deck responde igual, pero
+ * con `afinidad: null` en todas las tarjetas.
+ *
+ * `presupuesto_mensual_cop` es `null` cuando la persona no quiso decirlo —
+ * decisión de producto, no un dato faltante: `services/afinidad.py` degrada a
+ * solo-experiencia. Nada de rellenarlo con un número por defecto en la UI. */
+export type PerfilHogar = {
+  user_id: number;
+  vivienda: ViviendaHogar;
+  espacio_exterior: EspacioExterior;
+  personas_en_casa: number;
+  tiene_ninos: boolean;
+  tiene_otros_perros: boolean;
+  tiene_otros_gatos: boolean;
+  horas_fuera_dia: number;
+  experiencia_previa: ExperienciaPrevia;
+  presupuesto_mensual_cop: number | null;
+  preferencia_especies: EspecieAdopcion[];
+  preferencia_tamanos: TamanoMascota[];
+  preferencia_energia: EnergiaMascota;
+};
+
+export type ViviendaHogar = 'apartamento' | 'casa';
+export type EspacioExterior = 'ninguno' | 'patio' | 'jardin';
+export type ExperienciaPrevia = 'ninguna' | 'algo' | 'mucha';
+
+/** Lo que viaja en el `PUT` (espejo de `HomeProfileIn`).
+ *
+ * ⚠️ `user_id` es redundante con el de la ruta a propósito: el backend compara
+ * los dos y responde 403 si no coinciden.
+ *
+ * El presupuesto es el único campo opcional: omitirlo y mandarlo en `null`
+ * significan lo mismo, y el backend acepta las dos formas. */
+export type PerfilHogarIn = Omit<PerfilHogar, 'presupuesto_mensual_cop'> & {
+  presupuesto_mensual_cop?: number | null;
+};

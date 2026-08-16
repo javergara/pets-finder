@@ -19,6 +19,8 @@ import {
   type MascotaUpdate,
   type Necesidad,
   type Organizacion,
+  type PerfilHogar,
+  type PerfilHogarIn,
   type OrganizacionIn,
   type Reporte,
   type ReporteIn,
@@ -478,4 +480,41 @@ export function listarDeck(
   if (adoptanteId !== undefined) params.append('adoptante_id', String(adoptanteId));
   const query = params.toString();
   return request(`/api/pets/deck${query ? `?${query}` : ''}`);
+}
+
+/** Guarda (o reemplaza) el cuestionario de hogar. Upsert: siempre 200. */
+export function guardarPerfilHogar(userId: number, datos: PerfilHogarIn): Promise<PerfilHogar> {
+  return request(`/api/users/${userId}/home-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
+  });
+}
+
+/** El cuestionario propio, o `null` si esa persona todavía no lo contestó.
+ *
+ * ⚠️ **El 404 se mapea a `null`, y SOLO el 404.** "Todavía no contestó" no es un
+ * error: es el estado inicial de todo el mundo, y la pantalla tiene que poder
+ * distinguirlo de un fallo real. Por eso esta función no pasa por `request<T>()`
+ * (que no expone el status y convierte cualquier respuesta no-ok en `ApiError`)
+ * sino que hace su propio `fetch`, como `subirFoto` y `listarReportesPaginado`.
+ *
+ * ⚠️ Y por eso mismo está **prohibido** resolverlo con un `.catch(() => null)` en
+ * la pantalla: eso se tragaría también el 403 (estar mirando el hogar de otra
+ * persona) y los errores de red, y el wizard arrancaría en blanco pisando el
+ * cuestionario que la persona ya había contestado.
+ */
+export async function obtenerPerfilHogar(
+  userId: number,
+  solicitanteId: number,
+): Promise<PerfilHogar | null> {
+  const respuesta = await fetch(
+    `${API_BASE_URL}/api/users/${userId}/home-profile?solicitante_id=${solicitanteId}`,
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  if (respuesta.status === 404) return null;
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
+  }
+  return respuesta.json() as Promise<PerfilHogar>;
 }

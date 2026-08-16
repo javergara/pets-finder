@@ -7,11 +7,13 @@ import {
   listarDeck,
   listarMascotas,
   mediaUrl,
+  guardarPerfilHogar,
   obtenerAdopcionesResumen,
+  obtenerPerfilHogar,
   obtenerMascota,
   registrarSwipe,
 } from './client';
-import type { MascotaIn } from './types';
+import type { MascotaIn, PerfilHogarIn } from './types';
 
 describe('mediaUrl', () => {
   it('prefija las rutas relativas con la base de la API (fotos locales del seed/dev)', () => {
@@ -352,5 +354,81 @@ describe('las escrituras de adopción nunca mandan adoptante_id', () => {
       const body = initPedido(espia).body;
       if (body !== undefined) expect(String(body)).not.toContain('adoptante_id');
     }
+  });
+});
+
+// ── Perfil de hogar (AD-04) ──────────────────────────────────────────────────
+// El riesgo de estas dos funciones no es la URL sino **qué se hace con el 404**:
+// "todavía no contestó el cuestionario" es el estado inicial de todo el mundo y
+// no puede llegar a la pantalla como un error, pero tampoco puede tragarse el
+// 403 ni un fallo de red.
+
+const PERFIL_HOGAR: PerfilHogarIn = {
+  user_id: 7,
+  vivienda: 'apartamento',
+  espacio_exterior: 'ninguno',
+  personas_en_casa: 2,
+  tiene_ninos: false,
+  tiene_otros_perros: false,
+  tiene_otros_gatos: false,
+  horas_fuera_dia: 8,
+  experiencia_previa: 'algo',
+  presupuesto_mensual_cop: null,
+  preferencia_especies: ['perro'],
+  preferencia_tamanos: ['mediano'],
+  preferencia_energia: 'media',
+};
+
+describe('guardarPerfilHogar', () => {
+  it('hace PUT a la ruta del usuario con el cuestionario completo en el body', async () => {
+    const espia = espiarFetch({ ...PERFIL_HOGAR });
+
+    await guardarPerfilHogar(7, PERFIL_HOGAR);
+
+    expect(urlPedida(espia)).toBe('http://127.0.0.1:8000/api/users/7/home-profile');
+    const init = initPedido(espia);
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(String(init.body))).toEqual(PERFIL_HOGAR);
+  });
+
+  it('un 403 llega como ApiError con el detail en español, no como null', async () => {
+    espiarFetchError(403, 'Solo puedes editar el perfil de hogar de tu cuenta');
+
+    await expect(guardarPerfilHogar(7, PERFIL_HOGAR)).rejects.toThrow(
+      'Solo puedes editar el perfil de hogar de tu cuenta',
+    );
+  });
+});
+
+describe('obtenerPerfilHogar', () => {
+  it('pide la ruta con solicitante_id y devuelve el cuestionario', async () => {
+    const espia = espiarFetch({ ...PERFIL_HOGAR });
+
+    const perfil = await obtenerPerfilHogar(7, 7);
+
+    expect(urlPedida(espia)).toBe(
+      'http://127.0.0.1:8000/api/users/7/home-profile?solicitante_id=7',
+    );
+    expect(perfil?.vivienda).toBe('apartamento');
+  });
+
+  it('mapea el 404 a null: "todavía no contestó" no es un error', async () => {
+    espiarFetchError(404, 'Todavía no completaste el cuestionario de tu hogar');
+
+    await expect(obtenerPerfilHogar(7, 7)).resolves.toBeNull();
+  });
+
+  it('NO se traga el 403: mirar el hogar de otra persona sigue siendo un error', async () => {
+    // Con un `.catch(() => null)` en la pantalla este caso devolvería `null` y el
+    // wizard arrancaría en blanco sobre un perfil ajeno, sin decir nada.
+    espiarFetchError(403, 'Solo puedes consultar tu propio perfil de hogar');
+
+    await expect(obtenerPerfilHogar(7, 9)).rejects.toThrow(ApiError);
+  });
+
+  it('NO se traga un 500: un fallo real del servidor no es un perfil vacío', async () => {
+    espiarFetchError(500, 'Internal Server Error');
+
+    await expect(obtenerPerfilHogar(7, 7)).rejects.toThrow(ApiError);
   });
 });
