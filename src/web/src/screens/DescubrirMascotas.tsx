@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { type FiltrosMascotas, listarDeck, registrarSwipe } from '../api/client';
-import type { DireccionSwipe, Mascota } from '../api/types';
+import type { DireccionSwipe, Mascota, SolicitudResumen } from '../api/types';
 import { FiltrosAdopcion } from '../components/FiltrosAdopcion';
 import { MascotaSwipeCard } from '../components/MascotaSwipeCard';
+import { SolicitudEnviadaModal } from '../components/SolicitudEnviadaModal';
 import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 
@@ -45,6 +46,9 @@ export function DescubrirMascotas() {
   const [filtros, setFiltros] = useState<FiltrosMascotas>(FILTROS_ADOPCION_DEFAULT);
   const [mascotas, setMascotas] = useState<Mascota[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El acuse del "me interesa" (AD-05). Solo lo llena el backend: si viene
+  // `solicitud`, es que la creó de verdad.
+  const [solicitudEnviada, setSolicitudEnviada] = useState<SolicitudResumen | null>(null);
   const navigate = useNavigate();
 
   // Cada cambio de filtro pide un deck nuevo. Solo aquí: los swipes no
@@ -82,7 +86,12 @@ export function DescubrirMascotas() {
     if (!conCuenta) return;
 
     try {
-      await registrarSwipe(getActiveUserId(), actual.id, direccion);
+      const swipe = await registrarSwipe(getActiveUserId(), actual.id, direccion);
+      // El modal nace de lo que respondió el backend, no de la dirección que se
+      // pulsó: el "ahora no" viene siempre con `solicitud: null` (no pide nada a
+      // nadie), y un "me interesa" repetido devuelve la solicitud que ya había
+      // en vez de crear otra — el acuse es correcto en los dos casos.
+      if (swipe.solicitud) setSolicitudEnviada(swipe.solicitud);
     } catch {
       // A propósito en silencio: la decisión ya se tomó en pantalla y el deck no
       // se bloquea por la red (`docs/conventions.md` §3). Lo que se pierde es el
@@ -176,6 +185,15 @@ export function DescubrirMascotas() {
           </section>
         )}
       </div>
+
+      {/* El deck sigue montado debajo: cerrar el acuse devuelve a la carta
+          siguiente, que ya se quitó al decidir. */}
+      {solicitudEnviada && (
+        <SolicitudEnviadaModal
+          solicitud={solicitudEnviada}
+          onSeguirViendo={() => setSolicitudEnviada(null)}
+        />
+      )}
     </div>
   );
 }

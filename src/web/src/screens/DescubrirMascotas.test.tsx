@@ -23,6 +23,9 @@ import { DescubrirMascotas } from './DescubrirMascotas';
 //    que acaba de pasar.
 // 3. **Ver el deck nunca exige cuenta ni perfil de hogar**: sin afinidad se
 //    invita a completarlo, pero el deck funciona igual.
+// 4. **El "me interesa" avisa que salió una solicitud** (AD-05): sin ese acuse,
+//    quien swipea no tiene forma de saber que acaba de pedir una mascota ni
+//    dónde seguirla.
 
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
@@ -279,6 +282,65 @@ describe('DescubrirMascotas', () => {
     expect(await screen.findByText('94% afín')).toBeInTheDocument();
     expect(screen.getByText(/Energía media, ideal para tus 6 horas fuera/)).toBeInTheDocument();
     expect(screen.queryByText(/Mejora tus coincidencias/i)).not.toBeInTheDocument();
+  });
+
+  // AD-05, paso 6. El swipe-derecha crea la solicitud en el backend y la
+  // devuelve en `SwipeOut.solicitud`; el modal es el único acuse de recibo que
+  // ve quien la envió. Sin él, "Me interesa" se siente igual que "Ahora no".
+  it('"Me interesa" que crea solicitud la acusa con el nombre de la mascota', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.registrarSwipe).mockResolvedValue({
+      id: 1,
+      user_id: 7,
+      pet_id: 7,
+      direccion: 'like',
+      creado_en: '2026-08-15T10:00:00',
+      solicitud: {
+        id: 31,
+        estado: 'solicitado',
+        etiqueta: 'Sin responder · 0 días',
+        creado_en: '2026-08-15T10:00:00',
+        pet: {
+          id: 7,
+          nombre: 'Canela',
+          especie: 'perro',
+          raza: 'Cocker mestiza',
+          edad_meses: 18,
+          fotos: ['/media/seed/pet_7.jpg'],
+          estado: 'disponible',
+        },
+      },
+    });
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Me interesa' }));
+
+    const modal = await screen.findByRole('dialog');
+    expect(modal).toHaveTextContent('Canela');
+    expect(screen.getByRole('link', { name: 'Ver mis solicitudes' })).toHaveAttribute(
+      'href',
+      '/adoptar/mis-solicitudes',
+    );
+    // El deck sigue vivo detrás: cerrar el acuse devuelve a la carta siguiente.
+    fireEvent.click(screen.getByRole('button', { name: 'Seguir viendo mascotas' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Rocky' })).toBeInTheDocument();
+  });
+
+  it('"Ahora no" no acusa nada: el pass no pide ninguna mascota', async () => {
+    setActiveUserId(7);
+    // El backend manda `solicitud: null` en el pass (el del `beforeEach`), así
+    // que la pantalla no tiene nada que anunciar. Un modal aquí sería decirle a
+    // alguien que pidió la mascota que acaba de descartar.
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }));
+
+    expect(await screen.findByRole('heading', { name: 'Rocky' })).toBeInTheDocument();
+    expect(client.registrarSwipe).toHaveBeenCalledWith(7, 7, 'pass');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('mientras carga muestra el esqueleto anunciado como estado, no una pantalla vacía', () => {

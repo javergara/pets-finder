@@ -6,7 +6,8 @@ import App from './App';
 import { setActiveUserId } from './lib/session';
 
 // La landing pide el resumen de reencuentros al montar; el deck de AD-03 pide su
-// baraja. Se mockean las dos para que ninguna ruta salga a la red de verdad.
+// baraja y "Mis solicitudes" (AD-05) sus dos listas. Se mockean todas para que
+// ninguna ruta salga a la red de verdad.
 vi.mock('./api/client', async () => {
   const actual = await vi.importActual<typeof client>('./api/client');
   return {
@@ -14,6 +15,7 @@ vi.mock('./api/client', async () => {
     obtenerReunidos: vi.fn(),
     listarDeck: vi.fn(),
     obtenerPerfilHogar: vi.fn(),
+    listarSolicitudes: vi.fn(),
   };
 });
 
@@ -21,6 +23,7 @@ beforeEach(() => {
   vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 0, recientes: [] });
   vi.mocked(client.listarDeck).mockResolvedValue([]);
   vi.mocked(client.obtenerPerfilHogar).mockResolvedValue(null);
+  vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
   setActiveUserId(1);
 });
 
@@ -77,6 +80,20 @@ describe('App', () => {
     );
 
     expect(await screen.findByText('Paso 1 de 6')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
+  });
+
+  // "Mis solicitudes" (AD-05) vive dentro de AppLayout como el resto del módulo.
+  // Con cuenta activa se monta la pantalla; sin ella se iría al registro, que es
+  // el caso propio de `MisSolicitudes.test.tsx`.
+  it('en "/adoptar/mis-solicitudes" monta las solicitudes con el <Nav/> interno', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adoptar/mis-solicitudes']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Mis solicitudes' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
   });
 

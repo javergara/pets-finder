@@ -2,13 +2,24 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
-import type { Mascota } from '../api/types';
+import type { Mascota, Solicitud } from '../api/types';
 import { esUsuarioActivo, setActiveUserId } from '../lib/session';
 import { PanelAdopcionOrganizacion } from './PanelAdopcionOrganizacion';
 
+// ⚠️ `listarSolicitudes` (AD-05) tiene que estar en esta factory aunque un test
+// no la use: el `afterEach` corre `vi.resetAllMocks()`, así que sin declararla
+// el módulo mockeado no la expone y cada render con `esAutor` revienta con
+// `Cannot read properties of undefined (reading 'then')` — un error que parece
+// del componente y no lo es. Por lo mismo, todo test con `esAutor: true` le da
+// su `mockResolvedValue([])`.
 vi.mock('../api/client', async () => {
   const actual = await vi.importActual<typeof client>('../api/client');
-  return { ...actual, listarMascotas: vi.fn(), editarMascota: vi.fn() };
+  return {
+    ...actual,
+    listarMascotas: vi.fn(),
+    editarMascota: vi.fn(),
+    listarSolicitudes: vi.fn(),
+  };
 });
 
 afterEach(() => {
@@ -56,6 +67,34 @@ function mascota(overrides: Partial<Mascota> = {}): Mascota {
   };
 }
 
+/** Una solicitud recibida por el lugar (AD-05). La mascota se llama distinto
+ * que la de la rejilla a propósito: si compartieran nombre, el enlace de la
+ * fila y el de la tarjeta serían dos enlaces con el mismo nombre accesible y
+ * ninguna consulta podría distinguirlos. */
+function solicitud(overrides: Partial<Solicitud> = {}): Solicitud {
+  return {
+    id: 12,
+    estado: 'solicitado',
+    etiqueta: 'Sin responder · 3 días',
+    creado_en: '2026-08-15T09:00:00',
+    actualizado_en: null,
+    pet: {
+      id: 34,
+      nombre: 'Pelusa',
+      especie: 'gato',
+      raza: null,
+      edad_meses: 24,
+      fotos: [],
+      estado: 'disponible',
+    },
+    publicador: null,
+    adoptante: { id: 9, nombre: 'Carlos Ruiz' },
+    afinidad: null,
+    acciones_disponibles: ['agendar-visita', 'pedir-informacion', 'aprobar', 'descartar'],
+    ...overrides,
+  };
+}
+
 function renderPanel(esAutor: boolean) {
   return render(
     <MemoryRouter>
@@ -88,6 +127,7 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
 
   it('el autor ve el CTA para publicar con la organización en la URL', async () => {
     vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
 
     renderPanel(true);
 
@@ -131,6 +171,7 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
   it('el autor cambia el estado y el panel refleja el nuevo', async () => {
     setActiveUserId(3);
     vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
     vi.mocked(client.editarMascota).mockResolvedValue(mascota({ estado: 'adoptado' }));
 
     renderPanel(true);
@@ -152,6 +193,7 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
   it('un 403 al cambiar el estado se avisa sin tumbar el panel', async () => {
     setActiveUserId(3);
     vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
     vi.mocked(client.editarMascota).mockRejectedValue(
       new client.ApiError('Solo quien publicó la mascota puede editarla'),
     );
@@ -174,6 +216,7 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
 
   it('sin mascotas muestra su propio texto, con CTA solo para el autor', async () => {
     vi.mocked(client.listarMascotas).mockResolvedValue([]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
 
     const { unmount } = renderPanel(false);
 
@@ -207,6 +250,7 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
       mascota(),
       mascota({ id: 32, nombre: 'Tomás' }),
     ]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([]);
 
     renderPanel(true);
 
@@ -227,6 +271,53 @@ describe('PanelAdopcionOrganizacion (AD-02, A1)', () => {
 
     await screen.findByRole('heading', { name: 'Nala' });
     expect(screen.queryByRole('link', { name: /Editar/i })).not.toBeInTheDocument();
+  });
+
+  // AD-05, paso 6: las solicitudes que recibió el lugar. Van dentro del panel
+  // porque es donde ya está quien decide, y **solo para el autor**: la lista
+  // trae el nombre de quien pidió cada mascota, que no es información pública
+  // como sí lo es la rejilla.
+  it('el autor ve las solicitudes que recibió el lugar, pedidas por esta organización', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([solicitud()]);
+
+    renderPanel(true);
+
+    expect(await screen.findByRole('link', { name: /Pelusa/ })).toHaveAttribute(
+      'href',
+      '/adoptar/solicitud/12',
+    );
+    expect(screen.getByText(/Carlos Ruiz/)).toBeInTheDocument();
+    // `organizacionId` y no `publicadorId`: aquí se responde como el lugar, y
+    // el filtro de publicador traería además las mascotas personales del autor.
+    expect(client.listarSolicitudes).toHaveBeenCalledWith({ organizacionId: 1 });
+  });
+
+  it('quien no es el autor ni ve las solicitudes ni se las pide al backend', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockResolvedValue([solicitud()]);
+
+    renderPanel(false);
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(screen.queryByText(/Carlos Ruiz/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Pelusa/ })).not.toBeInTheDocument();
+    // No basta con esconderlas: pedirlas ya sería exponer datos de terceros a
+    // cualquier visitante de la ficha.
+    expect(client.listarSolicitudes).not.toHaveBeenCalled();
+  });
+
+  it('si fallan las solicitudes, la rejilla de mascotas sigue en pie', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([mascota()]);
+    vi.mocked(client.listarSolicitudes).mockRejectedValue(new Error('offline'));
+
+    renderPanel(true);
+
+    expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Estado de Nala')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'No pudimos cargar las solicitudes de este lugar.',
+    );
   });
 
   it('si la carga falla lo dice en español y sale del esqueleto', async () => {

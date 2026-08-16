@@ -104,6 +104,16 @@ export function CatalogoAdopcion() {
             >
               Mi hogar
             </Link>
+            {/* "Mis solicitudes" (AD-05) tampoco tiene gate aquí: el enlace es
+                público y la pantalla es la que pide cuenta, porque es la que lee
+                datos personales. Sin esta entrada solo se llegaría desde el acuse
+                de un swipe, que se cierra y no vuelve. */}
+            <Link
+              to="/adoptar/mis-solicitudes"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mis solicitudes
+            </Link>
             <Link
               to="/adoptar/publicar"
               className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"

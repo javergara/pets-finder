@@ -202,6 +202,19 @@ describe('CatalogoAdopcion', () => {
     );
   });
 
+  // Igual que el deck y el cuestionario: "Mis solicitudes" (AD-05) no está en la
+  // nav hasta AD-08, así que sin esta entrada la pantalla solo se alcanza desde
+  // el acuse de un swipe — y ese modal se cierra y no vuelve.
+  it('el header lleva a las solicitudes propias (AD-05)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('link', { name: 'Mis solicitudes' })).toHaveAttribute(
+      'href',
+      '/adoptar/mis-solicitudes',
+    );
+  });
+
   it('si la API falla muestra un mensaje en español y quita el esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 
