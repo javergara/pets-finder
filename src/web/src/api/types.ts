@@ -474,7 +474,6 @@ export type AdopcionesResumen = {
  * decisión de producto, no un dato faltante: `services/afinidad.py` degrada a
  * solo-experiencia. Nada de rellenarlo con un número por defecto en la UI. */
 export type PerfilHogar = {
-  user_id: number;
   vivienda: ViviendaHogar;
   espacio_exterior: EspacioExterior;
   personas_en_casa: number;
@@ -495,11 +494,16 @@ export type ExperienciaPrevia = 'ninguna' | 'algo' | 'mucha';
 
 /** Lo que viaja en el `PUT` (espejo de `HomeProfileIn`).
  *
- * ⚠️ `user_id` es redundante con el de la ruta a propósito: el backend compara
- * los dos y responde 403 si no coinciden.
+ * ⚠️ `user_id` va SOLO aquí, no en `PerfilHogar`: es redundante con el de la
+ * ruta a propósito, porque el backend compara los dos y responde 403 si no
+ * coinciden. La respuesta (`HomeProfileOut`) NO lo devuelve — quien la recibe
+ * es siempre su dueño, así que repetírselo sería devolverle lo que acaba de
+ * poner en la URL. Declararlo en el tipo de respuesta lo volvía una mentira que
+ * ningún test podía atrapar, porque mockean el `fetch` con un cuerpo inventado.
  *
  * El presupuesto es el único campo opcional: omitirlo y mandarlo en `null`
  * significan lo mismo, y el backend acepta las dos formas. */
 export type PerfilHogarIn = Omit<PerfilHogar, 'presupuesto_mensual_cop'> & {
+  user_id: number;
   presupuesto_mensual_cop?: number | null;
 };

@@ -47,8 +47,10 @@ function montar() {
   );
 }
 
+// Sin `user_id`: `HomeProfileOut` no lo devuelve (quien recibe la respuesta es
+// siempre su dueño). Tenerlo aquí hacía que el fixture describiera un cuerpo que
+// el backend nunca manda, y como el test mockea el `fetch`, nadie lo notaba.
 const PERFIL_GUARDADO: PerfilHogar = {
-  user_id: 7,
   vivienda: 'casa',
   espacio_exterior: 'patio',
   personas_en_casa: 4,

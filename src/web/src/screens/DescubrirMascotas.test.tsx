@@ -254,13 +254,20 @@ describe('DescubrirMascotas', () => {
     expect(await screen.findByRole('heading', { name: 'Rocky' })).toBeInTheDocument();
   });
 
-  it('la invitación todavía no es un enlace: /adoptar/mi-hogar no existe hasta AD-04', async () => {
+  // ⚠️ Este caso **reemplaza** al de AD-03 ("la invitación todavía no es un
+  // enlace"), que aseveraba justo lo contrario. No es que el test estuviera mal:
+  // su premisa era que `/adoptar/mi-hogar` no existía y un link habría sido una
+  // pantalla en blanco en producción entre los dos deploys. AD-04 crea la ruta,
+  // así que la premisa dejó de ser cierta — mismo caso que los chips de edad en
+  // AD-03. Sin el enlace la invitación no lleva a ninguna parte: hay que
+  // adivinar la URL.
+  it('la invitación lleva al cuestionario de hogar, ahora que la ruta existe', async () => {
     renderDeck();
     const invitacion = await screen.findByText(/Mejora tus coincidencias/i);
 
-    // Un link a una ruta inexistente sería una pantalla en blanco en producción
-    // entre el deploy de AD-03 y el de AD-04. AD-04 lo convierte en enlace.
-    expect(invitacion.closest('section')?.querySelector('a')).toBeNull();
+    const enlace = invitacion.closest('section')?.querySelector('a');
+    expect(enlace).not.toBeNull();
+    expect(enlace).toHaveAttribute('href', '/adoptar/mi-hogar');
   });
 
   it('con perfil de hogar muestra el porcentaje de afinidad y ya no invita', async () => {

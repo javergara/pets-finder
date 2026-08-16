@@ -157,15 +157,22 @@ export function DescubrirMascotas() {
         )}
 
         {sinAfinidad && (
-          /* Invitación, no guard: el deck ya está funcionando debajo. Todavía sin
-             enlace a propósito — `/adoptar/mi-hogar` no existe hasta AD-04 y en
-             producción, entre los dos deploys, sería una pantalla en blanco. */
+          /* Invitación, no guard: el deck ya está funcionando debajo, y quien no
+             quiera contestar sigue viendo todas las mascotas (AD-03). Desde
+             AD-04 sí lleva enlace: la ruta existe y sin él habría que adivinar
+             la URL para poder contestar. */
           <section className="mt-6 w-full rounded-2xl border border-forest-tint-line bg-forest-tint p-4 text-center">
             <h2 className="font-display text-lg text-forest">Mejora tus coincidencias</h2>
             <p className="mt-1 text-sm text-ink-soft">
-              Muy pronto vas a poder contarnos cómo es tu casa y tu rutina, y te mostraremos primero
-              las mascotas que mejor encajan contigo.
+              Cuéntanos cómo es tu casa y tu rutina y te mostramos primero las mascotas que mejor
+              encajan contigo, con el porqué de cada una.
             </p>
+            <Link
+              to="/adoptar/mi-hogar"
+              className="mt-3 inline-block rounded-full bg-forest px-5 py-2.5 font-medium text-bg"
+            >
+              Contestar seis preguntas
+            </Link>
           </section>
         )}
       </div>
