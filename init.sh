@@ -101,7 +101,9 @@ fi
 # ---------------------------------------------------------------------------
 say "8. Tests"
 if [ -d tests/api ] && find tests/api -name 'test_*.py' -print -quit | grep -q .; then
-  pytest tests/api && ok "tests de API pasan" || fail "tests de API fallaron"
+  # Sin ruta explícita: pytest usa los testpaths de pyproject.toml (api, crawler,
+  # dedup, …) — con "tests/api" a secas el harness dejaba 45 tests fuera.
+  pytest && ok "tests de API pasan" || fail "tests de API fallaron"
 else
   skip "sin tests en tests/api todavía"
 fi
