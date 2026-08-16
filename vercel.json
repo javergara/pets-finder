@@ -29,6 +29,17 @@
       ],
       "destination": "/api/index"
     },
+    {
+      "source": "/adoptar/mascota/:id",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot).*"
+        }
+      ],
+      "destination": "/api/index"
+    },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
