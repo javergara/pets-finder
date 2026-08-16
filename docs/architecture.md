@@ -146,7 +146,7 @@ Igual que en la era Adopta: ninguna real. `localStorage` guarda `reencuentro_act
 
 Frontend estático y API **serverless** en un solo proyecto de Vercel (entry `api/index.py`, ADR 0007); persistencia en **Supabase** — Postgres vía `DATABASE_URL` (en local sigue SQLite) y fotos en Storage vía `media.py::subir_a_supabase` cuando `SUPABASE_URL`/`SUPABASE_SERVICE_KEY` están configuradas (ADR 0006). Auto-deploy con cada push a `main`. Guía completa en `docs/deploy.md`.
 
-Variables de entorno que leen los módulos (`grep -rn "os.environ.get" src/api api`): `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_BUCKET`, `CORS_ORIGINS`, `SITE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET` y `SKIP_DB_CREATE_ALL`.
+Variables de entorno que leen los módulos (`grep -rn "os.environ.get" src/api api`): `DATABASE_URL` (o `POSTGRES_URL`/`POSTGRES_PRISMA_URL`), `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (con `SUPABASE_SERVICE_ROLE_KEY` como alias de respaldo, `media.py`), `SUPABASE_BUCKET`, `CORS_ORIGINS`, `SITE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `CRON_SECRET` y `SKIP_DB_CREATE_ALL`.
 
 **`SKIP_DB_CREATE_ALL=1` está puesto en producción** (feature 19). Con esa variable el arranque **se salta `Base.metadata.create_all`**: recorta el arranque en frío del serverless, y a cambio **ninguna tabla ni columna se crea sola en el deploy**. Sin la variable (dev y tests), `create_all` sigue creando el esquema como siempre, dentro de un `try` que deja la app sirviendo `/health` aunque falle.
 

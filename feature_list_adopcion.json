@@ -96,7 +96,7 @@
       "id": "AD-08-integracion-transversal",
       "title": "Integración transversal: nav, landing, og tags y cruces con los flujos actuales",
       "description": "Coser el módulo a la app: pestaña 'Adoptar' en la nav y CTA en la landing (sin robar protagonismo a los dos caminos de emergencia); og tags por mascota para compartir por WhatsApp (extender routers/paginas.py y el rewrite de bots de vercel.json a /adoptar/mascota/:id); título auto-compuesto reutilizando services/titulos.py; avisos de seguridad (feature 40) en publicar/contactar; cruces: la Comunidad de /ayudar enlaza el catálogo en la categoría hogar_de_paso, y la búsqueda por descripción (feature 38) opcionalmente incluye mascotas en adopción. Actualizar CLAUDE.md, AGENTS.md, docs/architecture.md y product-research con el módulo.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-02-publicar-en-adopcion", "AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "La nav y la landing dan acceso a /adoptar y compartir una ficha muestra vista previa con foto y nombre en WhatsApp (test del HTML de bots)",
