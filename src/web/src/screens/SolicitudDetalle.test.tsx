@@ -393,6 +393,34 @@ describe('SolicitudDetalle — hablar por WhatsApp', () => {
   });
 });
 
+// El aviso de seguridad (feature 40) tiene describe propio a propósito. Los dos
+// casos de WhatsApp de arriba ya lo aseveran de paso, pero su NOMBRE habla del
+// enlace: un refactor de esos casos —o su reemplazo por uno solo que compare los
+// dos hrefs— se llevaría por delante el candado del aviso sin que salte nada.
+// Aquí el aviso es lo que el caso dice proteger, y por eso asevera el fragmento
+// que nombra la estafa concreta ("nadie debe pedirte dinero"), no la entradilla.
+//
+// El complemento importa tanto como el caso: el aviso vive DENTRO de la rama
+// `otroLado.telefono` y eso es correcto, porque sin teléfono no hay encuentro que
+// coordinar. Sin la segunda mitad, mover el aviso fuera del ternario —pintándolo
+// también cuando no hay a quién escribirle— no rompería nada.
+describe('SolicitudDetalle — el aviso de seguridad', () => {
+  it('avisa de la estafa del dinero junto a los datos de contacto', async () => {
+    await montarCon(detalle());
+
+    expect(screen.getByText(/nadie debe pedirte dinero/i)).toBeInTheDocument();
+  });
+
+  it('sin teléfono del otro lado no aparece: no hay encuentro que coordinar', async () => {
+    await montarCon(detalle({ telefono_contacto: null }));
+
+    expect(screen.queryByText(/nadie debe pedirte dinero/i)).not.toBeInTheDocument();
+    // La sección sigue ahí (con el "no dejó teléfono"): la ausencia es del
+    // aviso, no de media pantalla que no llegó a renderizarse.
+    expect(screen.getByText(/no dejó un teléfono/i)).toBeInTheDocument();
+  });
+});
+
 // El gate de cuenta, aparte porque es el caso de seguridad: la pantalla no
 // compara autoría, *consulta* con el id activo, y sin cuenta ese id es el
 // usuario demo (1) — una persona real en producción. La respuesta trae el
