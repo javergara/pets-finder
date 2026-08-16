@@ -440,6 +440,63 @@ def test_una_publicada_hace_mas_de_90_dias_tambien_se_intercala(
     assert posicion <= 5
 
 
+# --- Orden base determinista (la diferencia SQLite ↔ Postgres) -----------------
+
+
+def test_el_deck_sale_ordenado_por_publicado_en_descendente(
+    client, db_session, adoptante, publicador
+):
+    """La query lleva `ORDER BY publicado_en DESC, id DESC`, el mismo criterio del
+    catálogo (`listar_mascotas`).
+
+    ⚠️ Sin ese `ORDER BY` este test **también** queda rojo en SQLite, pero por
+    casualidad: la base devuelve las filas en orden de `rowid` (el de inserción),
+    que aquí es justo el inverso del esperado. En Postgres el orden de base es
+    arbitrario y no habría nada que aseverar. Por eso la siembra va del más
+    antiguo al más nuevo: es la única forma de que el motor de los tests note la
+    ausencia del orden que sí importa en producción.
+    """
+    ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+    _sembrar(
+        db_session,
+        publicador,
+        ("Canela", {"publicado_en": ahora - timedelta(days=3)}),
+        ("Rocky", {"publicado_en": ahora - timedelta(days=2)}),
+        ("Luna", {"publicado_en": ahora - timedelta(days=1)}),
+    )
+
+    respuesta = client.get(f"/api/pets/deck?adoptante_id={adoptante.id}")
+
+    assert _nombres(respuesta) == ["Luna", "Rocky", "Canela"]
+
+
+def test_dos_llamadas_seguidas_devuelven_el_mismo_orden_sin_perfil(client, db_session, publicador):
+    """Sin perfil de hogar **todas** las mascotas empatan (`ordenar_deck` las
+    puntúa a 0 y `sorted` es estable), así que el orden que ve el usuario es el
+    que sale de la base. Sin `ORDER BY` eso lo decide Postgres a su antojo y dos
+    requests seguidos pueden barajar el deck: quien recarga vería otra carta
+    encima sin haber hecho nada.
+
+    Las fechas van relativas a la corrida y nunca literales: un `publicado_en`
+    fijo se vuelve "difícil de ubicar" a los 90 días y `ordenar_deck` empezaría a
+    intercalar, cambiando el orden esperado (la fecha-bomba de la feature 35).
+    """
+    momento = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=1)
+    _sembrar(
+        db_session,
+        publicador,
+        *((f"Mascota {n}", {"publicado_en": momento}) for n in range(6)),
+    )
+
+    primera = _nombres(client.get("/api/pets/deck"))
+    segunda = _nombres(client.get("/api/pets/deck"))
+
+    assert primera == segunda
+    # Empatadas en `publicado_en`, desempata el id descendente: la última
+    # publicada primero, igual que en el catálogo.
+    assert primera == [f"Mascota {n}" for n in reversed(range(6))]
+
+
 # --- Anti-N+1 ------------------------------------------------------------------
 
 

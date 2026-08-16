@@ -443,6 +443,17 @@ def deck_de_descubrimiento(
         ya_swipeadas = select(Swipe.pet_id).where(Swipe.user_id == adoptante_id)
         query = query.where(Pet.id.not_in(ya_swipeadas))
 
+    # Orden base determinista, el mismo criterio de `listar_mascotas`. ⚠️ No es
+    # cosmético ni redundante con `ordenar_deck`: `sorted` es estable, así que lo
+    # que sale de la base es exactamente lo que decide el orden de todas las
+    # mascotas empatadas — y **sin perfil de hogar empatan todas** (afinidad
+    # `None` → 0). Sin `ORDER BY`, SQLite las devuelve por `rowid` y parece
+    # estable, pero en Postgres el orden de base es arbitrario: dos requests
+    # seguidos pueden barajar el deck y quien recarga vería otra carta encima sin
+    # haber hecho nada. Es una diferencia de motor que los tests, que corren
+    # sobre SQLite, no verían por sí solos.
+    query = query.order_by(Pet.publicado_en.desc(), Pet.id.desc())
+
     pets = list(session.execute(query).scalars().all())
     publicadores = _publicadores_por_pet(session, pets)
     resultados = [_pet_out(pet, publicadores, home) for pet in pets]
