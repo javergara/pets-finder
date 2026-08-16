@@ -1,0 +1,257 @@
+"""Tests unitarios puros de `reencuentro_api.services.solicitudes` (sin DB, sin HTTP).
+
+Los 14 casos de `validar_transicion`/`calcular_etiqueta_solicitud` vienen portados
+de `tests/api/test_solicitudes_service.py` de la era Adopta (`adopta-v1`). Lo que
+AD-05 añade es la cuarta acción (`aprobar`), `acciones_disponibles` —que el
+backend calcula para que el frontend no reimplemente la matriz— y el guard de
+vocabulario del final del archivo.
+
+⚠️ La matriz se recorre siempre desde `ESTADOS_SOLICITUD` y `TRANSICIONES_VALIDAS`
+del propio módulo, nunca desde una lista copiada aquí: con una lista local,
+añadirle un estado al servicio pasaría sin que ningún test se entere — que es
+exactamente el accidente contra el que existe este archivo.
+
+Los tests de integración HTTP (`GET /api/solicitudes`, las cuatro acciones) son
+de los pasos 2 y 3 y viven en `test_solicitudes.py`.
+"""
+
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from reencuentro_api.services.solicitudes import (
+    ESTADOS_SOLICITUD,
+    MOTIVO_ADOPTADA_POR_OTRA,
+    ORDEN_ACCIONES,
+    TRANSICIONES_VALIDAS,
+    TransicionInvalidaError,
+    acciones_disponibles,
+    calcular_etiqueta_solicitud,
+    validar_transicion,
+)
+
+# --- validar_transicion -------------------------------------------------------
+
+
+@pytest.mark.parametrize("accion", sorted(TRANSICIONES_VALIDAS))
+@pytest.mark.parametrize("estado", ESTADOS_SOLICITUD)
+def test_validar_transicion_matriz_completa(estado, accion):
+    """5 estados x 4 acciones = 20 combinaciones: válidas no lanzan, inválidas sí."""
+    if estado in TRANSICIONES_VALIDAS[accion]:
+        # No debe lanzar.
+        validar_transicion(estado, accion)
+    else:
+        with pytest.raises(TransicionInvalidaError) as exc_info:
+            validar_transicion(estado, accion)
+        assert str(exc_info.value)
+
+
+def test_validar_transicion_agendar_visita_valida_desde_solicitado():
+    validar_transicion("solicitado", "agendar-visita")
+
+
+def test_validar_transicion_agendar_visita_valida_desde_en_revision():
+    validar_transicion("en_revision", "agendar-visita")
+
+
+def test_validar_transicion_pedir_informacion_invalida_desde_en_revision():
+    """Pedir información dos veces no es un paso adelante: ya se pidió."""
+    with pytest.raises(TransicionInvalidaError, match="en_revision"):
+        validar_transicion("en_revision", "pedir-informacion")
+
+
+def test_validar_transicion_descartar_valida_desde_visita_agendada():
+    validar_transicion("visita_agendada", "descartar")
+
+
+@pytest.mark.parametrize("accion", sorted(TRANSICIONES_VALIDAS))
+def test_validar_transicion_estados_terminales_siempre_invalida(accion):
+    """Los estados terminales (`adoptado`, `cerrado`) no están en ningún set de
+    `TRANSICIONES_VALIDAS`: cualquier acción sobre ellos lanza siempre."""
+    for estado_terminal in ("adoptado", "cerrado"):
+        with pytest.raises(TransicionInvalidaError):
+            validar_transicion(estado_terminal, accion)
+
+
+# --- `aprobar`: la acción que no existía en `adopta-v1` ------------------------
+
+
+def test_aprobar_valido_desde_los_tres_estados():
+    """Se puede aprobar en cualquier punto del proceso, incluido el primero: hay
+    adopciones que se cierran en la primera llamada y obligar a pasar por
+    `en_revision` sería burocracia inventada por el software."""
+    for estado in ("solicitado", "en_revision", "visita_agendada"):
+        validar_transicion(estado, "aprobar")
+
+
+def test_aprobar_invalido_desde_adoptado_y_cerrado():
+    """Aprobar dos veces volvería a mover `pet.estado` y a cerrar solicitudes ya
+    cerradas; aprobar una descartada resucitaría una decisión ya tomada."""
+    for estado in ("adoptado", "cerrado"):
+        with pytest.raises(TransicionInvalidaError, match=estado):
+            validar_transicion(estado, "aprobar")
+
+
+# --- acciones_disponibles ------------------------------------------------------
+
+ACCIONES_ESPERADAS: dict[str, list[str]] = {
+    "solicitado": ["agendar-visita", "pedir-informacion", "aprobar", "descartar"],
+    "en_revision": ["agendar-visita", "aprobar", "descartar"],
+    "visita_agendada": ["aprobar", "descartar"],
+    "adoptado": [],
+    "cerrado": [],
+}
+
+
+@pytest.mark.parametrize("estado", ESTADOS_SOLICITUD)
+def test_acciones_disponibles_de_un_no_publicador_es_lista_vacia(estado):
+    """El adoptante no gestiona su propia solicitud (ADR 0002: el match no es
+    mutuo, y quien publicó es el único que decide). Sin este corte, el detalle de
+    la solicitud le pintaría al adoptante un botón "Aprobar" sobre su propia
+    adopción."""
+    assert acciones_disponibles(estado, es_publicador=False) == []
+
+
+@pytest.mark.parametrize("estado", ESTADOS_SOLICITUD)
+def test_acciones_disponibles_por_estado(estado):
+    """El orden importa: es el de los botones en `SolicitudDetalle` (paso 7), y
+    tiene que ser el de `ORDEN_ACCIONES`, no el de iteración de un dict.
+
+    Recorrer `ESTADOS_SOLICITUD` (y no las claves de `ACCIONES_ESPERADAS`) hace
+    que un estado persistido nuevo llegue aquí sin caso y falle en vez de quedar
+    sin cobertura.
+    """
+    assert estado in ACCIONES_ESPERADAS, (
+        f"Estado persistido {estado!r} sin caso esperado: si se añadió un estado, "
+        "decide qué acciones ofrece antes de que lo decida el orden de un dict"
+    )
+    assert acciones_disponibles(estado, es_publicador=True) == ACCIONES_ESPERADAS[estado]
+
+
+def test_orden_acciones_cubre_toda_la_matriz():
+    """`ORDEN_ACCIONES` existe solo para fijar el orden de los botones; si alguien
+    añade una acción a `TRANSICIONES_VALIDAS` y olvida la tupla, esa acción
+    desaparecería de la UI sin dar ningún error."""
+    assert set(ORDEN_ACCIONES) == set(TRANSICIONES_VALIDAS)
+    assert len(ORDEN_ACCIONES) == len(TRANSICIONES_VALIDAS), "ORDEN_ACCIONES repite una acción"
+
+
+# --- calcular_etiqueta_solicitud -----------------------------------------------
+
+
+def test_calcular_etiqueta_visita_agendada():
+    ahora = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    assert calcular_etiqueta_solicitud("visita_agendada", ahora, ahora=ahora) == "Visita agendada"
+
+
+def test_calcular_etiqueta_adoptado():
+    ahora = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    assert calcular_etiqueta_solicitud("adoptado", ahora, ahora=ahora) == "Adopción cerrada"
+
+
+def test_calcular_etiqueta_cerrado():
+    ahora = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    assert calcular_etiqueta_solicitud("cerrado", ahora, ahora=ahora) == "Solicitud cerrada"
+
+
+def test_calcular_etiqueta_en_revision_reciente_es_en_revision():
+    ahora = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    creado_en = ahora - timedelta(hours=1)
+    assert calcular_etiqueta_solicitud("en_revision", creado_en, ahora=ahora) == "En revisión"
+
+
+def test_calcular_etiqueta_en_revision_viejo_es_en_revision():
+    """`en_revision` etiqueta siempre "En revisión", sin importar los días
+    transcurridos: a diferencia de `solicitado`, no cae en "Sin responder · N días"."""
+    ahora = datetime(2026, 8, 10, tzinfo=timezone.utc)
+    creado_en = ahora - timedelta(days=5)
+    assert calcular_etiqueta_solicitud("en_revision", creado_en, ahora=ahora) == "En revisión"
+
+
+def test_calcular_etiqueta_solicitado_reciente_es_cuestionario_nuevo():
+    ahora = datetime(2026, 8, 3, tzinfo=timezone.utc)
+    creado_en = ahora - timedelta(hours=5)
+    assert calcular_etiqueta_solicitud("solicitado", creado_en, ahora=ahora) == "Cuestionario nuevo"
+
+
+def test_calcular_etiqueta_solicitado_viejo_es_sin_responder_con_dias_exactos():
+    ahora = datetime(2026, 8, 10, tzinfo=timezone.utc)
+    creado_en = ahora - timedelta(days=5)
+    assert (
+        calcular_etiqueta_solicitud("solicitado", creado_en, ahora=ahora)
+        == "Sin responder · 5 días"
+    )
+
+
+def test_calcular_etiqueta_con_creado_en_naive_no_lanza_typeerror():
+    """Regresión: `creado_en` vuelve naive de la DB (la columna es `timestamp
+    without time zone` también en Postgres, ver `migrations/AD-05-matches.sql`),
+    aunque se haya guardado con `datetime.now(timezone.utc)`. Sin la
+    normalización previa, la resta explota con `TypeError: can't subtract
+    offset-naive and offset-aware datetimes` — en producción, no solo en SQLite."""
+    ahora = datetime(2026, 8, 10, tzinfo=timezone.utc)
+    creado_en_naive = datetime(2026, 8, 5)  # sin tzinfo
+    assert creado_en_naive.tzinfo is None
+
+    resultado = calcular_etiqueta_solicitud("solicitado", creado_en_naive, ahora=ahora)
+
+    assert resultado == "Sin responder · 5 días"
+
+
+# --- El guard de vocabulario ---------------------------------------------------
+
+
+def test_ningun_estado_persistido_cae_al_branch_de_solicitado():
+    """La trampa más silenciosa del portado: la rama de "solicitado" es el `else`
+    de la función, así que **cualquier estado que nadie contemple aterriza ahí**.
+
+    Inventar un estado `"aprobado"` (la palabra que el backlog usa en prosa, ver
+    la nota de vigencia del ADR 0002) no rompería nada visible: la solicitud
+    mostraría *"Sin responder · 5 días"* sobre una adopción ya cerrada, y el
+    publicador creería que le queda trabajo por hacer.
+
+    Dos aserciones, porque miden cosas distintas: que ningún estado distinto de
+    `solicitado` use el texto de esa rama, y que las cinco etiquetas sean
+    **distintas entre sí** — dos estados con la misma etiqueta serían
+    indistinguibles en pantalla aunque ninguno cayera en el `else`.
+    """
+    ahora = datetime(2026, 8, 15, tzinfo=timezone.utc)
+    creado_en = ahora - timedelta(days=5)
+
+    etiquetas = {
+        estado: calcular_etiqueta_solicitud(estado, creado_en, ahora=ahora)
+        for estado in ESTADOS_SOLICITUD
+    }
+
+    for estado, etiqueta in etiquetas.items():
+        if estado == "solicitado":
+            continue
+        assert etiqueta != "Cuestionario nuevo", (
+            f"El estado {estado!r} cae en la rama de 'solicitado': "
+            "o falta su branch en calcular_etiqueta_solicitud, o el estado no existe"
+        )
+        assert not etiqueta.startswith("Sin responder"), (
+            f"El estado {estado!r} cae en la rama de 'solicitado' y muestra "
+            f"{etiqueta!r} sobre una solicitud que ya avanzó"
+        )
+
+    assert len(set(etiquetas.values())) == len(
+        ESTADOS_SOLICITUD
+    ), f"Dos estados comparten etiqueta y son indistinguibles en pantalla: {etiquetas}"
+
+
+def test_las_acciones_no_son_estados():
+    """`aprobar` y `descartar` son nombres de acción HTTP (`POST
+    /api/solicitudes/{id}/aprobar`), nunca valores de `Match.estado`: llevan a
+    `adoptado` y `cerrado`. El ADR 0002 lo dice con todas las letras."""
+    assert set(ORDEN_ACCIONES).isdisjoint(ESTADOS_SOLICITUD)
+    assert "aprobado" not in ESTADOS_SOLICITUD
+    assert "descartado" not in ESTADOS_SOLICITUD
+
+
+def test_el_motivo_de_cierre_automatico_es_copy_de_producto():
+    """El texto que recibe quien no se quedó con la mascota cuando otra solicitud
+    se aprueba (paso 3). Vive en el servicio y no incrustado en el router para
+    que el test del cierre masivo compare contra la misma constante — y porque es
+    copy: se lee en español y no culpa a nadie."""
+    assert MOTIVO_ADOPTADA_POR_OTRA == "La mascota fue adoptada por otra familia"

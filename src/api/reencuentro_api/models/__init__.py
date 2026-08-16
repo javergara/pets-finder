@@ -1,6 +1,7 @@
 from .aviso_ayuda import AvisoAyuda
 from .base import Base, SessionLocal, engine
 from .home_profile import HomeProfile
+from .match import Match
 from .necesidad import Necesidad
 from .organizacion import Organizacion
 from .pet import Pet
@@ -28,4 +29,5 @@ __all__ = [
     "Pet",
     "HomeProfile",
     "Swipe",
+    "Match",
 ]

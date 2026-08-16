@@ -68,7 +68,7 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 ### Pasos
 
-1. **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`, porque el orden de los botones no puede depender del orden de iteración de un dict), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Guard clave: **ningún estado distinto de `solicitado` puede devolver "Cuestionario nuevo" ni "Sin responder"**.
+1. ✅ **HECHO (2026-08-15)** — **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Ver "Resultado del paso 1".
 2. **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.**
 3. **Las cuatro acciones**, con `aprobar` en **una sola transacción y una sola query de cierre** — nada de bucles, y hay un test que cuenta los `UPDATE`. ⚠️ El `UPDATE` masivo deja objetos rancios en la sesión compartida del `conftest`: `synchronize_session=False` + releer por HTTP, o el test miente en las dos direcciones.
 4. **El swipe-derecha crea la solicitud**, en el **mismo** commit que el swipe, copiando `mensaje` y `telefono_contacto` que hoy se descartan. Idempotente con select previo + `IntegrityError`.
@@ -79,7 +79,18 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 **Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
 
-**Paso actual: 1.**
+**Paso actual: 2.**
+
+### Resultado del paso 1 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: los tres archivos de test fallaban en la colección con `ModuleNotFoundError: No module named 'reencuentro_api.services.solicitudes'` y `... .models.match`.
+
+- `src/api/reencuentro_api/services/solicitudes.py` — port literal con **cero imports fuera de `datetime`**. `ESTADOS_SOLICITUD` (los 5 persistidos), `MOTIVO_ADOPTADA_POR_OTRA`, `calcular_etiqueta_solicitud` (incluido el `creado_en.replace(tzinfo=timezone.utc)`, que sigue haciendo falta porque la columna es `timestamp without time zone` **también** en Postgres), `TransicionInvalidaError`, `TRANSICIONES_VALIDAS` con las 4 acciones, `ORDEN_ACCIONES` y `acciones_disponibles(estado, es_publicador)` → `[]` para el adoptante.
+- `src/api/reencuentro_api/models/match.py` + registrado en `models/__init__.py`. Calcado de `swipe.py`; el docstring dice con todas las letras que **`user_id` es el ADOPTANTE**. Sin `shelter_id`/`organizacion_id`, sin afinidad, sin `relationship()`.
+- `migrations/AD-05-matches.sql` — **ESCRITO, NO EJECUTADO**, con el orden de despliegue en la cabecera. `serial`, `timestamp without time zone`, sin `DEFAULT` de DB. Añadido al índice de `migrations/README.md`.
+- `tests/api/test_solicitudes_service.py` (52 casos), `test_match_modelo.py` (9) y `test_migracion_matches.py` (11). `soporte_migraciones.py` solo cambia su docstring para nombrar al tercer anti-drift.
+- **Mutación obligatoria verificada**: con `"aprobado"` añadido a `ESTADOS_SOLICITUD` caen tres tests — `test_ningun_estado_persistido_cae_al_branch_de_solicitado` (*"El estado 'aprobado' cae en la rama de 'solicitado' y muestra 'Sin responder · 5 días' sobre una solicitud que ya avanzó"*), `test_acciones_disponibles_por_estado[aprobado]` y `test_las_acciones_no_son_estados`. Servicio restaurado y comprobado con `diff` + md5 (`3708f5344741a55b5af1fe4f947c0370`).
+- Verificado: `bash init.sh` **exit 0 con 580 tests de Python + 345 de web** (508 y 345 al empezar; `tests/api` solo: 446 → 518), ruff y black limpios. Ninguna ruta HTTP tocada, `feature_list.json` intacto.
 
 ---
 
