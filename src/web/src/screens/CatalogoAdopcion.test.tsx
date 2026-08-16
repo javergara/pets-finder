@@ -376,6 +376,34 @@ describe('CatalogoAdopcion', () => {
     expect(screen.queryByRole('button', { name: 'Cachorra' })).not.toBeInTheDocument();
   });
 
+  // ── GUARDA DE CLASE, NO DE LAYOUT (AD-08 paso 8) ───────────────────────────
+  // Lo que este caso NO hace: comprobar que la página quepa en 360px. jsdom no
+  // tiene motor de layout, `getBoundingClientRect()` devuelve ceros y ningún
+  // test unitario puede medir un desborde. Esa mitad del acceptance se midió en
+  // Chrome real: la fila de píldoras llevaba `shrink-0`, que como item flex la
+  // fijaba a su ancho de contenido (705px) y dejaba su propio `flex-wrap` sin
+  // efecto → `documentElement.scrollWidth` = 729 contra `clientWidth` = 360.
+  // Quitando `shrink-0`: fila de 312px y scrollWidth = clientWidth = 360.
+  // Lo que este caso SÍ hace: impedir que alguien reponga esa combinación de
+  // clases, que es la causa exacta del bug. Si vuelve, salta aquí; si el
+  // desborde llega por otro camino (una píldora más ancha, otro contenedor),
+  // este caso seguirá verde. La comprobación de verdad es el navegador.
+  it('la fila de píldoras del header no combina shrink-0 con flex-wrap (clases, no layout)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    const fila = screen.getByRole('link', { name: 'Descubrir una por una' }).parentElement;
+    // Anti-falso-verde: si la cabecera se reestructura y este `parentElement`
+    // deja de ser la fila de píldoras, el caso falla aquí en vez de aprobar las
+    // clases de un elemento cualquiera.
+    for (const nombre of ['Mi hogar', 'Mis solicitudes', 'Mis favoritas', 'Dar en adopción']) {
+      expect(fila).toContainElement(screen.getByRole('link', { name: nombre }));
+    }
+
+    expect(fila).toHaveClass('flex-wrap');
+    expect(fila).not.toHaveClass('shrink-0');
+  });
+
   // ── Favoritos (AD-07) ──────────────────────────────────────────────────────
   // Los dos riesgos de esta pantalla, por gravedad:
   //

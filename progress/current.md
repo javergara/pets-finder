@@ -1636,4 +1636,31 @@ Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` 
 
 ⚠️ **Anotado para el líder (fuera de alcance, no tocado)**: el botón es `lg:hidden` y el estado inicial se calcula **una sola vez** al montar. Si alguien encoge la ventana por debajo de 1024px, pliega los filtros y la vuelve a ensanchar, el panel queda desmontado y el botón para reabrirlo está oculto por CSS: los filtros no se alcanzan hasta recargar. Solo pasa cruzando el breakpoint en escritorio (nunca en un móvil real), y el arreglo —escuchar el `change` del `MediaQueryList`— exige stubbear `matchMedia` en los tests, que es infraestructura compartida. Se deja documentado, no implementado.
 
-**Pendientes de AD-08 para el líder**: pasos 8 (medición en Chrome a 360px — segunda mitad del acceptance 3, que jsdom no puede probar), 9 (`docs/architecture.md`) y 10 (docs + paquete para el revisor).
+#### AD-08 paso 8 HECHO (2026-08-16): medido en Chrome a 360px — un desborde real en el catálogo, arreglado
+
+**Sin rojo inicial y sin test de layout, a propósito**: es la mitad del acceptance 3 que jsdom no puede probar (sin motor de layout, `getBoundingClientRect()` devuelve ceros). Medición en **Chrome real**, `/adoptar` y `/adoptar/descubrir`, a **360×740** y **360×640**.
+
+**Método y sus límites** (para que el revisor pueda repetirlo o discutirlo): iframe de 360px de ancho, porque **Chrome en macOS no encoge la ventana por debajo de ~756px**. Un iframe crea un viewport CSS auténtico y dispara las media queries igual que un teléfono. **No** reproduce el user-agent móvil, ni el input táctil, ni el `devicePixelRatio` de un móvil: lo medido es **layout**, no ergonomía táctil ni rendimiento.
+
+**Números crudos (los dos altos, salvo donde se indica):**
+
+| medida | `/adoptar` (catálogo) | `/adoptar/descubrir` (deck) |
+|---|---|---|
+| botón de filtros | `aria-expanded="false"`, panel **fuera del DOM** | `aria-expanded="false"`, panel **fuera del DOM** |
+| primera foto (`img[alt^="Foto de"]`) | `top 336 / bottom 569` | `top 244 / bottom 477` |
+| `scrollWidth` vs `clientWidth` | **729 vs 360** (antes) → **360 vs 360** (después) | 360 vs 360, sin tocar nada |
+
+La foto entra entera dentro del viewport en los dos altos, incluido el caso duro de 640 (`top >= 0 && bottom <= innerHeight`). Consola sin errores.
+
+**El bug, y por qué existía.** `src/web/src/screens/CatalogoAdopcion.tsx:141` tenía `className="flex shrink-0 flex-wrap items-center gap-2"` en la fila de píldoras de la cabecera. **`shrink-0` y `flex-wrap` se anulan**: como item flex de su padre (`flex flex-wrap items-start justify-between gap-3`), `shrink-0` fija el contenedor al ancho de su contenido (**705px** con las cinco píldoras), así que su propio `flex-wrap` nunca llega a envolver y lo que desborda es la **página entera**. Quitado `shrink-0`: la fila mide **312px** y `documentElement.scrollWidth` baja de **729 a 360**, igual que `clientWidth`.
+
+Revisado antes de tocarlo (el líder pidió parar si había una razón): es un **resto de AD-03** (`a48017d`). `shrink-0` vivía en el `<Link>` suelto "Dar en adopción", donde sí tenía sentido —evitar que la píldora se comprimiera—, y se arrastró al `<div>` nuevo cuando se le añadió "Descubrir una por una". Con dos píldoras no se notaba; con cinco es un desborde. **No protege nada hoy.**
+
+- `src/web/src/screens/CatalogoAdopcion.tsx` — `shrink-0` fuera, con un comentario encima que cita los 729 → 360 para que la razón sea comprobable y no vuelva por "estética". Nada más de la cabecera se tocó.
+- `src/web/src/screens/CatalogoAdopcion.test.tsx` — **+1 caso, guarda de CLASE y no de layout**, etiquetado así en el nombre (`(clases, no layout)`) y en su comentario: asevera que la fila no combina `shrink-0` con `flex-wrap`. **Lo que no hace, dicho en el propio test**: no comprueba que la página quepa en 360px; si el desborde llega por otro camino (una píldora más ancha, otro contenedor), seguirá verde. Lleva un **anti-falso-verde**: comprueba que el elemento hallado contiene las cinco píldoras, para que una reestructuración de la cabecera lo haga **fallar** en vez de aprobar las clases de un elemento cualquiera.
+
+**Lo que se midió bien y NO se tocó**: filtros plegados en las dos pantallas y los dos altos (el paso 7 funciona en Chrome, no solo en jsdom); la primera foto sin scroll; el deck sin desborde. La nav sí extiende sus enlaces más allá de 360px, pero es el **carrusel intencional** de la feature 16 (`overflow-x-auto` + `shrink-0` en cada enlace): se clipa dentro de la nav y **no** suma al `scrollWidth` del documento. No es un bug y no se tocó.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 487 de web** (línea base 738 + 486; el backend no se tocó). Mutación ejecutada con dos roturas: `shrink-0` repuesto → `expected element not to have class "shrink-0" / Received: flex shrink-0 flex-wrap items-center gap-2`; el enlace "Descubrir una por una" envuelto en un `<span>` (la reestructuración que dejaría verde a un test ingenuo) → `<span /> does not contain: <a … href="/adoptar/mi-hogar">`. Componente restaurado con `cp` desde scratch y sha1 verificado (`1cc02287…`). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local. `feature_list.json` sin tocar.
+
+**Pendientes de AD-08 para el líder**: pasos 9 (`docs/architecture.md`) y 10 (docs + paquete para el revisor).

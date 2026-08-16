@@ -138,7 +138,19 @@ export function CatalogoAdopcion() {
               "Mi hogar" existe porque la invitación del deck **desaparece justo
               cuando ya contestaste** —es la señal de `afinidad === null`— y sin
               esta entrada cambiar una respuesta exigiría recordar la URL. */}
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* Sin `shrink-0`, y no puede volver: como item flex de la fila de
+              arriba, `shrink-0` fija este contenedor al ancho de su contenido
+              (705px con estas cinco píldoras), así que su propio `flex-wrap`
+              nunca llega a envolver y lo que desborda es la página entera.
+              Medido en Chrome real a 360×740 y 360×640 (AD-08 paso 8): con
+              `shrink-0`, `documentElement.scrollWidth` = **729** contra un
+              `clientWidth` de 360; sin él, la fila mide 312px y scrollWidth =
+              clientWidth = **360**. jsdom no tiene motor de layout
+              (`getBoundingClientRect()` devuelve ceros), así que ningún test
+              unitario puede medir esto: el único candado automático es el caso
+              de clase de `CatalogoAdopcion.test.tsx`, que vigila estas clases
+              —no el layout—. La comprobación de verdad es el navegador. */}
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/adoptar/descubrir"
               className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
