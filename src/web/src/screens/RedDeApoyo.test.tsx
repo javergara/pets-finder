@@ -63,6 +63,16 @@ function renderRed() {
   );
 }
 
+/** La pestaña Comunidad abierta por URL (`?tab=comunidad`), que es como llegan
+ * los enlaces compartidos, sin depender de pulsar el botón de la pestaña. */
+function renderComunidad() {
+  return render(
+    <MemoryRouter initialEntries={['/ayudar?tab=comunidad']}>
+      <RedDeApoyo />
+    </MemoryRouter>,
+  );
+}
+
 function crearAviso(overrides: Partial<import('../api/types').AvisoAyuda> = {}) {
   return {
     id: 1,
@@ -162,6 +172,42 @@ describe('RedDeApoyo — Comunidad (feature 42)', () => {
       'href',
       '/ayudar/publicar-aviso?tipo=ofrezco',
     );
+  });
+
+  // El cruce hacia el catálogo de adopción (AD-08, paso 6). Quien entra aquí a
+  // ofrecer hogar de paso es exactamente quien puede adoptar, y hasta ahora las
+  // dos mitades de la app no se hablaban.
+  //
+  // ⚠️ **Permanente, no condicionado a elegir "hogar de paso" en el selector de
+  // categoría**: un cruce que exige filtrar primero no lo ve nadie. Por eso el
+  // caso monta la pestaña con los filtros por defecto y sin ningún aviso.
+  it('la Comunidad cruza al catálogo de adopción sin exigir filtrar antes', async () => {
+    vi.mocked(client.listarAvisosAyuda).mockResolvedValue([]);
+
+    renderComunidad();
+
+    const cruce = await screen.findByRole('link', { name: 'Ver mascotas en adopción' });
+    expect(cruce).toHaveAttribute('href', '/adoptar');
+    // Sigue siendo terciario: los dos CTAs de la pestaña son lo primero.
+    expect(screen.getByRole('link', { name: 'Necesito ayuda' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Quiero ayudar' })).toBeInTheDocument();
+  });
+
+  // La otra mitad del caso de arriba: el cruce pertenece a la Comunidad (ayuda
+  // entre personas), no al directorio de lugares con dirección y horario. Sin
+  // esta aserción, sacarlo de la rama `pestana === 'comunidad'` lo pondría en
+  // las dos pestañas sin que nada salte.
+  it('el cruce a adopción NO aparece en la pestaña de Lugares', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([crearOrganizacion()]);
+
+    renderRed();
+
+    // Se espera a que la pestaña de lugares haya pintado su contenido: aseverar
+    // la ausencia antes de que llegue la lista pasaría por llegar temprano.
+    await screen.findByText('Fundación Huellitas');
+    expect(
+      screen.queryByRole('link', { name: 'Ver mascotas en adopción' }),
+    ).not.toBeInTheDocument();
   });
 });
 
