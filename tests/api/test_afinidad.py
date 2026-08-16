@@ -222,6 +222,84 @@ def test_sin_presupuesto_usa_solo_experiencia():
     assert not resultado_sin.incompatible
 
 
+# --- El score y las razones dependen del hogar (acceptance 2 de AD-04) -----
+
+
+# Los dos hogares que se comparan en los dos casos de abajo. Solo cambian las
+# tres respuestas que el cuestionario de AD-04 pesa más: vivienda + espacio,
+# rutina y experiencia. Todo lo demás sale del `_home()` base, para que la
+# diferencia de score no venga de una preferencia suelta.
+def _hogar_apretado() -> HomeProfile:
+    return _home(
+        vivienda="apartamento",
+        espacio_exterior="ninguno",
+        horas_fuera_dia=10,
+        experiencia_previa="ninguna",
+    )
+
+
+def _hogar_holgado() -> HomeProfile:
+    return _home(
+        vivienda="casa",
+        espacio_exterior="patio",
+        horas_fuera_dia=4,
+        experiencia_previa="mucha",
+    )
+
+
+def test_dos_hogares_distintos_dan_scores_distintos_a_la_misma_mascota():
+    """La afinidad es del par (mascota, hogar), no una nota fija de la mascota.
+
+    Es lo que le faltaba al acceptance de AD-04: los tests de AD-03 miran
+    siempre **un** hogar, así que un `calcular_afinidad` que ignorara el perfil
+    y devolviera una constante los pasaría todos.
+
+    Los números son exactos a propósito. Con `!=` bastaría con que el cálculo
+    variara por cualquier motivo —incluido uno equivocado— y aquí se está
+    fijando la ponderación real: Duque es un perro grande de mucha energía, así
+    que el apartamento sin espacio, las 10 horas fuera y la falta de experiencia
+    lo hunden (energía 0, tamaño 40, experiencia 20) mientras que la casa con
+    patio y 4 horas fuera lo dejan perfecto.
+    """
+    pet = _pet()  # perro grande, energía alta, 30 meses
+
+    apretado = calcular_afinidad(pet, _hogar_apretado())
+    holgado = calcular_afinidad(pet, _hogar_holgado())
+
+    assert apretado.score == 52
+    assert holgado.score == 100
+    assert apretado.score < holgado.score
+    assert not apretado.incompatible and not holgado.incompatible
+
+
+def test_las_razones_cambian_con_las_respuestas_del_hogar():
+    """Y cada juego de razones cita **sus** respuestas, no las del otro hogar.
+
+    Sin esta parte, un `_razones()` que escribiera las horas o la vivienda a
+    mano (o que leyera las del hogar equivocado) seguiría devolviendo tuplas
+    distintas —el score las separa igual— y pasaría inadvertido.
+    """
+    pet = _pet()
+
+    razones_apretado = calcular_afinidad(pet, _hogar_apretado()).razones
+    razones_holgado = calcular_afinidad(pet, _hogar_holgado()).razones
+
+    assert razones_apretado != razones_holgado
+
+    texto_apretado = " | ".join(razones_apretado).lower()
+    texto_holgado = " | ".join(razones_holgado).lower()
+
+    assert "10 horas fuera al día" in texto_apretado
+    assert "tu apartamento" in texto_apretado
+    assert "4 horas fuera al día" not in texto_apretado
+    assert "tu casa" not in texto_apretado
+
+    assert "4 horas fuera al día" in texto_holgado
+    assert "tu casa" in texto_holgado
+    assert "10 horas fuera al día" not in texto_holgado
+    assert "tu apartamento" not in texto_holgado
+
+
 # --- Dirección de la dependencia entre servicios ---------------------------
 
 
@@ -235,3 +313,26 @@ def test_afinidad_no_importa_descubrir():
     fuente = inspect.getsource(modulo_afinidad)
 
     assert re.search(r"^\s*from\s+\.descubrir|^\s*import\s+.*descubrir", fuente, re.M) is None
+
+
+def test_el_umbral_senior_es_el_mismo_en_afinidad_y_descubrir():
+    """El precio de repetir el 84: hay que impedir que los dos se separen.
+
+    El test de arriba prohíbe el import; este prohíbe el drift, que es el otro
+    lado de la misma decisión. Desde `tests/` sí se pueden importar los dos
+    módulos a la vez —el test no es una capa de la app, así que no invierte
+    nada— y por eso la deuda que dejó abierta el revisor de AD-03 se salda aquí.
+
+    No basta con comparar el literal: se ejercita el borde real de
+    `_dificultad_mascota`, que es donde el umbral tiene efecto. 84 meses (7
+    años justos) todavía es una mascota fácil de ubicar; 85 ya suma dificultad
+    y exige más experiencia al hogar.
+    """
+    from reencuentro_api.services.afinidad import _dificultad_mascota
+    from reencuentro_api.services.descubrir import EDAD_MESES_SENIOR
+
+    assert EDAD_MESES_SENIOR == 84
+
+    # Energía media y sin etiquetas: así la dificultad la decide solo la edad.
+    assert _dificultad_mascota(_pet(energia="media", edad_meses=84)) == 1
+    assert _dificultad_mascota(_pet(energia="media", edad_meses=85)) == 2

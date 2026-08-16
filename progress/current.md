@@ -85,7 +85,16 @@ Ya cubierto en AD-03 y **no se toca**: que las razones citen energía/vivienda/h
 - **El test `84 == EDAD_MESES_SENIOR` entra aquí** (paso 1): una línea, no toca producción, y AD-05/AD-07 no vuelven a pasar por `afinidad.py`.
 - **Los filtros a 360px NO entran en AD-04**: ningún acceptance lo cubre, `FiltrosAdopcion` lo comparten dos pantallas, y es una decisión de diseño. **Se agenda en AD-08** —que ya toca nav y landing— con un acceptance añadido al copiar el item, del estilo *"a 360px la primera tarjeta del catálogo y la del deck son visibles sin scroll; los filtros van plegados por defecto en móvil"*. Editar acceptances al copiar ya estaba previsto (AD-07 borra el de apadrinamiento).
 
-**Paso actual: 1.**
+**Paso actual: 2.**
+
+### Resultado del paso 1 (2026-08-15)
+
+- `tests/api/test_afinidad.py` — **solo adiciones** (+3 casos, 10 → 13). Ni una línea de producción tocada: `git diff src/api` vacío al terminar.
+- `test_dos_hogares_distintos_dan_scores_distintos_a_la_misma_mascota`: el mismo `_pet()` (perro grande, energía alta) contra un hogar apretado (apartamento/ninguno, 10 h fuera, sin experiencia) y uno holgado (casa/patio, 4 h, mucha experiencia) → **52 y 100 exactos**, más `A < B`. Los helpers `_hogar_apretado()`/`_hogar_holgado()` los comparte con el caso siguiente.
+- `test_las_razones_cambian_con_las_respuestas_del_hogar`: tuplas distintas **y** cada una citando lo suyo ("10 horas fuera al día"/"tu apartamento" contra "4 horas fuera al día"/"tu casa"), con las aserciones negativas cruzadas.
+- `test_el_umbral_senior_es_el_mismo_en_afinidad_y_descubrir`, **pegado a `test_afinidad_no_importa_descubrir`**: `EDAD_MESES_SENIOR == 84` + el borde real de `_dificultad_mascota` (84 → 1, 85 → 2, con energía media para que la dificultad la decida solo la edad). Salda la deuda del revisor de AD-03.
+- **Tres mutaciones verificadas de verdad** (el paso no podía tener rojo inicial): (a) `_score_tamano` fijo en 70 → rojo el caso de los scores (58 ≠ 52); (b) las horas del hogar sustituidas por el literal 6 en `_razones` → rojo **solo** el caso de las razones — el `test_razones_citan_energia_y_vivienda` de AD-03 usa un hogar de 6 horas y sigue verde, que es justo por qué el caso nuevo hacía falta; (c) `84` → `90` en `_dificultad_mascota` → rojo **solo** el guard del umbral. `afinidad.py` restaurado con el mismo md5 (`172fabf17f6ec5ecfc1da9e3ea4b48ca`).
+- Verificado: `pytest tests/api/test_afinidad.py -v` 13/13; `pytest` **481** (478 antes); ruff + black limpios; `bash init.sh` exit 0 con **481 de API + 330 de web**. Sin migración y sin tocar `feature_list.json`.
 
 ---
 
