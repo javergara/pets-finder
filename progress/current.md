@@ -1415,4 +1415,52 @@ Rojo→verde real. Rojo inicial: los 5 casos nuevos con `TestingLibraryElementEr
 
 Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 453 de web** (línea base 719 + 448; el backend no se tocó). Mutación ejecutada con cuatro roturas: `.slice(1)` junto al toggle → `Unable to find … "button" … "Quitar de favoritos"` (3 casos); la variante **diferida** (sacar la carta al resolver la promesa) → `Unable to find … "heading" … "Canela"` **en la aserción de ausencia**, que es la prueba de que el `waitFor` previo no es decorativo; `registrarSwipe` añadido al corazón → `expected "vi.fn()" to not be called at all, but actually been called 1 times`; gate de cuenta quitado → la misma forma con `[1, 7]` (el `DEMO_USER_ID`). Archivo restaurado con el mismo sha1 (`b63f073b…`) y `git diff` limpio de mutaciones. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
 
-Siguiente: paso 7 (corazón en la ficha `MascotaDetalle` + `changes.md` + paquete para el revisor).
+#### AD-07 paso 7 HECHO (2026-08-16): corazón en la ficha — último paso de la feature
+
+Rojo→verde real. Rojo inicial: `AssertionError: expected "vi.fn()" to be called with arguments: [ 7, 7 ]` y `[ 7, undefined ]` en los dos casos del `adoptante_id` (uno de ellos el test de AD-01, cuya premisa caducó), y `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Guardar en favoritos"` en los cinco del corazón.
+
+- `src/web/src/screens/MascotaDetalle.tsx` — `obtenerMascota(Number(id), hasActiveUser() ? getActiveUserId() : undefined)`; botón en la cabecera junto al chip de estado, **con texto** (el símbolo va `aria-hidden` para que el nombre accesible sea el mismo de las otras dos pantallas); `alternarFavorita` con gate de cuenta → `/registro?volver=%2Fadoptar%2Fmascota%2F{id}`, optimista, `.catch` vacío comentado y **sin refetch de la ficha**. Se pinta también sobre una mascota adoptada (la lista guardada no las excluye).
+- `src/web/src/screens/MascotaDetalle.test.tsx` — **+7** en un tercer `describe` (`vi.spyOn` para las dos escrituras, sin tocar la factory del `vi.mock`). **Una línea previa reescrita con el porqué encima**: `toHaveBeenCalledWith(7)` → `toHaveBeenCalledWith(7, undefined)`; la ficha manda ahora un segundo argumento y aseverar su valor es más fuerte que la aridad anterior.
+- `src/web/src/screens/DescubrirMascotas.test.tsx` — **una línea de arreglo al test del paso 6** "si la API falla… no deshace el corazón": pasa de `waitFor` a `await act(async () => {})`. Medido: con `waitFor` sobrevivía a la mutación que revierte el corazón en el `.catch`; con `act` cae.
+
+⚠️ **Hallazgo del paso, corrige la receta del paso 5** (candidato a `memory/memory.md`): `waitFor` **no siempre** basta para aseverar una ausencia. Cuando lo que se asevera es que **nada cambia** —el estado optimista ya es el correcto desde el clic y la mutación lo revertiría al rechazarse la promesa—, el `waitFor` pasa en su primera comprobación y devuelve antes de que ese `setState` se vuelque. `await act(async () => {})` vacía la cola de microtasks dentro de `act` y sí lo detecta. Los dos casos afectados (ficha y deck) ya lo usan.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 460 de web** (línea base 719 + 453; el backend no se tocó). Mutación ejecutada con tres roturas: gate de cuenta quitado → `expected "marcarFavorita" to not be called at all, but actually been called 1 times` con `[1, 7]`; `adoptante_id` mandado siempre → `- undefined / + 1` en el test nuevo **y** en el de AD-01 reescrito; `.catch` que revierte el corazón → `Unable to find … "button" … "Quitar de favoritos"` (en la ficha y, con el arreglo, también en el deck). `MascotaDetalle.tsx` restaurado con el mismo sha1 (`354bc83d…`) y `DescubrirMascotas.tsx` con el suyo (`b63f073b…`), verificados con `git diff`. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+**Anotado para el líder, medido y NO tocado** (fuera de alcance): el gemelo de ese test en `CatalogoAdopcion.test.tsx` (paso 4, "si la API falla, el catálogo no muestra error ni repone la tarjeta") **sobrevive** a la misma mutación — 22/22 en verde con el `.catch` revirtiendo el corazón. Es la misma línea de arreglo. El de `MisFavoritas` (paso 5) ya se verificó por mutación en su día y sí cae.
+
+### Paquete para el revisor — AD-07 (favoritos), 7 pasos cerrados
+
+**Estado**: los 7 pasos implementados y commiteados en `feat/adoptar` (`0e87f1b`, `2828fb6`, `9e8f192`, `7a4bd7d`, `a6cf76b`, `558ea10` + este). `feature_list.json` **sigue en `in_progress`**: el `done` lo pone el revisor tras correr `init.sh` por su cuenta.
+
+**Verificación final**: `bash init.sh` en verde — **719 tests de Python + 460 de web**. Línea base al abrir AD-07: 681 + 419.
+
+**Los 3 acceptance con el test exacto que los ejercita:**
+
+1. *"Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)"*
+   - Guardar/quitar (API): `tests/api/test_favoritos.py::test_marcar_favorito_nuevo_devuelve_201`, `::test_marcar_favorito_dos_veces_es_idempotente` (200, sin fila nueva), `::test_desmarcar_favorito_existente_devuelve_204_y_borra`, `::test_desmarcar_favorito_inexistente_devuelve_204_igual`.
+   - Verlos en su lista (API): `::test_listar_favoritos_devuelve_mascotas_con_es_favorito_true`, `::test_listar_favoritos_sin_favoritos_devuelve_200_vacio`, `::test_listar_favoritos_respeta_el_orden_de_guardado` (el `ORDER BY` explícito), `::test_listar_favoritos_no_exige_perfil_de_hogar`, y los dos de privacidad `::test_listar_favoritos_de_otra_persona_devuelve_403` / `::test_listar_favoritos_ajenos_de_un_usuario_inexistente_devuelve_403` (403 antes del 404, el oráculo de enumeración).
+   - **El unique**: `tests/api/test_favorito_modelo.py::test_dos_favoritos_iguales_violan_el_unique` y `::test_el_unique_se_llama_uq_favorite_user_pet` (el nombre viaja a la migración, `tests/api/test_migracion_favorites.py::test_el_unique_del_favorito_viaja_a_produccion_con_su_nombre`).
+   - **El cruce que ninguna DB avisa** (`Favorite.user_id` = quien mira; `Pet.user_id` = quien publica): `tests/api/test_favoritos.py::test_los_favoritos_no_se_cruzan_con_quien_publico_la_mascota` y `tests/api/test_favorito_modelo.py::test_user_id_del_favorito_es_quien_mira_no_quien_publico`.
+   - En pantalla (web): `MisFavoritas.test.tsx` → "pide la lista con el id de quien mira y pinta una tarjeta por mascota", "el corazón lleno quita la mascota: la tarjeta desaparece y no se navega", "redirige al registro con el volver, sin pedir los favoritos de nadie"; `CatalogoAdopcion.test.tsx` → "con cuenta, guarda y el corazón queda lleno al instante (sin re-consultar)" y "con cuenta, tocar una ya guardada la quita"; `MascotaDetalle.test.tsx` → "con cuenta, guardar llama a la API y el corazón queda lleno sin re-consultar la ficha" y "con cuenta, tocar una ya guardada la quita"; `client.test.ts` → método/URL/cuerpo exactos de las tres funciones.
+2. *"Marcar favorito no crea swipe ni solicitud, y la mascota sigue apareciendo en el deck"* — **el acceptance más fácil de romper sin darse cuenta**, porque el corazón vive dentro de la carta del deck.
+   - API: `tests/api/test_favoritos.py::test_marcar_favorito_no_crea_swipe_ni_solicitud` y `::test_la_mascota_favoriteada_sigue_en_el_deck`; además `tests/api/test_deck.py::test_el_deck_marca_las_favoritas_de_quien_mira` asevera que la carta favoriteada **sigue en el deck**.
+   - Web (paso 6): `DescubrirMascotas.test.tsx` → **"con cuenta, guardar llama a la API y la carta NO se va del deck"**, que asevera las dos mitades en la misma corrida: la mascota sigue en pantalla (y la siguiente no ha entrado) **y** `registrarSwipe` no se llamó. Verificado por mutación en sus tres variantes (sacar la carta al instante, sacarla al resolver la promesa, y añadir `registrarSwipe` al corazón): las tres lo tumban.
+3. *"bash init.sh en verde; tabla favorites creada en prod (RLS) antes del merge a main"*
+   - Primera mitad: `bash init.sh` corrido de verdad en cada paso; el último, **719 + 460 en verde**.
+   - Segunda mitad: **NO ejecutada, y es la condición de merge** (ver abajo). El anti-drift que la protege es `tests/api/test_migracion_favorites.py` (9 casos), con `::test_la_tabla_nueva_activa_row_level_security` cubriendo el RLS del acceptance y `::test_columnas_del_sql_son_exactamente_las_del_modelo` el drift modelo↔`.sql`. Verificado por mutación en el paso 1 (columna borrada, RLS quitado, constraint renombrada: rojo en cada una).
+
+**Conteos de consultas, antes y después del paso 3** (medidos con listener `before_cursor_execute`, no estimados):
+
+| endpoint | antes | después | test que lo fija |
+| --- | --- | --- | --- |
+| `GET /api/pets` (anónimo) | 4 | **4** (sin cambio) | `test_pets.py::test_listado_no_hace_una_consulta_por_publicador` |
+| `GET /api/pets?adoptante_id=X` | 4 | **5**, constante entre página de 3 y de 12 | `test_pets.py::test_el_catalogo_con_adoptante_no_hace_una_consulta_por_favorito` |
+| `GET /api/pets/deck?adoptante_id=X` | 5 | **6**, constante entre 4 y 16 cartas | `test_deck.py::test_el_deck_no_hace_una_consulta_por_publicador` (constante subida **con el porqué en el docstring**: la sexta es una query para todo el deck, no una por carta) |
+| `GET /api/pets/{id}?adoptante_id=X` | 2 | **3** | `test_pets.py::test_la_ficha_marca_la_favorita_de_quien_mira` |
+
+Sin `adoptante_id` no se toca la base: `_ids_favoritos` devuelve `set()` y el tráfico anónimo paga cero.
+
+⚠️ **`migrations/AD-07-favorites.sql` está ESCRITO y NO EJECUTADO.** Es el **cuarto** de la cola y **ninguno de los cuatro se ha ejecutado**: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. El merge a `main` está bloqueado hasta que los cuatro corran en Supabase con autorización explícita del dueño; con `SKIP_DB_CREATE_ALL=1` en prod no hay red de seguridad y la API fallaría al instante. En toda AD-07 no se ejecutó ni una sentencia contra ninguna base, y `scripts/seed.py` solo corrió el de `init.sh` sobre la SQLite local.
+
+**Deuda anotada durante la feature, para que el revisor no la lea como olvido**: (a) `ya_solicitada` sigue en `False` en toda la app — deuda de AD-05, con el docstring de `obtener_mascota` diciéndolo; (b) el docstring de `tests/api/soporte_migraciones.py` dice que lo comparten tres anti-drift y ya son cuatro; (c) el test "si la API falla, el catálogo no repone la tarjeta" (paso 4) sobrevive a su mutación y necesita la misma línea `await act(async () => {})` que se aplicó en los pasos 6 y 7; (d) `npx prettier` local (3.9.6) y el del hook (v3.1.0) no formatean igual — manda el hook.

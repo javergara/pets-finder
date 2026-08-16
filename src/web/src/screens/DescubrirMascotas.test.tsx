@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
@@ -470,9 +470,14 @@ describe('DescubrirMascotas — corazón de favoritos (AD-07)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument(),
-    );
+    // ⚠️ `act` y no `waitFor`, y el paso 7 lo midió: este caso asevera que **no
+    // pasa nada** al rechazarse la promesa, y el corazón ya está lleno desde el
+    // clic por el optimista. Con `waitFor` la mutación que revierte el corazón
+    // en el `.catch` **sobrevivía** —la aserción se evaluaba antes de que ese
+    // `setState` se volcara—; vaciando la cola de microtasks dentro de `act`, cae.
+    await act(async () => {});
+
+    expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Canela' })).toBeInTheDocument();
   });

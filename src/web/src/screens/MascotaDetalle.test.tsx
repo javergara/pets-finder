@@ -2,7 +2,15 @@ import { render, screen } from '@testing-library/react';
 // Segundo import del mismo módulo a propósito: la línea de arriba es de AD-01 y
 // este archivo solo admite adiciones (es la red de seguridad de la ficha).
 import { fireEvent, waitFor } from '@testing-library/react';
+// Tercer import del mismo módulo, misma regla de adiciones: `act` solo lo usa el
+// bloque de favoritos (AD-07) y solo para vaciar la cola de microtasks antes de
+// aseverar que algo NO pasó.
+import { act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+// Segundo import del mismo módulo, por el mismo motivo que el de arriba: la
+// línea anterior es de AD-01 y `useLocation` lo necesita solo el bloque de
+// favoritos (AD-07), para imprimir la ruta completa del registro.
+import { useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { Mascota, Publicador } from '../api/types';
@@ -107,7 +115,13 @@ describe('MascotaDetalle', () => {
     renderFicha();
 
     expect(await screen.findByRole('heading', { name: 'Nala' })).toBeInTheDocument();
-    expect(client.obtenerMascota).toHaveBeenCalledWith(7);
+    // ⚠️ Única línea de este bloque tocada por AD-07, y su premisa caducó de
+    // verdad: la ficha ahora pide la mascota con `adoptante_id` (es lo que llena
+    // `es_favorito` y pinta el corazón). Sin cuenta ese segundo argumento va
+    // `undefined` —nunca el `DEMO_USER_ID = 1`—, y aseverarlo por nombre es más
+    // fuerte que la aridad de antes: el test cae si algún día se cuela el id
+    // inventado. Mismo ajuste que hizo AD-07 paso 4 en `CatalogoAdopcion`.
+    expect(client.obtenerMascota).toHaveBeenCalledWith(7, undefined);
     expect(
       screen.getByText('La rescataron del barrio Providencia después del sismo.'),
     ).toBeInTheDocument();
@@ -382,5 +396,153 @@ describe('MascotaDetalle — acciones de quien la publicó (AD-02)', () => {
       'Solo quien publicó la mascota puede despublicarla',
     );
     expect(screen.getByRole('heading', { name: 'Nala' })).toBeInTheDocument();
+  });
+});
+
+// AD-07, paso 7. Tercer bloque aparte, por la misma razón que el de AD-02: los
+// casos de arriba son la red de seguridad de la ficha pública y no cambian.
+//
+// Lo que estos casos protegen, por gravedad:
+//
+// 1. **`adoptante_id` solo con cuenta.** Es lo que llena `es_favorito`, así que
+//    la tentación es mandarlo siempre; pero `getActiveUserId()` cae al
+//    `DEMO_USER_ID = 1`, una persona real en producción, y un visitante anónimo
+//    vería el corazón lleno con lo que ELLA guardó — y al tocarlo se lo borraría.
+// 2. **Guardar es la única escritura que esta ficha admite de quien no publicó.**
+//    Sin cuenta el corazón se pinta igual (esconderlo ocultaría que los
+//    favoritos existen) pero lleva al registro con el `?volver=` de ESTA ficha,
+//    que es a donde hay que volver para terminar el gesto.
+describe('MascotaDetalle — corazón de favoritos (AD-07)', () => {
+  function RegistroStub() {
+    const { pathname, search } = useLocation();
+    return <p>{`registro ${pathname}${search}`}</p>;
+  }
+
+  /** Como `renderFicha`, más la ruta del registro: el gate sin cuenta navega y
+   * hay que poder leer la URL completa a la que llegó. */
+  function renderFichaConRegistro() {
+    return render(
+      <MemoryRouter initialEntries={['/adoptar/mascota/7']}>
+        <Routes>
+          <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
+          <Route path="/adoptar" element={<div>Catálogo stub</div>} />
+          <Route path="/registro" element={<RegistroStub />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+  }
+
+  it('con cuenta pide la ficha con el id de quien mira', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(client.obtenerMascota).toHaveBeenCalledWith(7, 7);
+  });
+
+  it('sin cuenta NO manda adoptante_id (el fallback es una persona real)', async () => {
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+
+    renderFicha();
+
+    await screen.findByRole('heading', { name: 'Nala' });
+    expect(client.obtenerMascota).toHaveBeenCalledWith(7, undefined);
+  });
+
+  it('el corazón nace lleno si la mascota ya está guardada', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota({ es_favorito: true }));
+
+    renderFichaConRegistro();
+
+    expect(await screen.findByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Guardar en favoritos' })).not.toBeInTheDocument();
+  });
+
+  it('con cuenta, guardar llama a la API y el corazón queda lleno sin re-consultar la ficha', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+    const marcar = vi
+      .spyOn(client, 'marcarFavorita')
+      .mockResolvedValue(mascota({ es_favorito: true }));
+    const desmarcar = vi.spyOn(client, 'desmarcarFavorita').mockResolvedValue(undefined);
+
+    renderFichaConRegistro();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    expect(marcar).toHaveBeenCalledWith(7, 7);
+    expect(desmarcar).not.toHaveBeenCalled();
+    // Optimista: el corazón cambia sin esperar la respuesta y la ficha NO se
+    // vuelve a pedir (recargarla entera por un corazón haría parpadear la foto).
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument(),
+    );
+    expect(client.obtenerMascota).toHaveBeenCalledTimes(1);
+  });
+
+  it('con cuenta, tocar una ya guardada la quita', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota({ es_favorito: true }));
+    const marcar = vi.spyOn(client, 'marcarFavorita').mockResolvedValue(mascota());
+    const desmarcar = vi.spyOn(client, 'desmarcarFavorita').mockResolvedValue(undefined);
+
+    renderFichaConRegistro();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Quitar de favoritos' }));
+
+    expect(desmarcar).toHaveBeenCalledWith(7, 7);
+    expect(marcar).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Guardar en favoritos' })).toBeInTheDocument(),
+    );
+  });
+
+  it('sin cuenta el corazón se pinta igual, pero lleva al registro sin llamar a la API', async () => {
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+    const marcar = vi.spyOn(client, 'marcarFavorita').mockResolvedValue(mascota());
+    const desmarcar = vi.spyOn(client, 'desmarcarFavorita').mockResolvedValue(undefined);
+
+    renderFichaConRegistro();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    // El orden importa: lo grave no es dejar de navegar, es escribir. Sin el
+    // gate, esta llamada saldría con el `DEMO_USER_ID = 1` y guardaría la
+    // mascota en la lista de una persona real.
+    expect(marcar).not.toHaveBeenCalled();
+    expect(desmarcar).not.toHaveBeenCalled();
+    // El `?volver=` lleva ESTA ficha, con su id: quien se registra para guardar
+    // vuelve a la mascota que estaba mirando, no al catálogo.
+    expect(
+      await screen.findByText('registro /registro?volver=%2Fadoptar%2Fmascota%2F7'),
+    ).toBeInTheDocument();
+  });
+
+  it('si la API falla, la ficha no muestra error ni deshace el corazón', async () => {
+    setActiveUserId(7);
+    vi.mocked(client.obtenerMascota).mockResolvedValue(mascota());
+    vi.spyOn(client, 'marcarFavorita').mockRejectedValue(new client.ApiError('offline'));
+
+    renderFichaConRegistro();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar en favoritos' }));
+
+    // ⚠️ El flush explícito NO es ceremonia: este caso asevera que **no pasa
+    // nada** cuando la promesa se rechaza, y el corazón ya está lleno por el
+    // optimista desde el clic. Sin vaciar antes la cola de microtasks dentro de
+    // `act`, las dos aserciones de abajo pasan por llegar temprano —comprobado:
+    // con `waitFor` a secas, la mutación que revierte el corazón en el `.catch`
+    // SOBREVIVE— (`memory/memory.md`, 2026-08-16).
+    await act(async () => {});
+
+    expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, eliminarMascota, obtenerMascota } from '../api/client';
+import {
+  ApiError,
+  desmarcarFavorita,
+  eliminarMascota,
+  marcarFavorita,
+  obtenerMascota,
+} from '../api/client';
 import type { Mascota } from '../api/types';
 import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { GaleriaFotos } from '../components/GaleriaFotos';
@@ -21,12 +27,22 @@ import { tiempoRelativo } from '../lib/tiempo';
 
 // Ficha pública de una mascota en adopción (AD-01, acceptance A3).
 //
-// ⚠️ Pantalla de solo lectura para quien mira. Lo único que escribe son las
-// acciones de quien la publicó (AD-02, paso 9), y van SIEMPRE detrás de
-// `hasActiveUser()`: `getActiveUserId()` cae al usuario demo (id 1) sin cuenta,
-// así que sin ese guard un visitante vería "editar" y "despublicar" sobre las
-// mascotas del usuario 1 — que en producción es una persona real. Favoritos y
-// "me interesa" llegan con su propio gate en AD-03/AD-07.
+// ⚠️ Casi todo lo que hace es leer. Lo que escribe —las acciones de quien la
+// publicó (AD-02, paso 9) y el corazón de favoritos (AD-07, paso 7)— va SIEMPRE
+// detrás de `hasActiveUser()`: `getActiveUserId()` cae al usuario demo (id 1) sin
+// cuenta, así que sin ese guard un visitante vería "editar" y "despublicar" sobre
+// las mascotas del usuario 1 —que en producción es una persona real— y guardaría
+// mascotas en SU lista privada. Por lo mismo `adoptante_id` solo viaja con
+// cuenta: es lo que llena `es_favorito`, y mandarlo inventado pintaría el corazón
+// de otra persona como si fuera el propio.
+//
+// El corazón se pinta igual sin cuenta y lleva a `/registro?volver=` con la ruta
+// de ESTA ficha (el mismo gate que "Me interesa" del deck): esconderlo ocultaría
+// que los favoritos existen, y el `?volver=` con el id es lo que devuelve a la
+// mascota que se estaba mirando en vez de al catálogo. Se pinta también sobre una
+// mascota ya adoptada —a diferencia del contacto, que ahí desaparece—: la lista
+// guardada no excluye adoptadas (guardaste esa mascota, tienes derecho a ver cómo
+// terminó) y esta ficha es el único sitio donde quitarla desde su propia página.
 //
 // Esas acciones solo aparecen si publica un RESCATISTA y es quien está mirando.
 // Para las mascotas de una organización no se pintan aunque las mire su autor:
@@ -59,7 +75,9 @@ export function MascotaDetalle() {
   useEffect(() => {
     if (!id) return;
     setError(null);
-    obtenerMascota(Number(id))
+    // El adoptante solo viaja si existe de verdad (ver la cabecera): es lo que
+    // hace que `es_favorito` llegue lleno y el corazón se pinte como está.
+    obtenerMascota(Number(id), hasActiveUser() ? getActiveUserId() : undefined)
       .then(setMascota)
       // El backend ya responde en español ("La mascota 7 no existe"): ese texto es
       // copy de producto, no un detalle técnico, así que se muestra tal cual.
@@ -123,6 +141,34 @@ export function MascotaDetalle() {
     }
   }
 
+  /** Guarda o quita la mascota de la lista, en optimista. */
+  function alternarFavorita() {
+    if (!mascota) return;
+    // La cuenta se pide ANTES de tocar nada, como en el catálogo y el deck: sin
+    // ella, `getActiveUserId()` escribiría en la lista del usuario 1.
+    if (!hasActiveUser()) {
+      navigate(`/registro?volver=${encodeURIComponent(`/adoptar/mascota/${mascota.id}`)}`);
+      return;
+    }
+
+    const adoptanteId = getActiveUserId();
+    const guardada = mascota.es_favorito;
+    // El corazón cambia ya y la ficha NO se vuelve a pedir: recargarla entera
+    // por un corazón haría parpadear la foto y perdería la miniatura elegida.
+    setMascota((previa) => (previa ? { ...previa, es_favorito: !guardada } : previa));
+
+    const peticion = guardada
+      ? desmarcarFavorita(adoptanteId, mascota.id)
+      : marcarFavorita(adoptanteId, mascota.id);
+    peticion.catch(() => {
+      // Vacío A PROPÓSITO, no por descuido (`docs/conventions.md` §3, mismo
+      // criterio que el catálogo y el deck): un favorito no bloquea la ficha ni
+      // merece un error rojo encima de la mascota. Tampoco se revierte el
+      // corazón: lo que se pierde es una fila de una lista privada, y volver a
+      // tocarlo lo reintenta.
+    });
+  }
+
   // Ficha en chips, como las señas de `ReporteDetalle`: a 360px una tabla de
   // etiqueta-valor obliga a hacer scroll y aquí cada dato se lee solo.
   const datos = [
@@ -174,11 +220,32 @@ export function MascotaDetalle() {
             {tiempoRelativo(mascota.publicado_en)}
           </p>
         </div>
-        <span
-          className={`rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg ${estado.color}`}
-        >
-          {estado.texto}
-        </span>
+        <div className="flex flex-col items-end gap-2">
+          <span
+            className={`rounded-md px-3 py-1 font-mono text-xs tracking-wide text-bg ${estado.color}`}
+          >
+            {estado.texto}
+          </span>
+          {/* Con texto y no solo el símbolo, al revés que en las tarjetas: aquí
+              hay sitio de sobra y esta es la pantalla donde alguien decide con
+              calma. El corazón va `aria-hidden` para que el nombre accesible del
+              botón sea exactamente el mismo de las otras dos pantallas
+              ("Guardar en favoritos" / "Quitar de favoritos") y no "♡ Guardar…". */}
+          <button
+            type="button"
+            onClick={alternarFavorita}
+            className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium ${
+              mascota.es_favorito
+                ? 'border-forest-tint-line bg-forest-tint text-forest'
+                : 'border-line bg-surface text-ink-soft'
+            }`}
+          >
+            <span aria-hidden className="text-lg leading-none">
+              {mascota.es_favorito ? '♥' : '♡'}
+            </span>
+            {mascota.es_favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+          </button>
+        </div>
       </header>
 
       {mascota.estado === 'adoptado' && (
