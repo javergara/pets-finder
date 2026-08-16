@@ -32,7 +32,7 @@
       "id": "AD-03-deck-swipe-y-afinidad",
       "title": "Deck de descubrimiento con swipe y afinidad explicable",
       "description": "Portar Descubrir.tsx (deck swipe con gestos), services/deck.py y services/affinity.py (funciones puras, ADR 0003: afinidad calculada al vuelo, sin persistir scores) y services/filters.py desde adopta-v1. Modelo Swipe (user_id, pet_id, direccion, unique(user_id,pet_id)) para no repetir tarjetas. El score se muestra CON razones ('le va bien con niños como pides', 'energía media como tu hogar') — misma filosofía explicable de la feature 38. Sin HomeProfile aún, la afinidad usa los defaults (AD-04 la completa). Ruta /adoptar/descubrir con acceso desde el catálogo.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-01-modelo-pet-y-catalogo"],
       "acceptance": [
         "El deck muestra mascotas disponibles no swipeadas por el usuario, con swipe izquierda/derecha por gesto y botones accesibles",
