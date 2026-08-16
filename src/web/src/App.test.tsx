@@ -3,17 +3,25 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from './api/client';
 import App from './App';
+import { setActiveUserId } from './lib/session';
 
 // La landing pide el resumen de reencuentros al montar; el deck de AD-03 pide su
 // baraja. Se mockean las dos para que ninguna ruta salga a la red de verdad.
 vi.mock('./api/client', async () => {
   const actual = await vi.importActual<typeof client>('./api/client');
-  return { ...actual, obtenerReunidos: vi.fn(), listarDeck: vi.fn() };
+  return {
+    ...actual,
+    obtenerReunidos: vi.fn(),
+    listarDeck: vi.fn(),
+    obtenerPerfilHogar: vi.fn(),
+  };
 });
 
 beforeEach(() => {
   vi.mocked(client.obtenerReunidos).mockResolvedValue({ total: 0, recientes: [] });
   vi.mocked(client.listarDeck).mockResolvedValue([]);
+  vi.mocked(client.obtenerPerfilHogar).mockResolvedValue(null);
+  setActiveUserId(1);
 });
 
 // `App` no envuelve un `BrowserRouter` internamente (eso vive en `main.tsx`), así que
@@ -55,6 +63,20 @@ describe('App', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Descubrir' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
+  });
+
+  // El cuestionario de hogar (AD-04) vive dentro de AppLayout como el resto del
+  // módulo. Con cuenta activa se monta el wizard; sin ella se iría al registro,
+  // que es el caso propio de `CuestionarioHogar.test.tsx`.
+  it('en "/adoptar/mi-hogar" monta el cuestionario de hogar', async () => {
+    render(
+      <MemoryRouter initialEntries={['/adoptar/mi-hogar']}>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Paso 1 de 6')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Pet Finder Col' })).toBeInTheDocument();
   });
 

@@ -2,6 +2,7 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
 import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
+import { CuestionarioHogar } from './screens/CuestionarioHogar';
 import { DescubrirMascotas } from './screens/DescubrirMascotas';
 import { EditarMascota } from './screens/EditarMascota';
 import { EditarReporte } from './screens/EditarReporte';
@@ -98,6 +99,9 @@ function App() {
           {/* Deck de descubrimiento (AD-03). Se entra desde /adoptar; mirarlo no
               pide cuenta, y el gate de "Me interesa" vive en la pantalla. */}
           <Route path="/adoptar/descubrir" element={<DescubrirMascotas />} />
+          {/* Cuestionario de hogar (AD-04). Es una escritura, así que la
+              pantalla se manda sola al registro si no hay cuenta. */}
+          <Route path="/adoptar/mi-hogar" element={<CuestionarioHogar />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
               ficha, igual que /reporte/:id/editar en el otro dominio. */}
