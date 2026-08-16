@@ -230,34 +230,44 @@ El acceptance pide *"el flujo completo funciona en producción con un caso real 
 | 9 | Favoritos | `/adoptar/mis-favoritas` (cuenta B) | La mascota guardada, y quitarla la saca de la lista |
 | 10 | Móvil | cualquiera a 360px | Los filtros arrancan plegados y no hay scroll horizontal |
 
-### La limpieza: por la API, nunca por SQL — y hay un tope que tienes que decidir antes de empezar
+### La limpieza: por la API, nunca por SQL — y despublicar ya barre sus rastros
 
 Regla del repo: los datos de prueba se borran **por la API**, jamás con un `delete from` en el SQL Editor. Un `delete` a mano contra una base con datos reales de gente que perdió a su mascota es exactamente el riesgo que estas guías existen para no correr.
 
-Lo que la API de hoy sí puede deshacer:
+Lo que la API puede deshacer:
 
 ```bash
 # quitar un favorito
 curl -X DELETE "https://petfinder-col.com/api/users/<ID_B>/favorites/<ID_PET>"
 
-# despublicar la mascota de prueba (solo quien la publicó)
+# despublicar la mascota de prueba (solo quien la publicó):
+# se lleva con ella sus swipes y sus favoritos
 curl -X DELETE "https://petfinder-col.com/api/pets/<ID_PET>?user_id=<ID_A>"
 ```
 
-⚠️ **Lo que la API de hoy NO puede deshacer, y conviene saberlo antes de swipear:**
+**Una sola llamada limpia el recorrido entero**, y no hace falta decidir nada antes de swipear: el recorrido se puede hacer sobre **una** mascota y dejar la base como estaba.
 
-- **No hay endpoint para borrar un swipe ni una solicitud.** `routers/swipes.py` solo expone `POST`; `routers/solicitudes.py` expone `GET` y las cuatro acciones, ninguna destructiva.
-- Y como `swipes.pet_id` y `matches.pet_id` son claves foráneas **sin `ON DELETE`** (comprobado: `grep -i "on delete" migrations/*.sql` no devuelve nada), en Postgres el `DELETE` de la mascota que ya tiene un swipe o una solicitud **debería fallar por integridad referencial**, y `despublicar_mascota` no lo contempla: borra la fila directamente.
-  **Esto está predicho por el esquema, no medido.** No hay Postgres en este working tree y **SQLite no fuerza las claves foráneas**, así que la suite no puede verlo — el mismo género de trampa que ya documenta `memory/memory.md` (2026-08-15).
+#### Qué hace hoy `DELETE /api/pets/{id}`
+
+Hasta esta corrección, ese endpoint hacía `session.delete(pet)` a secas. Como las tres FK hacia `public.pets` están declaradas **sin `ON DELETE`** (`swipes.pet_id`, `matches.pet_id`, `favorites.pet_id`), en Postgres eso revienta con `IntegrityError` en cuanto la mascota tenga **un solo swipe o favorito**: un **500 con traza** para quien publicó su mascota, recibió un corazón y quiso despublicarla. No era un problema solo de la limpieza de esta guía — era un bug de producto.
+
+Ahora el endpoint hace tres cosas, en este orden:
+
+1. **Autoría primero**: 404 si la mascota no existe, 403 si quien pide no es quien publicó. Quien no publicó la mascota no llega a enterarse de cuántas solicitudes tiene.
+2. **Si hay solicitudes vivas, 409 y no se toca nada.** "Viva" = estado **no terminal** (`solicitado`, `en_revision`, `visita_agendada`); `adoptado` y `cerrado` no bloquean. El mensaje dice cuántas hay y qué hacer, concordado en singular y plural: *"Esta mascota tiene 1 solicitud de adopción abierta: ciérrala antes de despublicar a la mascota"*. Una solicitud es una conversación con otra persona que espera respuesta: hacerla desaparecer en silencio sería peor que el 500. La salida es cerrarla (`POST /api/solicitudes/{id}/descartar`) y volver a intentarlo.
+3. **Si no hay ninguna viva, se borran en cascada `swipes`, `favorites` y las solicitudes ya terminadas**, y después la mascota. Un favorito de una mascota que ya no existe no le sirve a nadie, y un swipe solo existía para no repetir una carta que ya no está.
+
+El 409 va **antes** de borrar las fotos del bucket, igual que en `eliminar_reporte`: al revés, el usuario perdería las imágenes y encima la mascota seguiría publicada. Y sigue en pie la regla de AD-02: si la mascota vino de un reporte, **sus fotos no se borran** (son las del reporte, que sigue vivo).
+
+**Las migraciones no cambian.** El arreglo va en el router y no en el esquema: añadir `ON DELETE CASCADE` exigiría un `ALTER` sobre tablas que todavía no existen en producción, y no aporta nada sobre hacerlo en código — donde además cabe la regla del 409, que una cascada de base de datos no sabe expresar.
+
+Cómo está probado, que es lo que hace creíble el párrafo anterior: **SQLite no fuerza las FK**, así que un test normal de esta suite pasaría en verde con el código roto. Los casos viven en `tests/api/test_despublicar_rastros.py`, que monta su propia base con un listener `PRAGMA foreign_keys=ON` —o sea, comportándose como Postgres— y tiene un candado (`test_el_fixture_fuerza_las_fk_y_el_global_no`) que cae si alguien le quita esa comprobación.
+
+⚠️ **Lo que la API sigue sin poder deshacer:**
+
+- **No hay endpoint para borrar un swipe ni una solicitud sueltos.** `routers/swipes.py` solo expone `POST`; `routers/solicitudes.py` expone `GET` y las cuatro acciones, ninguna destructiva. La vía para limpiarlos es despublicar la mascota, que se los lleva.
+- Una solicitud viva hay que **cerrarla** antes (paso 8 del recorrido: "descartar"), no se puede borrar.
 - Tampoco hay `DELETE` de usuarios: la cuenta de prueba se queda.
-
-**Decide antes de empezar el paso 5**, porque después no hay vuelta atrás por la API:
-
-1. **Recorrido en dos mascotas**: una para publicar/compartir/editar/despublicar (se borra limpia, 204) y otra —la del deck— asumiendo que sus filas se quedan. Es lo menos malo con la API de hoy.
-2. **Dejarlo escrito**: marcar la mascota de prueba como `adoptado` por la API la saca del catálogo público, pero **suma +1 al contador de adopciones logradas**, que hoy está en 0 y se ve en `/adoptar`. Un final feliz falso en un producto cuya métrica es la esperanza no es un detalle cosmético.
-3. **Autorizar explícitamente un borrado por SQL** de esas filas concretas, sabiendo que contradice la regla de arriba (`delete from matches/swipes where pet_id = X`, y luego la mascota). Es tu llamada, no la del agente.
-
-La cuarta salida —que `DELETE /api/pets/{id}` limpie sus filas hijas o responda 409 como hace `eliminar_reporte` con el puente— **es código nuevo y no entra en AD-09**: queda anotada para que el líder decida si es una feature aparte.
 
 ---
 

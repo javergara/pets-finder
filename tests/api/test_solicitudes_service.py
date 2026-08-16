@@ -24,12 +24,14 @@ from reencuentro_api.services.solicitudes import (
     ACCION_LEGIBLE,
     ESTADO_LEGIBLE,
     ESTADOS_SOLICITUD,
+    ESTADOS_TERMINALES,
     MOTIVO_ADOPTADA_POR_OTRA,
     ORDEN_ACCIONES,
     TRANSICIONES_VALIDAS,
     TransicionInvalidaError,
     acciones_disponibles,
     calcular_etiqueta_solicitud,
+    mensaje_solicitudes_vivas,
     validar_transicion,
 )
 
@@ -302,6 +304,40 @@ def test_las_acciones_no_son_estados():
     assert set(ORDEN_ACCIONES).isdisjoint(ESTADOS_SOLICITUD)
     assert "aprobado" not in ESTADOS_SOLICITUD
     assert "descartado" not in ESTADOS_SOLICITUD
+
+
+def test_los_estados_terminales_viven_en_el_servicio_y_son_los_que_no_avanzan():
+    """AD-09 bajó `ESTADOS_TERMINALES` del router al servicio porque
+    `despublicar_mascota` necesita la misma frontera (y `routers/solicitudes.py`
+    ya importa de `.pets`, así que la vuelta habría sido circular).
+
+    El candado no es dónde vive, sino que siga significando lo mismo: terminal =
+    ninguna acción disponible. Si mañana aparece un sexto estado sin acciones y
+    nadie lo añade aquí, una mascota con solicitudes en ese estado bloquearía
+    para siempre su despublicación con un 409 que nadie puede resolver.
+    """
+    sin_acciones = {
+        estado for estado in ESTADOS_SOLICITUD if not acciones_disponibles(estado, True)
+    }
+    assert set(ESTADOS_TERMINALES) == sin_acciones == {"adoptado", "cerrado"}
+
+
+def test_el_409_de_despublicar_concuerda_en_singular_y_en_plural():
+    """El mensaje lo lee quien pulsó "Despublicar": tiene que decir cuántas
+    conversaciones abiertas lo bloquean y qué hacer con ellas. Un "1 solicitudes
+    abiertas" delata que nadie lo leyó antes de mandarlo a producción."""
+    assert mensaje_solicitudes_vivas(1) == (
+        "Esta mascota tiene 1 solicitud de adopción abierta: "
+        "ciérrala antes de despublicar a la mascota"
+    )
+    assert mensaje_solicitudes_vivas(3) == (
+        "Esta mascota tiene 3 solicitudes de adopción abiertas: "
+        "ciérralas antes de despublicar a la mascota"
+    )
+    # La salida va nombrada, no solo el problema: sin esto el 409 sería un "no se
+    # puede" seco y quien lo recibe no sabría por dónde seguir.
+    for cuantas in (1, 2, 7):
+        assert "cierra" in mensaje_solicitudes_vivas(cuantas).replace("é", "e")
 
 
 def test_el_motivo_de_cierre_automatico_es_copy_de_producto():

@@ -1808,3 +1808,27 @@ Comprobado también por comando, no de memoria: **cero dependencias nuevas** (`g
 2. Mergear `feat/adoptar` y comprobar que el deployment existió de verdad (poll del bundle; el auto-deploy de `main` ya falló en silencio una vez) → media parte del 3.
 3. Recorrido manual en `petfinder-col.com` con evidencia aquí, decidiendo antes la salida de limpieza del hallazgo 2 → cierra el acceptance 2.
 4. Revisor independiente: `init.sh`, veredicto y `done` en los dos JSON → cierra el 4.
+
+### AD-09 (2026-08-16): arreglado el 500 de despublicar una mascota con rastros
+
+**AD-09 sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json` — el `done` es del revisor, y además los dos acceptance que dependen de producción siguen abiertos. Esto no los cierra: cierra el **hallazgo 2** que quedó anotado arriba, que resultó ser un bug de producto y no una limitación de la guía de limpieza.
+
+**Rojo inicial, citado**: `pet` con 1 swipe → `session.delete(p); commit()` → `sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed [SQL: DELETE FROM pets WHERE pets.id = ?]`. En producción (Postgres, que sí fuerza las FK) eso es un **500 con traza** para quien publicó su mascota, recibió un corazón e intentó despublicarla.
+
+**Dónde quedó**:
+
+- `src/api/reencuentro_api/routers/pets.py::despublicar_mascota` — 404 → 403 → **409 si hay solicitudes vivas** → cascada de `swipes`/`favorites`/solicitudes terminales → fotos → `session.delete(pet)`.
+- `src/api/reencuentro_api/services/solicitudes.py` — `ESTADOS_TERMINALES` (bajado del router: `routers/solicitudes.py` ya importa de `.pets`, así que la vuelta era **circular**) y `mensaje_solicitudes_vivas()`, función pura con la concordancia singular/plural del 409.
+- `tests/api/test_despublicar_rastros.py` (nuevo, 13 casos) — base propia con `PRAGMA foreign_keys=ON`; **el `conftest` global no se tocó**.
+- `tests/api/test_solicitudes_service.py` — +2 casos (frontera terminal, copy del 409). `tests/api/test_pets_publicar.py` — solo un comentario que apunta al archivo nuevo.
+- `docs/despliegue-modulo-adopcion.md` §6 — reescrita: era "limitación pendiente, tres salidas a elegir"; ahora describe el comportamiento real y el recorrido manual se limpia con **una sola llamada** sobre una única mascota.
+
+**Lo que hace que estos tests no sean decorativos**: SQLite no fuerza las FK, así que el test normal de esta suite **pasa en verde con el código roto** — se comprobó escribiéndolo (204, mascota borrada, dos swipes huérfanos, verde). El fixture nuevo enciende las FK con un listener sobre el evento `connect` del engine (un `session.execute("PRAGMA …")` no sirve: SQLite lo ignora dentro de una transacción), y `test_el_fixture_fuerza_las_fk_y_el_global_no` cae si alguien se lo quita.
+
+**Cinco mutaciones, con el fallo real**: sin cascada → `IntegrityError … FOREIGN KEY constraint failed` (con FK) / `assert 2 == 0` (sin FK); sin el 409 → caen los tres estados vivos; sin la frontera terminal en el `NOT IN` → caen `adoptado` y `cerrado`; el 409 detrás de las fotos → `assert ['/media/uploads/canela-1.jpg'] == []`.
+
+**Las migraciones no se tocaron** y la cola sigue igual (`AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`, ninguna ejecutada, merge a `main` bloqueado). `ON DELETE CASCADE` habría exigido un `ALTER` sobre tablas que aún no existen en prod y no aporta sobre hacerlo en código, donde además cabe la regla del 409.
+
+Verificación: `bash init.sh` en verde — **753 tests de Python + 487 de web** (738 + 15). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin push ni merge. `feature_list.json` sin tocar.
+
+**Para el líder, encontrado de paso y no tocado**: `memory/memory.md` (2026-08-15) afirma que *"ningún test de este repo puede usarse como prueba de que la integridad referencial protege algo"*. Con `test_despublicar_rastros.py` ya no es cierto, y dejarlo así invita al siguiente agente a escribir otra vez el test decorativo. Merece una entrada de `update-memory` con la receta del listener — no la escribo yo porque `memory/` no estaba en el encargo.

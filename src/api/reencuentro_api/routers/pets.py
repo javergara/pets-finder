@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import false, func, or_, select
+from sqlalchemy import delete, false, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
@@ -20,6 +20,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from ..media import borrar_foto
 from ..models.favorite import Favorite
 from ..models.home_profile import HomeProfile
+from ..models.match import Match
 from ..models.organizacion import Organizacion
 from ..models.pet import Pet
 from ..models.report import Report
@@ -38,6 +39,7 @@ from ..services.afinidad import calcular_afinidad
 from ..services.db import get_session
 from ..services.descubrir import ordenar_deck
 from ..services.filtros import EDAD_CATEGORIA_RANGOS, FiltrosDeck, aplicar_filtros
+from ..services.solicitudes import ESTADOS_TERMINALES, mensaje_solicitudes_vivas
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -606,6 +608,33 @@ def despublicar_mascota(pet_id: int, user_id: int, session: Session = Depends(ge
     autoría la resuelve `_dueno_user_id`, igual que el `PUT`, incluido su caso
     `None` (organización eliminada) → 403 y nunca un 500.
 
+    ⚠️ **Antes de borrar la fila hay que limpiar lo que cuelga de ella.** Las tres
+    FK hacia `pets` —`swipes.pet_id`, `matches.pet_id`, `favorites.pet_id`— están
+    declaradas **sin `ON DELETE`**, así que en Postgres un `DELETE` con un solo
+    swipe encima revienta con `IntegrityError`: 500 con traza para quien publicó
+    su mascota y recibió un corazón. En SQLite no se nota (no fuerza las FK), y
+    por eso el test que lo cubre monta su propia base con `PRAGMA
+    foreign_keys=ON` (`tests/api/test_despublicar_rastros.py`).
+
+    La limpieza es **mixta, y la asimetría es de producto**:
+
+    - **`swipes` y `favorites` se van con la mascota.** Son rastros privados sin
+      valor propio: un favorito de una mascota que ya no existe no le sirve a
+      nadie, y un swipe solo existía para no repetir una carta que ya no está.
+    - **Una solicitud viva bloquea con 409.** Es una conversación entre dos
+      personas y hacerla desaparecer en silencio sería peor que el 500 que esto
+      arregla: al otro lado hay alguien esperando respuesta. "Viva" = estado **no
+      terminal** (`ESTADOS_TERMINALES` de `services/solicitudes.py`, la misma
+      frontera que usa el cierre en cadena de `aprobar` — aquí no se redefine).
+      Las que ya terminaron (`adoptado`, `cerrado`) no bloquean y se borran con
+      ella.
+
+    ⚠️ El 409 va **antes** de `borrar_foto`, igual que en `eliminar_reporte`: al
+    revés, el endpoint se llevaría las fotos del bucket y solo después se negaría
+    a borrar, dejando al usuario sin imágenes y con la mascota publicada. Como
+    `borrar_foto` no lanza, el status no delataría nada — por eso el test espía
+    las llamadas en vez de mirar solo el código.
+
     ⚠️ Las fotos solo se borran si la mascota **no** vino de un reporte. Cuando
     `report_id` no es nulo, esas URLs son las del reporte de "encontrada", que
     sigue vivo en la app: borrarlas del bucket dejaría al reporte con imágenes
@@ -625,6 +654,16 @@ def despublicar_mascota(pet_id: int, user_id: int, session: Session = Depends(ge
     if user_id != _dueno_user_id(session, pet):
         raise HTTPException(403, "Solo quien publicó la mascota puede despublicarla")
 
+    vivas = session.scalar(
+        select(func.count())
+        .select_from(Match)
+        .where(Match.pet_id == pet_id, Match.estado.not_in(ESTADOS_TERMINALES))
+    )
+    if vivas:
+        raise HTTPException(409, mensaje_solicitudes_vivas(vivas))
+
+    for modelo in (Swipe, Favorite, Match):
+        session.execute(delete(modelo).where(modelo.pet_id == pet_id))
     if pet.report_id is None:
         for foto in pet.fotos:
             borrar_foto(foto)

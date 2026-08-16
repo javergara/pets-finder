@@ -47,6 +47,7 @@ from ..services.db import get_session
 
 # ⚠️ Ver el aviso del docstring del módulo antes de "arreglar" este import.
 from ..services.solicitudes import (
+    ESTADOS_TERMINALES,
     MOTIVO_ADOPTADA_POR_OTRA,
     TransicionInvalidaError,
     acciones_disponibles,
@@ -64,12 +65,11 @@ FILTRO_UNICO = (
 SOLICITUD_AJENA = "Solo el adoptante o quien publicó la mascota pueden ver esta solicitud"
 ACCION_AJENA = "Solo quien publicó la mascota puede gestionar esta solicitud"
 
-#: Los estados desde los que ya no se avanza. Se escriben literales porque viajan
-#: dentro del `NOT IN` de SQL del cierre en cadena de `aprobar` —derivarlos de
-#: `TRANSICIONES_VALIDAS` en tiempo de request sería un cálculo escondido dentro
-#: de una query—, y un candado en `tests/api/test_solicitudes_acciones.py` exige
-#: que sigan siendo exactamente los estados sin ninguna acción disponible.
-ESTADOS_TERMINALES = ("adoptado", "cerrado")
+#: ⚠️ `ESTADOS_TERMINALES` se define en `services/solicitudes.py` desde AD-09 y
+#: aquí solo se importa (ver el aviso de su docstring): `despublicar_mascota`
+#: necesita la misma frontera y no puede importar de este router sin cerrar un
+#: ciclo. El nombre sigue siendo alcanzable como
+#: `routers.solicitudes.ESTADOS_TERMINALES` para quien ya lo usaba.
 
 
 def _afinidad_out(pet: Pet, home: HomeProfile | None) -> AfinidadOut | None:

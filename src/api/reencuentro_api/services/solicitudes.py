@@ -53,11 +53,49 @@ ESTADOS_SOLICITUD: tuple[str, ...] = (
     "cerrado",
 )
 
+#: Los estados desde los que ya no se avanza: una solicitud terminal no espera
+#: nada de nadie. Se escriben literales —y no derivados de `TRANSICIONES_VALIDAS`
+#: en tiempo de request— porque viajan dentro de un `NOT IN` de SQL; el candado
+#: `test_los_estados_terminales_son_los_que_no_admiten_ninguna_accion` exige que
+#: sigan siendo exactamente los estados sin ninguna acción disponible.
+#:
+#: ⚠️ Vivía en `routers/solicitudes.py` hasta AD-09. Bajó aquí cuando
+#: `despublicar_mascota` (`routers/pets.py`) necesitó la misma frontera para
+#: decidir si una mascota se puede despublicar: `routers/solicitudes.py` ya
+#: importa de `.pets`, así que el import de vuelta habría sido circular. Es el
+#: movimiento que el propio docstring de aquel router dejó escrito ("si algún día
+#: un tercer router la necesita, bajarla a `services/`, no duplicarla") — y una
+#: segunda definición de "terminal" es exactamente el bug que nadie encuentra.
+ESTADOS_TERMINALES: tuple[str, ...] = ("adoptado", "cerrado")
+
 #: Motivo con el que se cierran las demás solicitudes cuando una se aprueba
 #: (paso 3). Vive aquí, y no incrustado en el router, porque es copy de producto
 #: —lo lee quien no se quedó con la mascota— y porque su test compara contra la
 #: misma constante en vez de contra una cadena repetida.
 MOTIVO_ADOPTADA_POR_OTRA = "La mascota fue adoptada por otra familia"
+
+
+def mensaje_solicitudes_vivas(cuantas: int) -> str:
+    """El 409 de `DELETE /api/pets/{id}` cuando la mascota tiene conversaciones abiertas.
+
+    Copy de producto, no un código interno: lo lee quien pulsó "Despublicar" y
+    tiene que entender **cuántas** solicitudes lo bloquean y **qué hacer** con
+    ellas. Por eso dice el número y nombra la salida (cerrarlas), en vez de un
+    "no se puede" seco — mismo criterio que el 409 de `eliminar_reporte`.
+
+    Concuerda en singular y plural: *"1 solicitud … abierta: ciérrala"* frente a
+    *"3 solicitudes … abiertas: ciérralas"*. Un "1 solicitudes abiertas" delata
+    que nadie leyó el mensaje antes de mandarlo a producción.
+    """
+    if cuantas == 1:
+        return (
+            "Esta mascota tiene 1 solicitud de adopción abierta: "
+            "ciérrala antes de despublicar a la mascota"
+        )
+    return (
+        f"Esta mascota tiene {cuantas} solicitudes de adopción abiertas: "
+        "ciérralas antes de despublicar a la mascota"
+    )
 
 
 def calcular_etiqueta_solicitud(
