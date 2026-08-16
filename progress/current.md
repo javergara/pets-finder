@@ -1554,3 +1554,16 @@ Ambos archivos restaurados con `git checkout --`; `git status --short` vacío y 
 2. Añadir **solo** un caso dedicado en `SolicitudDetalle.test.tsx` con `/nadie debe pedirte dinero/`. Es el único hueco defendible, y no es de cobertura sino de forma: hoy la protegen dos casos cuyo nombre habla de WhatsApp, así que un refactor de esos casos podría llevarse el candado sin que salte nada. El complemento "sin teléfono no hay aviso" (rama `otroLado.telefono`) tampoco está aseverado en ningún sitio.
 
 El duplicado en `PublicarMascota` no se recomienda en ninguno de los dos caminos: sería la misma aserción, más larga, sobre la misma pantalla.
+
+#### AD-08 paso 2 HECHO (2026-08-16): `titulo_pet` + `GET /adoptar/mascota/{pet_id}`
+
+Rojo→verde real. Rojo inicial: `ImportError: cannot import name 'titulo_pet' from 'reencuentro_api.services.titulos'` (los 10 casos de `test_titulos.py` sin recolectarse) y `assert 404 == 200` en los 8 casos nuevos de `test_paginas.py`, más `AssertionError: assert 'Not Found' == 'La mascota 999 no existe'` en el noveno.
+
+- `src/api/reencuentro_api/services/titulos.py` — `titulo_pet(pet: Pet)` sobre el **modelo ORM** (como `titulo_reporte`), con `from ..models.pet import Pet` a nivel de módulo. Regla copiada literal de `tituloMascota` (`lib/adopcion.ts:204`): `nombre.strip()` manda; si vacío, `[etiqueta de especie, tamano, raza.lower() si raza != "Otra"]` unidos por espacio. `tamano` **crudo**. Docstring del módulo reescrito (decía "para un reporte") y **referencia mutua** puesta en los dos lados del espejo.
+- `src/api/reencuentro_api/routers/paginas.py` — handler calcado de `/reporte/{id}`, `escape` en todo, `og:image` omitido sin fotos, `(pet.fotos or [])`, `historia[:200]`, `lugar = ciudad_texto if zona == "Otro" else zona`, 404 en español. `ETIQUETA_ESTADO_ADOPCION` con el porqué de que `en_proceso` se comparta como "En adopción" escrito **en el código**, no solo aquí.
+- **Helper `_absoluta(ruta, sitio)` extraído y usado por los dos handlers**; los 3 tests previos de reportes son la red de regresión.
+- Tests **+14 de Python**: `tests/api/test_titulos.py` (+5, mismos casos que `adopcion.test.ts` y en el mismo orden) y `tests/api/test_paginas.py` (+9). El del 404 asevera el `detail`, no solo el status: sin eso habría nacido verde con el endpoint sin escribir (una ruta inexistente también da 404).
+
+Verificación: `bash init.sh` en verde — **733 tests de Python + 460 de web** (línea base 719 + 460). Mutación ejecutada con cuatro roturas: `_absoluta` prefijando siempre → caen el test del **reporte** con foto absoluta y el de la mascota (2 rojos, la red de regresión del refactor); og:title fijo en "En adopción" → `assert 'og:title" content="Canela — Ya tiene hogar en Armenia"'`; `escape` fuera del título y la descripción → `<flaca>` crudo en el HTML; `og:image` emitido siempre → `'og:image' is contained here: property="og:image" content=""`. `paginas.py` restaurado y `git diff` verificado. Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **El endpoint todavía no lo alcanza nadie en producción**: el rewrite por user-agent de `vercel.json` es el paso 3. Y el botón "Compartir esta mascota" de la ficha es el paso 5 — hasta entonces la vista previa solo se ve si alguien pega la URL a mano.

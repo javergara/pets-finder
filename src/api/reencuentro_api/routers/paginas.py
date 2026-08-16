@@ -4,6 +4,10 @@ La SPA sirve el mismo index.html para toda ruta, así que WhatsApp/Facebook ven
 una vista previa genérica al compartir un reporte. Un rewrite de Vercel manda
 SOLO a los bots (por user-agent) de /reporte/:id a esta ruta, que responde un
 HTML mínimo con los og tags del reporte; los humanos siguen recibiendo la SPA.
+
+Desde AD-08 pasa lo mismo con /adoptar/mascota/:id. Regla común a todas las
+páginas de este módulo: **todo lo que escribió una persona va por `escape`**.
+Es HTML que servimos a terceros y un `"` sin escapar cierra el atributo.
 """
 
 import os
@@ -14,9 +18,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from ..models.pet import Pet
 from ..models.report import Report
 from ..services.db import get_session
-from ..services.titulos import titulo_reporte
+from ..services.titulos import titulo_pet, titulo_reporte
 
 router = APIRouter(tags=["paginas"])
 
@@ -25,6 +30,14 @@ ETIQUETA_TIPO = {"perdido": "Se perdió", "encontrado": "Encontrada"}
 
 def _sitio() -> str:
     return os.environ.get("SITE_URL", "https://petfinder-col.com").strip().rstrip("/")
+
+
+def _absoluta(ruta: str, sitio: str) -> str:
+    """Las fotos llegan de dos sitios: Supabase Storage las da absolutas
+    (`https://…`) y las locales/del seed relativas (`/media/…`). Ningún
+    rastreador resuelve una relativa, así que la de casa se absolutiza con
+    `SITE_URL` y la de fuera se deja intacta."""
+    return ruta if ruta.startswith("http") else sitio + ruta
 
 
 @router.get("/reporte/{report_id}", response_class=HTMLResponse)
@@ -43,8 +56,8 @@ def pagina_reporte_para_bots(
     url = f"{sitio}/reporte/{report.id}"
 
     if report.foto_url:
-        foto = report.foto_url if report.foto_url.startswith("http") else sitio + report.foto_url
-        og_imagen = f'<meta property="og:image" content="{escape(foto)}">'
+        foto = escape(_absoluta(report.foto_url, sitio))
+        og_imagen = f'<meta property="og:image" content="{foto}">'
     else:
         og_imagen = ""
 
@@ -63,6 +76,65 @@ def pagina_reporte_para_bots(
 </head>
 <body>
 <p><a href="{url}">Ver el reporte de {titulo} en Pet Finder Col</a></p>
+</body>
+</html>"""
+    return HTMLResponse(html)
+
+
+# El estado que se anuncia al compartir (AD-08). `en_proceso` se comparte como
+# "En adopción" a propósito: es un matiz interno entre quien publica y quien ya
+# solicitó, y a quien recibe el link no le aporta nada — la mascota todavía puede
+# ser suya. "adoptado" sí cambia el copy: anunciar "En adopción" una mascota que
+# ya tiene hogar manda gente a escribir en vano y quema la confianza del sitio.
+ETIQUETA_ESTADO_ADOPCION = {
+    "disponible": "En adopción",
+    "en_proceso": "En adopción",
+    "adoptado": "Ya tiene hogar",
+}
+
+
+@router.get("/adoptar/mascota/{pet_id}", response_class=HTMLResponse)
+def pagina_mascota_para_bots(pet_id: int, session: Session = Depends(get_session)) -> HTMLResponse:
+    """Calcada de `pagina_reporte_para_bots`: mismo rewrite por user-agent en
+    vercel.json, mismas etiquetas, mismo escapado. Lo que cambia es de dónde
+    salen el título (`titulo_pet`), la foto (la primera de `fotos`) y el estado."""
+    pet = session.get(Pet, pet_id)
+    if pet is None:
+        raise HTTPException(404, f"La mascota {pet_id} no existe")
+
+    sitio = _sitio()
+    nombre = titulo_pet(pet)
+    # Mismo criterio que `MascotaCard`: con zona "Otro" el lugar lo dice la
+    # ciudad que escribió quien publica.
+    lugar = pet.ciudad_texto if pet.zona == "Otro" else pet.zona
+    estado = ETIQUETA_ESTADO_ADOPCION.get(pet.estado, "En adopción")
+    titulo = escape(f"{nombre} — {estado} en {lugar or 'Colombia'}")
+    descripcion = escape(pet.historia[:200])
+    url = f"{sitio}/adoptar/mascota/{pet.id}"
+
+    fotos = pet.fotos or []
+    if fotos:
+        foto = escape(_absoluta(fotos[0], sitio))
+        og_imagen = f'<meta property="og:image" content="{foto}">'
+    else:
+        # Sin foto no va la etiqueta: un `og:image` vacío pinta un hueco roto.
+        og_imagen = ""
+
+    html = f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>{titulo} | Pet Finder Col</title>
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Pet Finder Col">
+<meta property="og:title" content="{titulo}">
+<meta property="og:description" content="{descripcion}">
+<meta property="og:url" content="{url}">
+{og_imagen}
+<meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+<p><a href="{url}">Conoce a {titulo} en Pet Finder Col</a></p>
 </body>
 </html>"""
     return HTMLResponse(html)

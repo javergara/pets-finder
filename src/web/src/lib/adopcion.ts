@@ -200,7 +200,12 @@ type AtributosTituloMascota = Pick<Mascota, 'nombre' | 'especie' | 'tamano' | 'r
  * `tituloReporte`: el nombre manda. La columna `nombre` es obligatoria, pero un
  * formulario puede mandar espacios, y una mascota sin nombre en la tarjeta se
  * ve rota — de ahí la composición de respaldo ("Perro mediano labrador"), que
- * dice más que un hueco. La raza "Otra" no aporta señas y no entra. */
+ * dice más que un hueco. La raza "Otra" no aporta señas y no entra.
+ *
+ * ⚠️ Espejo de `titulo_pet` (src/api/reencuentro_api/services/titulos.py), que
+ * compone el og:title que ven los rastreadores al compartir la ficha. Son la
+ * misma regla en dos lenguajes y nada las ata: si cambias esta, cambia la otra
+ * (y sus casos, que están escritos iguales a propósito en los dos tests). */
 export function tituloMascota(mascota: AtributosTituloMascota): string {
   const nombre = mascota.nombre.trim();
   if (nombre) return nombre;
