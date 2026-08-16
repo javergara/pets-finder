@@ -236,6 +236,20 @@ describe('CatalogoAdopcion', () => {
     );
   });
 
+  // Misma razón que "Mis solicitudes", y con un agravante: la lista guardada no
+  // se alcanza desde ningún otro sitio —el corazón guarda pero no lleva a
+  // ninguna parte—, así que sin esta entrada los favoritos serían una función
+  // que se usa a ciegas y nunca se puede revisar.
+  it('el header lleva a las mascotas guardadas (AD-07)', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('link', { name: 'Mis favoritas' })).toHaveAttribute(
+      'href',
+      '/adoptar/mis-favoritas',
+    );
+  });
+
   it('si la API falla muestra un mensaje en español y quita el esqueleto', async () => {
     vi.mocked(client.listarMascotas).mockRejectedValue(new Error('offline'));
 

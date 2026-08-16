@@ -9,6 +9,7 @@ import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
 import { MascotaDetalle } from './screens/MascotaDetalle';
+import { MisFavoritas } from './screens/MisFavoritas';
 import { MisReportes } from './screens/MisReportes';
 import { MisSolicitudes } from './screens/MisSolicitudes';
 import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
@@ -110,6 +111,12 @@ function App() {
               Literal antes que dinámica, como el resto del archivo. */}
           <Route path="/adoptar/mis-solicitudes" element={<MisSolicitudes />} />
           <Route path="/adoptar/solicitud/:id" element={<SolicitudDetalle />} />
+          {/* Lista guardada (AD-07). "mis-favoritas" y no "favoritas" por
+              consistencia con las dos rutas de arriba y con /mis-reportes: el
+              prefijo "mis" es lo que distingue lo propio de lo público en toda
+              la app. También se manda sola al registro sin cuenta — los
+              favoritos de alguien son un historial de navegación con nombre. */}
+          <Route path="/adoptar/mis-favoritas" element={<MisFavoritas />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
               ficha, igual que /reporte/:id/editar en el otro dominio. */}

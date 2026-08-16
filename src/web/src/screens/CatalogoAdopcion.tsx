@@ -158,6 +158,17 @@ export function CatalogoAdopcion() {
             >
               Mis solicitudes
             </Link>
+            {/* "Mis favoritas" (AD-07), mismo trato y con un agravante: el
+                corazón guarda pero no lleva a ninguna parte, así que sin esta
+                entrada la lista guardada no se alcanzaría desde ningún sitio y
+                guardar sería un gesto a ciegas. El enlace es público; la
+                pantalla es la que exige cuenta, porque es la que lee. */}
+            <Link
+              to="/adoptar/mis-favoritas"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mis favoritas
+            </Link>
             <Link
               to="/adoptar/publicar"
               className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"

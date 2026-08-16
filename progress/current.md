@@ -1391,4 +1391,17 @@ Verificación: `npx tsc -b --force` limpio (a mano, `init.sh` no typechequea) y 
 
 **Anotado para el líder** (fuera de alcance): **`npx prettier` (3.9.6) y el hook de pre-commit (v3.1.0, pineado en `.pre-commit-config.yaml`) no coinciden**. El 3.9.6 mete paréntesis en `mascota.ciudad_texto ?? 'Colombia'` y el hook los quita; manda el hook, así que el archivo quedó con el estilo de siempre y el diff limpio — pero correr `npx prettier --write` a mano en este repo genera ruido que después el hook deshace. Afecta a cualquier `.ts/.tsx` con esa forma, no solo a este.
 
-Siguiente: paso 5 (pantalla `MisFavoritas` + ruta `/adoptar/mis-favoritas` + enlace en la cabecera del catálogo, reusando `MascotaCard`).
+#### AD-07 paso 5 HECHO (2026-08-16): pantalla `MisFavoritas` + ruta + enlace en el catálogo
+
+Rojo→verde real. Rojo inicial: `Error: Failed to resolve import "./MisFavoritas" from "src/screens/MisFavoritas.test.tsx"` (los 10 casos sin poder recolectarse) y `TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "Mis favoritas"` en el catálogo.
+
+- `src/web/src/screens/MisFavoritas.tsx` (nuevo) — reusa `MascotaCard` (no rejilla propia); el corazón nace lleno y quitarlo **borra la tarjeta** de la lista, en optimista. Gate de cuenta **dentro del efecto y en el render** (patrón literal de `MisSolicitudes.tsx`), carga con `.catch` (`ApiError` → mensaje del backend tal cual), y el `.catch` del quitar **no repone** la tarjeta, con el porqué escrito. Vacío → CTA al deck (`/adoptar/descubrir`), no al catálogo.
+- `src/web/src/App.tsx` — ruta `/adoptar/mis-favoritas` (no `/adoptar/favoritas`: consistencia con `/adoptar/mis-solicitudes` y `/mis-reportes`), junto a las de AD-05 y con la nota del prefijo `mis-`.
+- `src/web/src/screens/CatalogoAdopcion.tsx` — enlace "Mis favoritas" en la fila de la cabecera, junto a "Mis solicitudes" y con su mismo criterio (enlace público, pantalla con gate). **Nav global sin tocar: es AD-08.**
+- Tests **+11 de web**: `MisFavoritas.test.tsx` (10) y `CatalogoAdopcion.test.tsx` (+1, el href del enlace nuevo).
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 448 de web** (línea base 719 + 437; el backend no se tocó). Mutación ejecutada con cuatro roturas: gate fuera del efecto → `expected "vi.fn()" to not be called at all, but actually been called 1 times` con `[1]` (el `DEMO_USER_ID` filtrándose); `.catch` de la carga quitado → `Unable to find role="alert"` en los dos tests de error; `preventDefault` quitado de `MascotaCard` → `expected true to be false`; los dos guards quitados → `Unable to find … "heading" … "Copito"` (el router se llevó la pantalla a la ficha). Archivos restaurados y verificados con `git diff` (`MisFavoritas.tsx` mismo sha1 `a0b29a60…`). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **Hallazgo del paso (candidato a `memory/memory.md`)**: el test de "si quitar falla, la tarjeta NO reaparece" **sobrevivió a la mutación** que sí reponía la tarjeta — `await Promise.resolve()` no basta, porque la promesa rechazada se resuelve en un microtask y React no vuelca ese `setState` hasta el siguiente `act`. Con `waitFor` antes de aseverar la ausencia, la mutación cae. Mismo género que el `preventDefault` del paso 4: **aseverar una ausencia exige forzar antes el flush, o el test pasa por llegar temprano**.
+
+Siguiente: paso 6 (corazón en el deck de `DescubrirMascotas`, con la aserción de que favoritear no saca la carta ni llama a `registrarSwipe`).
