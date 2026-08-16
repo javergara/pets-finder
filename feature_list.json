@@ -705,6 +705,20 @@
         "Marcar favorito no crea swipe ni solicitud, y la mascota sigue apareciendo en el deck",
         "bash init.sh en verde; tabla favorites creada en prod (RLS) antes del merge a main"
       ]
+    },
+    {
+      "id": "AD-08-integracion-transversal",
+      "title": "Integración transversal: nav, landing, og tags y cruces con los flujos actuales",
+      "description": "Coser el módulo a la app: pestaña 'Adoptar' en la nav (8.º NavLink, entre 'Mis reportes' y 'Centros de ayuda' — los dos caminos de emergencia siguen siendo los dos primeros) y enlace TERCIARIO en la landing, hermano del de /ayudar, no un CTA con borde; og tags por mascota para compartir por WhatsApp (GET /adoptar/mascota/{pet_id} en routers/paginas.py con el patrón exacto de /reporte/{id}: html.escape en todo, og:image omitido sin foto, SITE_URL para absolutizar, 404 si no existe) + el rewrite por user-agent en vercel.json con la MISMA lista de bots y ANTES del catch-all; titulo_pet(pet) en services/titulos.py, no un módulo nuevo; avisos de seguridad (feature 40) en publicar y contactar; cruce: en /ayudar?tab=comunidad la categoría hogar_de_paso enlaza al catálogo. FUERA DE ALCANCE y anotado como backlog: incluir mascotas en la búsqueda por descripción de la feature 38 (no se hace a medias). Actualizar CLAUDE.md, AGENTS.md, docs/architecture.md (§2 modelo de datos con las 5 tablas nuevas, §4 API, §5 frontend — hoy §5 sigue diciendo 'lienzo CSS/SVG propio', falso desde el ADR 0008: corregirlo de paso) y docs/product-research.md.",
+      "status": "in_progress",
+      "depends_on": ["AD-02-publicar-en-adopcion", "AD-05-solicitudes-de-adopcion"],
+      "acceptance": [
+        "La nav y la landing dan acceso a /adoptar y compartir una ficha muestra vista previa con foto y nombre en WhatsApp (test del HTML de bots)",
+        "Los avisos de seguridad aparecen al publicar y al contactar en el módulo",
+        "En móvil a 360px el módulo se usa sin desbordes: los filtros arrancan plegados y la primera tarjeta del catálogo y la del deck se ven sin hacer scroll",
+        "CLAUDE.md, AGENTS.md y docs reflejan el módulo (el revisor lo verifica leyéndolos)",
+        "bash init.sh en verde"
+      ]
     }
   ]
 }
