@@ -1,3 +1,5 @@
+import type { EstadoSolicitud } from '../api/types';
+
 // Contacto directo dueño↔rescatista por WhatsApp/teléfono (ADR 0005 §3):
 // sin chat interno, el canal es el que todo el mundo ya tiene abierto.
 
@@ -73,4 +75,50 @@ export function mensajeQuieroAyudar(descripcion: string): string {
 // el sexo del animal.
 export function mensajeAdoptarMascota(nombre: string): string {
   return `Hola, vi a ${nombre} en Pet Finder Col y me interesa adoptarla. ¿Sigue disponible?`;
+}
+
+// La conversación de una solicitud de adopción, en las dos direcciones (AD-06,
+// ADR 0013). No hay chat interno ni historial dentro del producto: estos dos
+// mensajes son todo lo que quien recibe el WhatsApp tiene para entender de qué
+// le hablan, así que nombran la mascota (quien publica puede tener decenas
+// abiertas) y la app (el número le llega en frío).
+//
+// El texto cambia por estado porque el motivo de escribir cambia: presentarse,
+// preguntar cómo va, confirmar la visita, coordinar la entrega. Los `Record`
+// son exhaustivos sobre `EstadoSolicitud`: un sexto estado no compila sin
+// decidir qué se dice en él, que es exactamente la revisión que hace falta.
+//
+// Nada de lenguaje de fracaso, tampoco en `cerrado`: una solicitud que se
+// cierra no es una puerta que se azota, y quien la escribió sigue buscando (o
+// sigue teniendo mascotas que dar en adopción).
+
+/** Lo que escribe quien pidió la mascota a quien la publicó. */
+export function mensajeAdopcionAdoptante(estado: EstadoSolicitud, nombre: string): string {
+  const POR_ESTADO: Record<EstadoSolicitud, string> = {
+    solicitado: `pedí a ${nombre} en adopción y me encantaría contarte cómo es mi hogar. ¿Cuándo podemos hablar?`,
+    en_revision: `te escribo por mi solicitud de adopción de ${nombre}. ¿Cómo va? Quedo pendiente de lo que necesites saber de mí.`,
+    visita_agendada: `te escribo para confirmar la visita para conocer a ${nombre}. ¿Te sirve el día y la hora que acordamos?`,
+    adoptado: `¡gracias por confiarme a ${nombre}! Coordinemos la entrega: dime qué día te queda bien.`,
+    cerrado: `te escribo por mi solicitud de ${nombre}. Sigo buscando a quién darle un hogar, así que si tienes otra mascota en adopción cuenta conmigo.`,
+  };
+  return `Hola, te escribo desde Pet Finder Col: ${POR_ESTADO[estado]}`;
+}
+
+/** Lo que escribe quien publicó la mascota a quien la pidió.
+ *
+ * Lleva el nombre de quien la pidió porque el número que dejó al solicitarla
+ * llega en frío y a esa persona le escribe alguien que no tiene agendado. */
+export function mensajeAdopcionPublicador(
+  estado: EstadoSolicitud,
+  nombre: string,
+  nombreAdoptante: string,
+): string {
+  const POR_ESTADO: Record<EstadoSolicitud, string> = {
+    solicitado: `recibí tu solicitud para adoptar a ${nombre} y me encantaría conocerte. ¿Cuándo puedes hablar?`,
+    en_revision: `estoy revisando tu solicitud para adoptar a ${nombre} y quiero preguntarte un par de cosas.`,
+    visita_agendada: `te escribo para confirmar tu visita para conocer a ${nombre}. ¿Te sirve el día y la hora que acordamos?`,
+    adoptado: `${nombre} ya tiene hogar contigo. Coordinemos la entrega: dime qué día te queda bien.`,
+    cerrado: `te escribo por tu solicitud para adoptar a ${nombre}. Esta vez no siguió adelante, pero me quedo con tus datos: en cuanto tengamos otra mascota buscando hogar te escribo.`,
+  };
+  return `Hola ${nombreAdoptante}, te escribo desde Pet Finder Col: ${POR_ESTADO[estado]}`;
 }

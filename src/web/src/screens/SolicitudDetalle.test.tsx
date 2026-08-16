@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../api/client';
 import type { SolicitudDetalle as SolicitudDetalleTipo } from '../api/types';
+import { mensajeAdopcionAdoptante, mensajeAdopcionPublicador, urlWhatsApp } from '../lib/contacto';
 import { setActiveUserId } from '../lib/session';
 import { SolicitudDetalle } from './SolicitudDetalle';
 
@@ -44,6 +45,9 @@ afterEach(() => {
 
 const SOLICITUD_ID = 42;
 const USUARIO = 7;
+/** El id de quien pidió la mascota en el detalle de abajo: mirando con este
+ * usuario la pantalla es la del adoptante, no la de quien publicó. */
+const ADOPTANTE = 9;
 
 function detalle(overrides: Partial<SolicitudDetalleTipo> = {}): SolicitudDetalleTipo {
   return {
@@ -128,8 +132,12 @@ function botonesDeAccion(): string[] {
     .map((boton) => boton.textContent ?? '');
 }
 
-async function montarCon(solicitud: SolicitudDetalleTipo) {
-  setActiveUserId(USUARIO);
+/** `usuario` decide qué lado de la solicitud se está mirando: por defecto el
+ * publicador (el `USUARIO` que no es `adoptante.id`), y con `ADOPTANTE` el que
+ * pidió la mascota. Es el mismo dato con el que la pantalla elige a quién se le
+ * escribe por WhatsApp. */
+async function montarCon(solicitud: SolicitudDetalleTipo, usuario: number = USUARIO) {
+  setActiveUserId(usuario);
   vi.mocked(client.obtenerSolicitud).mockResolvedValue(solicitud);
   renderDetalle();
   await screen.findByRole('heading', { name: /Canela/ });
@@ -324,6 +332,64 @@ describe('SolicitudDetalle — con qué se decide', () => {
       'href',
       '/adoptar/mis-solicitudes',
     );
+  });
+});
+
+// La comunicación de la solicitud (AD-06, ADR 0013): no hay chat interno, así
+// que este botón es el único puente entre las dos personas. Lo que se comprueba
+// es que apunta a la persona correcta —el teléfono del otro lado, nunca el
+// propio— y con el mensaje del estado en el que está la solicitud.
+describe('SolicitudDetalle — hablar por WhatsApp', () => {
+  it('quien publicó le escribe a quien pidió la mascota, con el mensaje del estado', async () => {
+    await montarCon(detalle({ estado: 'visita_agendada' }));
+
+    const enlace = screen.getByRole('link', { name: /whatsapp/i });
+    // El teléfono que dejó el adoptante al pedirla, no el del publicador.
+    expect(enlace).toHaveAttribute(
+      'href',
+      urlWhatsApp(
+        '3009998877',
+        mensajeAdopcionPublicador('visita_agendada', 'Canela', 'Carlos Ruiz'),
+      ),
+    );
+    expect(enlace).toHaveAttribute('href', expect.stringContaining('wa.me'));
+    expect(screen.getByText(/Antes de coordinar un encuentro/i)).toBeInTheDocument();
+  });
+
+  it('quien pidió la mascota le escribe a quien la publicó, con el mensaje del estado', async () => {
+    await montarCon(detalle({ estado: 'solicitado' }), ADOPTANTE);
+
+    const enlace = screen.getByRole('link', { name: /whatsapp/i });
+    // El teléfono del publicador (`publicador.telefono_contacto`), que es el
+    // otro lado desde aquí.
+    expect(enlace).toHaveAttribute(
+      'href',
+      urlWhatsApp('3001112233', mensajeAdopcionAdoptante('solicitado', 'Canela')),
+    );
+    expect(enlace).toHaveAttribute('href', expect.stringContaining('wa.me'));
+    expect(screen.getByText(/Antes de coordinar un encuentro/i)).toBeInTheDocument();
+  });
+
+  // Mismo estado, dos personas mirando: el enlace no puede ser el mismo. Si lo
+  // fuera, alguien estaría escribiéndose a sí mismo.
+  it('el mismo detalle apunta a un lado distinto según quién lo mire', async () => {
+    await montarCon(detalle());
+    const desdeElPublicador = screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href');
+
+    cleanup();
+    await montarCon(detalle(), ADOPTANTE);
+    const desdeElAdoptante = screen.getByRole('link', { name: /whatsapp/i }).getAttribute('href');
+
+    expect(desdeElAdoptante).not.toBe(desdeElPublicador);
+  });
+
+  // Sin teléfono no se pinta un botón que no lleva a ninguna parte (mismo
+  // criterio que `MascotaDetalle`): se dice que no lo dejaron.
+  it('sin teléfono del otro lado lo dice, y no hay botón de WhatsApp', async () => {
+    await montarCon(detalle({ telefono_contacto: null }));
+
+    expect(screen.queryByRole('link', { name: /whatsapp/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/no dejó un teléfono/i)).toBeInTheDocument();
   });
 });
 

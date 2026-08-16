@@ -10,9 +10,15 @@ import {
   pedirInformacion,
 } from '../api/client';
 import type { AccionSolicitud, SolicitudDetalle as SolicitudDetalleTipo } from '../api/types';
+import { AvisoSeguridad } from '../components/AvisoSeguridad';
 import { HogarResumen } from '../components/HogarResumen';
 import { edadLegible, ETIQUETA_ACCION_SOLICITUD, ETIQUETA_ESTADO_SOLICITUD } from '../lib/adopcion';
-import { urlTelefono } from '../lib/contacto';
+import {
+  mensajeAdopcionAdoptante,
+  mensajeAdopcionPublicador,
+  urlTelefono,
+  urlWhatsApp,
+} from '../lib/contacto';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 import { tiempoRelativo } from '../lib/tiempo';
 
@@ -45,6 +51,11 @@ import { tiempoRelativo } from '../lib/tiempo';
 // dato con el que se decide y su sitio es este, junto al cuestionario de hogar
 // que la produce.
 //
+// Desde AD-06 (ADR 0013) esta pantalla es además el punto desde el que se
+// hablan: no hay chat interno, así que la sección de contacto abre WhatsApp
+// hacia el OTRO lado, con el mensaje del estado en el que está la solicitud.
+// Quién es "el otro lado" lo decide `contacto()`, aquí abajo.
+//
 // Paleta `forest`/`ochre`/`muted`: el rojo (`danger`) está reservado en toda la
 // app al dominio de emergencia ("perdido") y no entra en el módulo de adopción —
 // tampoco en el botón de descartar ni en los avisos de error.
@@ -68,6 +79,46 @@ const LLAMADA: Record<
   'pedir-informacion': pedirInformacion,
   aprobar: aprobarSolicitud,
 };
+
+/** A quién se le escribe desde aquí, y con qué texto (AD-06, ADR 0013).
+ *
+ * ⚠️ **El lado se decide comparando con `adoptante.id`, no con
+ * `acciones_disponibles`**: esa lista llega vacía también para quien publicó
+ * cuando la solicitud ya está cerrada, y usarla dejaría a esa persona
+ * escribiéndose a sí misma. La pantalla solo la abren esos dos (el backend
+ * responde 403 a cualquier otro), así que "no soy quien la pidió" es
+ * exactamente "soy quien la publicó".
+ *
+ * Los dos teléfonos vienen de sitios distintos y ninguno es adivinable: el de
+ * quien publicó viaja en `publicador` (resuelve el de la mascota o el de la
+ * organización) y el de quien la pidió es el que dejó al solicitarla.
+ */
+function contacto(solicitud: SolicitudDetalleTipo) {
+  const soyQuienLaPidio = solicitud.adoptante.id === getActiveUserId();
+
+  if (soyQuienLaPidio) {
+    const publicador = solicitud.publicador;
+    return {
+      nombre: publicador?.nombre ?? 'quien la publicó',
+      telefono: publicador?.telefono_contacto ?? null,
+      mensaje: mensajeAdopcionAdoptante(solicitud.estado, solicitud.pet.nombre),
+      invitacion: `Escríbele para contarle de tu hogar y coordinar lo que sigue con ${solicitud.pet.nombre}.`,
+      sinTelefono: 'Todavía no dejó un teléfono de contacto.',
+    };
+  }
+
+  return {
+    nombre: solicitud.adoptante.nombre,
+    telefono: solicitud.telefono_contacto,
+    mensaje: mensajeAdopcionPublicador(
+      solicitud.estado,
+      solicitud.pet.nombre,
+      solicitud.adoptante.nombre,
+    ),
+    invitacion: `Escríbele para conocerle y coordinar lo que sigue con ${solicitud.pet.nombre}.`,
+    sinTelefono: 'No dejó un teléfono al pedir la mascota.',
+  };
+}
 
 export function SolicitudDetalle() {
   const { id } = useParams<{ id: string }>();
@@ -134,6 +185,7 @@ export function SolicitudDetalle() {
   const badge = ETIQUETA_ESTADO_SOLICITUD[solicitud.estado];
   const foto = solicitud.pet.fotos[0];
   const acciones = solicitud.acciones_disponibles;
+  const otroLado = contacto(solicitud);
 
   /** Centraliza el loading y el error de las cuatro acciones: cada una devuelve
    * el detalle ya actualizado, así que la pantalla se repinta con la respuesta
@@ -243,13 +295,29 @@ export function SolicitudDetalle() {
       </section>
 
       <section className="rounded-2xl border border-line bg-surface p-6">
-        <h2 className="mb-2 font-display text-lg text-ink">Cómo contactarle</h2>
-        {solicitud.telefono_contacto ? (
-          <a href={urlTelefono(solicitud.telefono_contacto)} className="font-medium text-forest">
-            {solicitud.telefono_contacto}
-          </a>
+        <h2 className="mb-2 font-display text-lg text-ink">Cómo hablar con {otroLado.nombre}</h2>
+        {otroLado.telefono ? (
+          <div className="flex flex-col gap-3">
+            <p className="text-sm text-ink-soft">{otroLado.invitacion}</p>
+            <a
+              href={urlWhatsApp(otroLado.telefono, otroLado.mensaje)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block self-start rounded-full bg-forest px-5 py-3 font-medium text-bg"
+            >
+              Escribir por WhatsApp
+            </a>
+            {/* El número queda visible y marcable: no todo el mundo usa
+                WhatsApp, y en una emergencia la llamada gana. */}
+            <a href={urlTelefono(otroLado.telefono)} className="self-start font-medium text-forest">
+              {otroLado.telefono}
+            </a>
+            <AvisoSeguridad contexto="contactar" />
+          </div>
         ) : (
-          <p className="text-ink-soft">No dejó un teléfono al pedir la mascota.</p>
+          // Sin teléfono no se pinta un botón que no lleva a ninguna parte
+          // (mismo criterio que `MascotaDetalle`).
+          <p className="text-ink-soft">{otroLado.sinTelefono}</p>
         )}
       </section>
 
