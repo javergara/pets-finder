@@ -1,9 +1,14 @@
-"""Solicitudes de adopción (AD-05 paso 2): las dos lecturas.
+"""Solicitudes de adopción (AD-05): las dos lecturas y las cuatro acciones.
 
 `GET /api/solicitudes` con **exactamente uno** de `adoptante_id`,
-`organizacion_id` o `publicador_id`, y `GET /api/solicitudes/{id}` con
-`solicitante_id`. Las acciones que mutan el estado llegan en el paso 3; aquí no
-se escribe nada.
+`organizacion_id` o `publicador_id`, `GET /api/solicitudes/{id}` con
+`solicitante_id`, y `POST /api/solicitudes/{id}/{accion}` con las cuatro
+acciones del publicador (paso 3).
+
+⚠️ **Las cuatro acciones son solo de quien publicó la mascota**, nunca del
+adoptante: el match no es mutuo (ADR 0002), así que quien pidió la mascota puede
+leer su solicitud pero no moverla. El `acciones_disponibles: []` que recibe su
+pantalla es una cortesía de UI; la barrera real es el 403 de `_publicador_o_403`.
 
 ⚠️ Este módulo **importa `_dueno_user_id` y `_publicadores_por_pet` de
 `.pets`** — el primer import router→router del repo. Es a propósito y no un
@@ -17,9 +22,10 @@ duplicarla.
 """
 
 from collections.abc import Sequence
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
 from ..models.home_profile import HomeProfile
@@ -29,7 +35,9 @@ from ..models.pet import Pet
 from ..models.user import User
 from ..schemas.pet import AfinidadOut, PetResumenOut, PublicadorOut
 from ..schemas.solicitud import (
+    AccionSolicitudIn,
     AdoptanteResumen,
+    DescartarIn,
     SolicitudDetalleOut,
     SolicitudOut,
 )
@@ -38,7 +46,13 @@ from ..services.afinidad import calcular_afinidad
 from ..services.db import get_session
 
 # ⚠️ Ver el aviso del docstring del módulo antes de "arreglar" este import.
-from ..services.solicitudes import acciones_disponibles, calcular_etiqueta_solicitud
+from ..services.solicitudes import (
+    MOTIVO_ADOPTADA_POR_OTRA,
+    TransicionInvalidaError,
+    acciones_disponibles,
+    calcular_etiqueta_solicitud,
+    validar_transicion,
+)
 from .pets import _dueno_user_id, _publicadores_por_pet
 
 router = APIRouter(prefix="/api/solicitudes", tags=["solicitudes"])
@@ -48,6 +62,14 @@ FILTRO_UNICO = (
     "son tres preguntas distintas y no se combinan"
 )
 SOLICITUD_AJENA = "Solo el adoptante o quien publicó la mascota pueden ver esta solicitud"
+ACCION_AJENA = "Solo quien publicó la mascota puede gestionar esta solicitud"
+
+#: Los estados desde los que ya no se avanza. Se escriben literales porque viajan
+#: dentro del `NOT IN` de SQL del cierre en cadena de `aprobar` —derivarlos de
+#: `TRANSICIONES_VALIDAS` en tiempo de request sería un cálculo escondido dentro
+#: de una query—, y un candado en `tests/api/test_solicitudes_acciones.py` exige
+#: que sigan siendo exactamente los estados sin ninguna acción disponible.
+ESTADOS_TERMINALES = ("adoptado", "cerrado")
 
 
 def _afinidad_out(pet: Pet, home: HomeProfile | None) -> AfinidadOut | None:
@@ -175,6 +197,55 @@ def _cargar_solicitud_o_404(session: Session, solicitud_id: int) -> tuple[Match,
     return match, pet, adoptante
 
 
+def _detalle_out(
+    session: Session, match: Match, pet: Pet, adoptante: User, es_publicador: bool
+) -> SolicitudDetalleOut:
+    """El detalle completo, ya resuelto: lo devuelven el `GET` y las cuatro acciones.
+
+    Que las acciones respondan esto —y no un 204 mudo— le ahorra a la pantalla un
+    `GET` inmediato después de cada botón y, sobre todo, le devuelve
+    `acciones_disponibles` recalculadas: quién puede hacer qué lo decide el
+    backend, nunca el frontend (ADR 0002).
+    """
+    home = session.get(HomeProfile, match.user_id)
+    publicador = _publicadores_por_pet(session, [pet]).get(pet.id)
+
+    return SolicitudDetalleOut(
+        **_campos_solicitud(match, pet, publicador, adoptante, home, es_publicador),
+        bio=adoptante.bio,
+        mensaje=match.mensaje,
+        telefono_contacto=match.telefono_contacto,
+        home_profile=HomeProfileOut.model_validate(home) if home is not None else None,
+    )
+
+
+def _publicador_o_403(session: Session, solicitud_id: int, user_id: int) -> tuple[Match, Pet, User]:
+    """Carga la solicitud y exige que `user_id` sea **quien publicó la mascota**.
+
+    Es la única autorización de las cuatro acciones: sin contraseñas (ADR 0005),
+    comparar el `user_id` del body con `_dueno_user_id` es todo lo que hay. El
+    adoptante cae aquí igual que un desconocido —el match no es mutuo—, y una
+    mascota cuya organización ya no existe no autoriza a nadie (`_dueno_user_id`
+    devuelve `None`), en vez de autorizar de más.
+    """
+    match, pet, adoptante = _cargar_solicitud_o_404(session, solicitud_id)
+    if user_id != _dueno_user_id(session, pet):
+        raise HTTPException(403, ACCION_AJENA)
+    return match, pet, adoptante
+
+
+def _validar_o_409(match: Match, accion: str) -> None:
+    """Traduce la regla pura de `services/solicitudes.py` al contrato HTTP.
+
+    Va **antes** de tocar una sola columna: un 409 que ya hubiera escrito dejaría
+    la solicitud en un estado que la matriz prohíbe.
+    """
+    try:
+        validar_transicion(match.estado, accion)
+    except TransicionInvalidaError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
 @router.get("", response_model=list[SolicitudOut])
 def listar_solicitudes(
     adoptante_id: int | None = Query(default=None),
@@ -269,13 +340,119 @@ def obtener_solicitud(
     if not es_publicador and solicitante_id != match.user_id:
         raise HTTPException(403, SOLICITUD_AJENA)
 
-    home = session.get(HomeProfile, match.user_id)
-    publicador = _publicadores_por_pet(session, [pet]).get(pet.id)
+    return _detalle_out(session, match, pet, adoptante, es_publicador)
 
-    return SolicitudDetalleOut(
-        **_campos_solicitud(match, pet, publicador, adoptante, home, es_publicador),
-        bio=adoptante.bio,
-        mensaje=match.mensaje,
-        telefono_contacto=match.telefono_contacto,
-        home_profile=HomeProfileOut.model_validate(home) if home is not None else None,
+
+@router.post("/{solicitud_id}/agendar-visita", response_model=SolicitudDetalleOut)
+def agendar_visita(
+    solicitud_id: int, payload: AccionSolicitudIn, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """Cita para conocer a la mascota: válido desde `solicitado` o `en_revision`."""
+    match, pet, adoptante = _publicador_o_403(session, solicitud_id, payload.user_id)
+    _validar_o_409(match, "agendar-visita")
+
+    match.estado = "visita_agendada"
+    match.actualizado_en = datetime.now(timezone.utc)
+    session.commit()
+
+    return _detalle_out(session, match, pet, adoptante, es_publicador=True)
+
+
+@router.post("/{solicitud_id}/pedir-informacion", response_model=SolicitudDetalleOut)
+def pedir_informacion(
+    solicitud_id: int, payload: AccionSolicitudIn, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """Deja la solicitud `en_revision`: válido **solo** desde `solicitado`.
+
+    No es un no-op idempotente: pedirla dos veces es 409, porque el segundo
+    intento suele ser una pantalla desincronizada y no una decisión.
+    """
+    match, pet, adoptante = _publicador_o_403(session, solicitud_id, payload.user_id)
+    _validar_o_409(match, "pedir-informacion")
+
+    match.estado = "en_revision"
+    match.actualizado_en = datetime.now(timezone.utc)
+    session.commit()
+
+    return _detalle_out(session, match, pet, adoptante, es_publicador=True)
+
+
+@router.post("/{solicitud_id}/descartar", response_model=SolicitudDetalleOut)
+def descartar_solicitud(
+    solicitud_id: int, payload: DescartarIn, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """Cierra la solicitud con un motivo obligatorio (ya recortado por `DescartarIn`).
+
+    El motivo se persiste pero **no sale en ninguna respuesta**: es la nota
+    interna de quien publica, y quien no se quedó con la mascota no tiene por qué
+    leer por qué (ADR 0002, cabecera de `schemas/solicitud.py`).
+    """
+    match, pet, adoptante = _publicador_o_403(session, solicitud_id, payload.user_id)
+    _validar_o_409(match, "descartar")
+
+    match.estado = "cerrado"
+    match.motivo_descarte = payload.motivo
+    match.actualizado_en = datetime.now(timezone.utc)
+    session.commit()
+
+    return _detalle_out(session, match, pet, adoptante, es_publicador=True)
+
+
+@router.post("/{solicitud_id}/aprobar", response_model=SolicitudDetalleOut)
+def aprobar_solicitud(
+    solicitud_id: int, payload: AccionSolicitudIn, session: Session = Depends(get_session)
+) -> SolicitudDetalleOut:
+    """La adopción se cierra: esta solicitud gana, la mascota sale del catálogo y
+    **las demás de esa mascota se cierran solas**.
+
+    Dejarlas abiertas mandaría a varias familias a esperar por algo que ya no
+    puede pasar, y el publicador tendría que descartarlas una por una.
+
+    ⚠️ **Es una sola transacción y una sola query de cierre.** El `UPDATE` masivo
+    no es una optimización prematura: un bucle sobre las hermanas es una escritura
+    por familia interesada, y cada una es un round-trip contra el pooler de
+    Supabase dentro de la transacción abierta — justo el momento en que más caro
+    sale. Con un único `commit()` no existe el estado intermedio en el que la
+    mascota ya figura adoptada y la mitad de las solicitudes siguen abiertas.
+    Lo vigila `test_aprobar_cierra_las_demas_con_una_sola_query`, que cuenta
+    **filas** actualizadas.
+
+    ⚠️ `synchronize_session=False` es obligatorio aquí (el `UPDATE` masivo no se
+    puede sincronizar fila a fila sin volver a leerlas, que es lo que se quiere
+    evitar) y tiene un precio: las instancias de esas hermanas que ya estuvieran
+    cargadas en la sesión quedan rancias. En producción no importa —cada request
+    tiene su sesión y esta termina aquí—, pero los tests comparten la sesión con
+    el cliente y tienen que releer antes de aseverar.
+
+    El `NOT IN` de `ESTADOS_TERMINALES` evita pisarle el motivo a una solicitud ya
+    cerrada por su propia razón (y a una `adoptado`, que diría "fue adoptada por
+    otra familia" sobre la que sí se adoptó).
+    """
+    match, pet, adoptante = _publicador_o_403(session, solicitud_id, payload.user_id)
+    _validar_o_409(match, "aprobar")
+
+    ahora = datetime.now(timezone.utc)
+    session.execute(
+        update(Match)
+        .where(
+            Match.pet_id == match.pet_id,
+            Match.id != match.id,
+            Match.estado.not_in(ESTADOS_TERMINALES),
+        )
+        .values(
+            estado="cerrado",
+            motivo_descarte=MOTIVO_ADOPTADA_POR_OTRA,
+            actualizado_en=ahora,
+        ),
+        execution_options={"synchronize_session": False},
     )
+
+    match.estado = "adoptado"
+    match.actualizado_en = ahora
+    # Misma pareja de columnas que sella el `PUT /api/pets/{id}`: sin
+    # `adoptado_en` la mascota no aparece en la franja de `/api/pets/adopciones`.
+    pet.estado = "adoptado"
+    pet.adoptado_en = ahora
+    session.commit()
+
+    return _detalle_out(session, match, pet, adoptante, es_publicador=True)

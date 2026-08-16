@@ -70,7 +70,7 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 1. ✅ **HECHO (2026-08-15)** — **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Ver "Resultado del paso 1".
 2. ✅ **HECHO (2026-08-15)** — **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.** Ver "Resultado del paso 2".
-3. **Las cuatro acciones**, con `aprobar` en **una sola transacción y una sola query de cierre** — nada de bucles, y hay un test que cuenta los `UPDATE`. ⚠️ El `UPDATE` masivo deja objetos rancios en la sesión compartida del `conftest`: `synchronize_session=False` + releer por HTTP, o el test miente en las dos direcciones.
+3. ✅ **HECHO (2026-08-15)** — **Las cuatro acciones**, con `aprobar` en una sola transacción y una sola query de cierre. El adoptante recibe **403** en las cuatro. ⚠️ El test de conteo cuenta **filas**, no sentencias: el flush agrupa los `UPDATE` en un `executemany` y un bucle también daría "una sentencia". Ver "Resultado del paso 3".
 4. **El swipe-derecha crea la solicitud**, en el **mismo** commit que el swipe, copiando `mensaje` y `telefono_contacto` que hoy se descartan. Idempotente con select previo + `IntegrityError`.
 5. **Cliente y copy**: una función por endpoint; `listarSolicitudes` con firma en **unión** para que el 422 sea inalcanzable desde la app. `ETIQUETA_ACCION_SOLICITUD` es el **único** mapeo que el frontend tiene derecho a conocer. Nada de `danger`.
 6. **`MisSolicitudes`, la tabla del panel y el modal.** ⚠️ Riesgo medido: el `vi.mock` de `PanelAdopcionOrganizacion.test.tsx` tiene factory; **hay que añadirle `listarSolicitudes: vi.fn()`** o ~6 tests existentes caen con `Cannot read properties of undefined (reading 'then')`, un error que parece del componente y no lo es. Al portar `MatchModal`, quitarle la clase `[animation:popIn_.24s…]`: ese keyframe no existe ni allá ni aquí.
@@ -79,7 +79,19 @@ Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migraci
 
 **Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
 
-**Paso actual: 3.**
+**Paso actual: 4.**
+
+### Resultado del paso 3 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: `ImportError: cannot import name 'ACCION_AJENA' from 'reencuentro_api.routers.solicitudes'` en la colección de `tests/api/test_solicitudes_acciones.py`.
+
+- `src/api/reencuentro_api/routers/solicitudes.py` (+191 líneas, único archivo de producción tocado) — las cuatro rutas `POST /{id}/<accion>`, que responden el **detalle ya actualizado** (`SolicitudDetalleOut`) con `acciones_disponibles` recalculadas. Helpers nuevos: `_detalle_out` (extraído del `GET` y reusado por las cuatro), `_publicador_o_403` y `_validar_o_409` (lanza **antes** de tocar una columna). Constantes `ACCION_AJENA` y `ESTADOS_TERMINALES`.
+- **403 para el adoptante** en las cuatro, igual que para un tercero: `_publicador_o_403` compara contra `_dueno_user_id`, que devuelve `None` si la organización fue eliminada — entonces nadie queda autorizado, en vez de autorizar de más.
+- **`aprobar`**: `UPDATE` masivo con `synchronize_session=False` + `NOT IN ESTADOS_TERMINALES`, `match.estado="adoptado"`, `pet.estado="adoptado"`, `pet.adoptado_en=ahora` y **un solo** `commit()`.
+- `tests/api/test_solicitudes_acciones.py` — **nuevo, 43 casos**. Las 4 acciones desde un estado válido (estado + etiqueta + `acciones_disponibles` + `actualizado_en`), 403 del adoptante y de un tercero (×4 cada uno, con el estado releído), 404 (×4), 422 sin `user_id`, los **11** 409 de la matriz derivados de `TRANSICIONES_VALIDAS` sin mutación, los dos terminales sin efecto en cadena, motivo vacío/espacios → 422 y recortado al persistir, la mascota adoptada, el cierre de las hermanas (respetando las terminales y las de otras mascotas), el conteo de filas, el recorrido `GET /api/pets` → `/api/pets/adopciones` y la privacidad del motivo para el adoptante descartado.
+- ⚠️ **Hallazgo que cambia la receta del anti-N+1 para escrituras**: contar **sentencias** no sirve aquí. Al hacer flush, SQLAlchemy agrupa los `UPDATE` de varias instancias con las mismas columnas en un solo `executemany`, así que un bucle sobre N hermanas sale también como una sentencia. El listener suma `len(parameters)` cuando `executemany` es `True`. Medido: la mutación da `[1, 4]` en **una** sentencia.
+- **Mutación obligatoria verificada**: sustituir el `UPDATE` masivo por `select` + bucle deja rojo **solo** `test_aprobar_cierra_las_demas_con_una_sola_query` (`assert 2 == 5`, `[1,1]` contra `[1,4]`); los otros 42 siguen verdes porque el bucle es funcionalmente equivalente. Router restaurado con `diff` + md5 (`e13d0360184007a2383870b295bcc3ca`).
+- Verificado: `bash init.sh` **exit 0 con 653 tests de Python + 345 de web** (610 y 345 al empezar; `tests/api` solo: 548 → 591), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto y `routers/swipes.py` sin tocar (paso 4).
 
 ### Resultado del paso 2 (2026-08-15)
 
