@@ -155,6 +155,36 @@ export const FILTROS_ADOPCION_DEFAULT: FiltrosMascotas = {
   zona: '',
 };
 
+/** Cuántas cosas eligió la persona en los filtros del módulo de adopción.
+ *
+ * Cuenta **valores**, no grupos: elegir perro y gato son dos, y la zona suma uno
+ * (`''` = todas las zonas, no cuenta). Es lo que la persona recuerda haber
+ * tocado, y es el número que va en el botón plegable ("Filtros · 2").
+ *
+ * ⚠️ **Fuente de verdad única**, y esa es su razón de existir. Antes de AD-08
+ * había dos cuentas paralelas —una en `FiltrosAdopcion` para decidir si mostrar
+ * "Limpiar filtros" y otra en `CatalogoAdopcion` para el texto del estado
+ * vacío— y **la del catálogo se saltaba `edad`**: con un tramo de edad como
+ * único filtro y cero resultados, la pantalla decía "Todavía no hay mascotas
+ * publicadas en adopción" en vez de "Ninguna coincide con estos filtros". Le
+ * contaba a la persona que el catálogo estaba vacío cuando lo que pasaba es que
+ * su filtro no casaba, y le ofrecía publicar una mascota en vez de la salida
+ * que necesitaba.
+ *
+ * Desde el plegado móvil el número importa además por otra razón: con el panel
+ * cerrado, es la única señal de que el catálogo está recortado. Si un grupo
+ * nuevo de `FiltrosMascotas` no se suma aquí, plegar escondería un filtro
+ * activo en silencio. */
+export function contarFiltrosActivos(filtros: FiltrosMascotas): number {
+  return (
+    filtros.especie.length +
+    filtros.tamano.length +
+    filtros.energia.length +
+    filtros.edad.length +
+    (filtros.zona === '' ? 0 : 1)
+  );
+}
+
 // Cortes de los tramos de edad, en meses. Son los mismos de
 // `EDAD_CATEGORIA_RANGOS` en el backend (cachorro 0-11, joven 12-35, adulto
 // 36-83, senior 84+): si cambian allá, cambian aquí.

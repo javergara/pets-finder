@@ -86,6 +86,20 @@ function RegistroStub() {
   return <p>{`registro ${pathname}${search}`}</p>;
 }
 
+/** Despliega el panel de filtros antes de tocar un chip o la zona.
+ *
+ * ⚠️ **Premisa caducada a propósito** (AD-08 paso 7), igual que el caso de los
+ * chips de edad de más abajo: hasta ahora los chips estaban en el documento al
+ * montar. Desde el plegado móvil de `FiltrosAdopcion` el panel **se desmonta**
+ * mientras está cerrado, y en jsdom siempre arranca cerrado (no implementa
+ * `window.matchMedia`, así que la consulta de ≥1024px da `false`). Los casos que
+ * filtran tienen que abrirlo primero, que es lo que hace una persona en el
+ * móvil; lo que protegen —qué se manda a la API y qué chip queda presionado— no
+ * cambia ni una línea. */
+function abrirFiltros() {
+  fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+}
+
 function renderCatalogo() {
   return render(
     <MemoryRouter initialEntries={['/adoptar']}>
@@ -110,6 +124,7 @@ describe('CatalogoAdopcion', () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
+    abrirFiltros();
     const chipPerro = screen.getByRole('button', { name: 'Perro' });
     expect(chipPerro).toHaveAttribute('aria-pressed', 'false');
 
@@ -127,6 +142,7 @@ describe('CatalogoAdopcion', () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
+    abrirFiltros();
     fireEvent.click(screen.getByRole('button', { name: 'Perro' }));
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole('button', { name: 'Gato' }));
@@ -144,6 +160,7 @@ describe('CatalogoAdopcion', () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
+    abrirFiltros();
     fireEvent.change(screen.getByLabelText('Zona'), { target: { value: 'Cali' } });
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
@@ -157,9 +174,12 @@ describe('CatalogoAdopcion', () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
+    abrirFiltros();
     fireEvent.click(screen.getByRole('button', { name: 'Perro' }));
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(2));
 
+    // El panel sigue desplegado: tocar un chip no lo pliega (quien filtra suele
+    // encadenar varios), así que "Limpiar filtros" está a la vista.
     fireEvent.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
 
     await waitFor(() => expect(client.listarMascotas).toHaveBeenCalledTimes(3));
@@ -299,6 +319,7 @@ describe('CatalogoAdopcion', () => {
     renderCatalogo();
     await screen.findByRole('heading', { name: 'Nala' });
 
+    abrirFiltros();
     const chipCachorra = screen.getByRole('button', { name: 'Cachorra' });
     expect(chipCachorra).toHaveAttribute('aria-pressed', 'false');
 
@@ -313,6 +334,46 @@ describe('CatalogoAdopcion', () => {
       'aria-pressed',
       'true',
     );
+  });
+
+  // ⚠️ Bug real, encontrado al extraer `contarFiltrosActivos` (AD-08 paso 7): el
+  // `hayFiltros` de esta pantalla miraba especie, tamaño, energía y zona, y **se
+  // saltaba la edad**. Con un tramo de edad como único filtro y cero resultados,
+  // el vacío decía "Todavía no hay mascotas publicadas en adopción": le contaba a
+  // la persona que el catálogo estaba vacío cuando lo que pasaba es que su filtro
+  // no casaba — y encima le ofrecía publicar una mascota en vez de la salida que
+  // necesitaba, que es quitar el filtro.
+  it('con solo un tramo de edad y cero resultados, el vacío dice que es por los filtros', async () => {
+    vi.mocked(client.listarMascotas).mockResolvedValue([]);
+    renderCatalogo();
+    await screen.findByText(/Todavía no hay mascotas/i);
+
+    abrirFiltros();
+    fireEvent.click(screen.getByRole('button', { name: 'Cachorra' }));
+
+    expect(
+      await screen.findByText(/Ninguna mascota coincide con estos filtros/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Todavía no hay mascotas/i)).not.toBeInTheDocument();
+    // La salida correcta con filtros puestos es quitarlos, no publicar.
+    expect(screen.getByRole('button', { name: 'Ver todas las mascotas' })).toBeInTheDocument();
+  });
+
+  // ── Filtros plegados en móvil (AD-08 paso 7) ───────────────────────────────
+  // Primera mitad del acceptance de los 360px. La segunda ("la primera tarjeta
+  // se ve sin scroll") **no se puede probar aquí**: jsdom no tiene motor de
+  // layout y `getBoundingClientRect()` devuelve ceros, así que un test de altura
+  // sería decorativo. Esa mitad se mide en Chrome real (paso 8).
+  it('al montar, los chips no están en el documento: la rejilla empieza arriba', async () => {
+    renderCatalogo();
+    await screen.findByRole('heading', { name: 'Nala' });
+
+    expect(screen.getByRole('button', { name: /^Filtros/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('button', { name: 'Perro' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cachorra' })).not.toBeInTheDocument();
   });
 
   // ── Favoritos (AD-07) ──────────────────────────────────────────────────────

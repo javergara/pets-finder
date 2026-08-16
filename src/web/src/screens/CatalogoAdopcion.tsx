@@ -11,7 +11,7 @@ import {
 import type { AdopcionesResumen, Mascota } from '../api/types';
 import { FiltrosAdopcion } from '../components/FiltrosAdopcion';
 import { MascotaCard } from '../components/MascotaCard';
-import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
+import { contarFiltrosActivos, FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
 import { getActiveUserId, hasActiveUser } from '../lib/session';
 
 // Catálogo público de mascotas en adopción (AD-01, con el corazón de AD-07).
@@ -99,11 +99,14 @@ export function CatalogoAdopcion() {
   }
 
   const cargando = mascotas === null && error === null;
-  const hayFiltros =
-    filtros.especie.length > 0 ||
-    filtros.tamano.length > 0 ||
-    filtros.energia.length > 0 ||
-    filtros.zona !== '';
+  // ⚠️ Esta cuenta la hace `lib/adopcion.ts` y no una lista escrita aquí, porque
+  // la que había aquí **se saltaba `filtros.edad`** (AD-08 paso 7): con un tramo
+  // de edad como único filtro y cero resultados, el vacío de abajo decía
+  // "Todavía no hay mascotas publicadas" en vez de "Ninguna coincide con estos
+  // filtros" — le contaba a la persona que el catálogo estaba vacío cuando lo
+  // que pasaba es que su filtro no casaba. Una sola fuente de verdad, la misma
+  // que usa el contador del botón plegable.
+  const hayFiltros = contarFiltrosActivos(filtros) > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { AccionSolicitud, EstadoSolicitud, Mascota } from '../api/types';
 import {
   categoriaEdad,
+  contarFiltrosActivos,
   edadLegible,
   ETIQUETA_ACCION_SOLICITUD,
   ETIQUETA_ESTADO_SOLICITUD,
+  FILTROS_ADOPCION_DEFAULT,
   tituloMascota,
 } from './adopcion';
 
@@ -164,5 +166,55 @@ describe('ETIQUETA_ACCION_SOLICITUD', () => {
       expect(ETIQUETA_ACCION_SOLICITUD[accion]).not.toContain('aprobado');
       expect(ETIQUETA_ACCION_SOLICITUD[accion].trim()).not.toBe('');
     }
+  });
+});
+
+describe('contarFiltrosActivos', () => {
+  it('sin nada puesto devuelve cero', () => {
+    expect(contarFiltrosActivos(FILTROS_ADOPCION_DEFAULT)).toBe(0);
+  });
+
+  it('cuenta cada valor elegido, no cada grupo tocado', () => {
+    // "Filtros · 3" tiene que significar tres cosas elegidas: es lo que la
+    // persona recuerda haber tocado, no cuántas familias de chips usó.
+    expect(contarFiltrosActivos({ ...FILTROS_ADOPCION_DEFAULT, especie: ['perro', 'gato'] })).toBe(
+      2,
+    );
+    expect(
+      contarFiltrosActivos({
+        ...FILTROS_ADOPCION_DEFAULT,
+        especie: ['perro', 'gato'],
+        tamano: ['pequeño'],
+      }),
+    ).toBe(3);
+  });
+
+  // ⚠️ El bug que motivó extraer esta función (AD-08 paso 7): el `hayFiltros`
+  // del catálogo miraba especie, tamaño, energía y zona — y **se saltaba la
+  // edad**. Con solo un tramo de edad puesto y cero resultados, la pantalla
+  // decía "Todavía no hay mascotas publicadas": le contaba a la persona que el
+  // catálogo estaba vacío cuando lo que pasaba es que su filtro no casaba.
+  it('cuenta el tramo de edad (el grupo que el catálogo se saltaba)', () => {
+    expect(contarFiltrosActivos({ ...FILTROS_ADOPCION_DEFAULT, edad: ['cachorro'] })).toBe(1);
+  });
+
+  it('la zona cuenta como uno, y "todas las zonas" no cuenta', () => {
+    expect(contarFiltrosActivos({ ...FILTROS_ADOPCION_DEFAULT, zona: 'Cali' })).toBe(1);
+    expect(contarFiltrosActivos({ ...FILTROS_ADOPCION_DEFAULT, zona: '' })).toBe(0);
+  });
+
+  // Anti-drift: si `FiltrosMascotas` gana un grupo y nadie lo suma aquí, el
+  // panel plegado escondería un filtro activo sin decirlo — que es justo lo que
+  // esta función existe para impedir. Un filtro por grupo, todos a la vez.
+  it('con un filtro en cada grupo cuenta los cinco', () => {
+    expect(
+      contarFiltrosActivos({
+        especie: ['perro'],
+        tamano: ['mediano'],
+        energia: ['baja'],
+        edad: ['senior'],
+        zona: 'Armenia',
+      }),
+    ).toBe(5);
   });
 });

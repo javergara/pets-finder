@@ -107,6 +107,18 @@ function FichaStub() {
   return <p>{`ficha de la mascota ${id}`}</p>;
 }
 
+/** Despliega el panel de filtros antes de tocar un chip.
+ *
+ * ⚠️ **Premisa caducada a propósito** (AD-08 paso 7), como los chips de edad en
+ * AD-03 y la invitación al cuestionario en AD-04: hasta ahora los chips estaban
+ * en el documento al montar. Desde el plegado móvil de `FiltrosAdopcion` el
+ * panel **se desmonta** mientras está cerrado, y en jsdom siempre arranca
+ * cerrado (no implementa `window.matchMedia`, así que la consulta de ≥1024px da
+ * `false`). Quien filtra desde un móvil hace exactamente esto: abrir primero. */
+function abrirFiltros() {
+  fireEvent.click(screen.getByRole('button', { name: /^Filtros/ }));
+}
+
 function renderDeck() {
   return render(
     <MemoryRouter initialEntries={['/adoptar/descubrir']}>
@@ -240,11 +252,27 @@ describe('DescubrirMascotas', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
+  // Primera mitad del acceptance de los 360px (AD-08 paso 7), aquí porque el
+  // deck es la pantalla con menos margen vertical: los filtros van encima de la
+  // carta en móvil. La segunda mitad ("la carta se ve entera sin scroll") no
+  // cabe en jsdom, que no tiene motor de layout — se mide en Chrome (paso 8).
+  it('los filtros arrancan plegados: lo primero de la pantalla es la carta', async () => {
+    renderDeck();
+    await screen.findByRole('heading', { name: 'Canela' });
+
+    expect(screen.getByRole('button', { name: /^Filtros/ })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(screen.queryByRole('button', { name: 'Gato' })).not.toBeInTheDocument();
+  });
+
   it('cambiar un chip vuelve a pedir el deck con ese filtro', async () => {
     setActiveUserId(7);
     renderDeck();
     await screen.findByRole('heading', { name: 'Canela' });
 
+    abrirFiltros();
     fireEvent.click(screen.getByRole('button', { name: 'Gato' }));
 
     await waitFor(() => expect(client.listarDeck).toHaveBeenCalledTimes(2));
