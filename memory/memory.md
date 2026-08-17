@@ -154,3 +154,14 @@ Registro de decisiones de proceso, comandos clave, aprendizajes y gotchas. No es
 - Muchos comentarios del repo (y varios mensajes de esta sesión) justifican el gate de `hasActiveUser()` diciendo que sin cuenta se actuaría como "el usuario 1, una persona real en producción". **Medido contra prod: `GET /api/users/1` → 404 `{"detail":"El usuario 1 no existe"}`.** El id 1 es del seed local; los usuarios reales de prod tienen otros ids (p. ej. el sistema 49 del crawler y el 70 de las organizaciones importadas).
 - **Qué NO cambia**: el gate sigue siendo correcto y necesario. Sin él, un visitante anónimo escribiría con un id que no es suyo, y en local (donde el 1 sí existe y es Ana Martínez) sobrescribiría datos ajenos de verdad. Lo que cambia es **la justificación escrita**, que hoy exagera el impacto en producción.
 - Al tocar esos comentarios, decir lo cierto: escribir sin cuenta atribuye la acción a un id arbitrario que no es de quien actúa — un dato falso en la base, con o sin persona detrás.
+
+## 2026-08-17 — `git push` a este repo falla por SSH: hay que empujar por HTTPS
+
+- `git push origin <rama>` devuelve **`ERROR: Permission to javergara/pets-finder.git denied to trochezsa`**. No es un problema de permisos que haya que pedir: es que **el remote es SSH** (`git@github.com:javergara/pets-finder.git`) y la llave del agente pertenece a la cuenta **`trochezsa`**, que no tiene acceso al repo.
+- **`gh` está autenticado como `frandak2`, que sí tiene `WRITE`** (`gh repo view javergara/pets-finder --json viewerPermission` → `"WRITE"`). El helper `gh auth git-credential` ya está configurado, pero **solo aplica a HTTPS**, así que un remote SSH nunca lo consulta.
+- **La salida, sin tocar la config del usuario** — empujar a la URL HTTPS explícita, que sí pasa por el helper de `gh`:
+  ```bash
+  git push https://github.com/javergara/pets-finder.git <rama>
+  ```
+- **No cambies el remote a HTTPS ni toques `credential.helper`** para arreglar esto: es la config personal de la máquina y el push explícito resuelve el caso sin efectos colaterales. `gh pr create` funciona sin más (usa el token, no SSH); si se queja del repo, `GH_REPO=javergara/pets-finder` delante.
+- Ojo también: `gh api user` devolvió un **503 transitorio** mientras `gh repo view` funcionaba. Un fallo de `gh api` no significa que no haya sesión — reintenta antes de concluir que falta autenticación.
