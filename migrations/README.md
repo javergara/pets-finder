@@ -32,18 +32,24 @@ Si falta una columna o una constraint, se arregla con otro `alter` aditivo — n
 | Archivo | Feature | Qué hace | Estado |
 | --- | --- | --- | --- |
 | `AD-01-pets.sql` | AD-01 | Crea `public.pets` (+ 4 índices, `ck_pets_publicador_exclusivo`, RLS) | ✅ **EJECUTADA en producción** (2026-08-15, por el dueño del repo, junto con el merge del PR #6). Verificado: `GET /api/pets` responde 200 en petfinder-col.com |
-| `AD-03-swipes.sql` | AD-03 | Crea `public.swipes` (+ 2 índices, `uq_swipe_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de `AD-01-pets.sql`: su `pet_id` referencia `public.pets` |
-| `AD-03-home-profiles.sql` | AD-03 | Crea `public.home_profiles` (PK = `user_id`, RLS) | Escrito, **pendiente de ejecutar** — la tabla se adelanta de AD-04 porque el deck la consulta; **AD-04 no trae migración** |
-| `AD-05-matches.sql` | AD-05 | Crea `public.matches` — las solicitudes de adopción — (+ 2 índices, `uq_match_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de los dos de AD-03: el swipe-derecha inserta en `swipes` y en `matches` en el mismo request |
-| `AD-07-favorites.sql` | AD-07 | Crea `public.favorites` — el "guardar para después" — (+ 2 índices, `uq_favorite_user_pet`, RLS) | Escrito, **pendiente de ejecutar** — va **después** de `AD-05-matches.sql`, cuarta y última de la cola; su `pet_id` referencia `public.pets`, que ya existe en producción |
+| `AD-03-swipes.sql` | AD-03 | Crea `public.swipes` (+ 2 índices, `uq_swipe_user_pet`, RLS) | ✅ **EJECUTADA en producción** (2026-08-17, por el dueño del repo, 1.ª de la ventana de AD-09) |
+| `AD-03-home-profiles.sql` | AD-03 | Crea `public.home_profiles` (PK = `user_id`, RLS) | ✅ **EJECUTADA en producción** (2026-08-17, 2.ª de la ventana). La tabla se adelantó de AD-04 porque el deck la consulta; **AD-04 no trajo migración** |
+| `AD-05-matches.sql` | AD-05 | Crea `public.matches` — las solicitudes de adopción — (+ 2 índices, `uq_match_user_pet`, RLS) | ✅ **EJECUTADA en producción** (2026-08-17, 3.ª de la ventana) |
+| `AD-07-favorites.sql` | AD-07 | Crea `public.favorites` — el "guardar para después" — (+ 2 índices, `uq_favorite_user_pet`, RLS) | ✅ **EJECUTADA en producción** (2026-08-17, 4.ª y última de la ventana) |
+
+**Las cinco tablas del módulo están en producción desde el 2026-08-17.** La ventana la ejecutó el dueño del repo en el SQL Editor de Supabase, en el orden obligatorio de abajo. Evidencia que reportó al cerrarla, **verificada por él contra `pg_class`/`pg_constraint`, no por un agente**: `rowsecurity = true` en las cinco (`pets`, `swipes`, `home_profiles`, `matches`, `favorites`) y las cuatro constraints presentes con su nombre exacto — `ck_pets_publicador_exclusivo`, `uq_swipe_user_pet`, `uq_match_user_pet`, `uq_favorite_user_pet`. **Con esto el merge de `feat/adoptar` a `main` queda desbloqueado.**
 
 Anti-drift de las tablas de AD-03, AD-05 y AD-07: `tests/api/test_migracion_swipes.py`, `tests/api/test_migracion_matches.py` y `tests/api/test_migracion_favorites.py` (el parser de `create table` que comparten los cuatro anti-drift vive en `tests/api/soporte_migraciones.py`).
+
+⚠️ **Son cuatro archivos anti-drift para cinco tablas, y no falta ninguno.** `home_profiles` **no tiene archivo propio**: su anti-drift vive dentro de `tests/api/test_migracion_swipes.py`, parametrizado sobre las dos tablas de la ventana de AD-03 (`[("swipes", Swipe), ("home_profiles", HomeProfile)]` en columnas, nulabilidad, tipos, RLS y aditividad) más dos casos dedicados: `test_home_profiles_tiene_user_id_como_primary_key` y `test_el_presupuesto_mensual_queda_nullable_en_produccion`. `test_migracion_home_profiles.py` no existe, y esa ausencia **no es un hueco de cobertura**.
 
 ⚠️ **La cabecera de `AD-01-pets.sql` quedó rancia**: sigue diciendo "ESCRITO, NO EJECUTADO" aunque se ejecutó el 2026-08-15. **El estado real es el de la tabla de arriba**, no el del comentario. Re-ejecutar ese archivo sería inocuo (`create table if not exists`), pero conviene arreglar la línea; no se toca aquí para no meter un cambio de contenido en un `.sql` ya aplicado dentro de un trabajo que es solo de documentación.
 
 ## Cierre del módulo (AD-09)
 
-Auditoría preparada para la ventana de migración del módulo de adopción. **Nada de esta sección se ha ejecutado**: requiere autorización explícita del dueño y acceso al SQL Editor de Supabase. La guía operativa completa, para quien va a darle a Run, es **`docs/despliegue-modulo-adopcion.md`**.
+Auditoría de la ventana de migración del módulo de adopción. ✅ **Ventana ejecutada y verificada el 2026-08-17** por el dueño del repo, en el orden de abajo. La guía operativa completa es **`docs/despliegue-modulo-adopcion.md`**.
+
+Lo que sigue se conserva **tal cual se escribió antes de ejecutar**, en presente, porque es lo que hay que releer si mañana se levanta un staging, una copia local en Postgres o un proyecto Supabase nuevo: allí la ventana está por hacer otra vez, y `AD-01-pets.sql` va primero.
 
 ### El orden obligatorio, y por qué
 

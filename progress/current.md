@@ -1832,3 +1832,38 @@ Comprobado también por comando, no de memoria: **cero dependencias nuevas** (`g
 Verificación: `bash init.sh` en verde — **753 tests de Python + 487 de web** (738 + 15). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin push ni merge. `feature_list.json` sin tocar.
 
 **Para el líder, encontrado de paso y no tocado**: `memory/memory.md` (2026-08-15) afirma que *"ningún test de este repo puede usarse como prueba de que la integridad referencial protege algo"*. Con `test_despublicar_rastros.py` ya no es cierto, y dejarlo así invita al siguiente agente a escribir otra vez el test decorativo. Merece una entrada de `update-memory` con la receta del listener — no la escribo yo porque `memory/` no estaba en el encargo.
+
+## AD-09 (2026-08-17): ventana de migración cerrada por el dueño, merge desbloqueado, tres menores del revisor corregidos
+
+**AD-09 sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json`. Esta entrada registra dos cosas que llegaron de fuera y una que sí se hizo aquí.
+
+### Lo que llegó de fuera (no lo hizo este agente, y por eso se atribuye)
+
+1. **Veredicto del revisor independiente sobre `feat/adoptar` @ `c0f243b`: APROBADO el merge.** Corrió `init.sh` de verdad: `Todo en verde.`, **753 tests de Python + 487 de web**, y `npm run build` también verde. Evidencia que citó: el fix del `DELETE` verificado **por mutación real** (quitando la cascada de `despublicar_mascota` salta el `IntegrityError` de FK, porque el test fuerza `PRAGMA foreign_keys=ON` — el punto ciego de SQLite quedó cerrado); el 409 por solicitudes vivas en español con concordancia y **antes** de `borrar_foto`; las cuatro migraciones puramente aditivas con RLS; el anti-drift **no decorativo** (rompió `AD-05-matches.sql` a propósito → 2 rojos); cero dependencias nuevas, cero WebSockets, `adopta-v1` intacta; y lo de 360px **declarado honestamente**, sin ningún test fingiendo cubrirlo.
+
+2. **Las cuatro migraciones se EJECUTARON en Supabase el 2026-08-17**, por el dueño del repo, en el orden obligatorio: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. **Verificación suya, contra `pg_class`/`pg_constraint`**: `rowsecurity = true` en las cinco tablas del módulo (`pets`, `swipes`, `home_profiles`, `matches`, `favorites`) y las cuatro constraints presentes con su nombre exacto (`ck_pets_publicador_exclusivo`, `uq_swipe_user_pet`, `uq_match_user_pet`, `uq_favorite_user_pet`).
+
+⚠️ **Precisión de método, para que nadie la lea de más**: la evidencia de arriba es **reportada por el dueño, no medida por este agente** — no hay acceso al SQL Editor desde aquí, y no se ejecutó ni se leyó ni una sentencia SQL contra producción en esta sesión. Matiz que además corrige el acceptance: **el RLS no está en `information_schema`**, que no expone `rowsecurity`; vive en `pg_class`/`pg_tables`. Consultar `pg_class` no es desviarse del acceptance, es la única forma de cumplirlo.
+
+**Con esto el merge a `main` queda desbloqueado por primera vez desde AD-03.**
+
+### Lo que sí se hizo aquí: los tres menores del revisor, más el barrido de estado rancio
+
+Trabajo **solo de `.md`**, cero código de producto, cero tests nuevos, cero `.sql`.
+
+1. **La cuenta de tests rancia** — `docs/despliegue-modulo-adopcion.md` §1 decía **738** y el HEAD da **753**. Corregido, y con una línea que explica de dónde salen los 15 (`tests/api/test_despublicar_rastros.py`, el fix del 500 al despublicar) para que quien vea 738 sepa que su copia es vieja, en vez de creer que le faltan tests.
+2. **El anti-drift de `home_profiles`** — son **cuatro archivos anti-drift para cinco tablas**, y la lista `test_migracion_{pets,swipes,matches,favorites}.py` invitaba a leerlo como un hueco. Aclarado en `migrations/README.md` y en `docs/despliegue-modulo-adopcion.md` §2: `home_profiles` viaja **dentro** de `test_migracion_swipes.py`, parametrizado sobre las dos tablas de la ventana de AD-03 (columnas, nulabilidad, tipos, RLS, aditividad) más dos casos dedicados (`test_home_profiles_tiene_user_id_como_primary_key`, `test_el_presupuesto_mensual_queda_nullable_en_produccion`). **Comprobado leyendo el archivo antes de escribirlo**, no dado por bueno.
+3. **El chunk > 500 kB** — medido, no estimado: `npm run build` sale **exit 0** con `dist/assets/index-BPUHh8ML.js` = **619.80 kB crudos / 176.32 kB gzip**. Contra los **612 kB** que registró la feature 46, **el módulo entero costó ~8 kB**. Sigue siendo deuda preexistente de la feature 44 (el `import()` dinámico que nunca se hizo) y **no bloquea el despliegue**: lo que viaja son los 176 kB gzip. Anotado en §1 de la guía como aviso esperado, para que nadie lo confunda con un error de build.
+
+Además, el estado que había quedado rancio al ejecutarse la ventana: `migrations/README.md` (las cuatro filas pasan a ✅ **EJECUTADA**, con fecha y autoría; la sección "Cierre del módulo (AD-09)" deja de decir *"nada de esto se ha ejecutado"* y **conserva el cuerpo en presente a propósito**, porque es la receta para un entorno nuevo — staging o Postgres local, donde `AD-01-pets.sql` va primero); `docs/despliegue-modulo-adopcion.md` (banner de estado arriba, TL;DR marcado como registro, y el puntero a que lo vivo es de la §4 en adelante); `CLAUDE.md` (fecha, **51 done de 55** —no 50 de 54: AD-08 cerró y AD-09 se copió—, **753 + 487**, AD-09 como el `in_progress`, y el bloqueo de merge convertido en ✅ **desbloqueado** sin perder la regla que lo motivó, que **no se relaja** para el próximo cambio de esquema).
+
+### Los cuatro acceptance de AD-09, hoy
+
+| # | Acceptance | Estado | Qué falta |
+|---|---|---|---|
+| 1 | Tablas en prod con RLS y **cero errores en los endpoints** | 🟡 **MITAD CERRADA** | Las tablas y el RLS: ✅ (reportado y verificado por el dueño). "Cero errores en los endpoints": ❌ — hoy siguen en 404 porque **el código aún no está desplegado**. Lo cierra el merge |
+| 2 | Flujo completo en producción con un caso real, con evidencia en `progress/` | ❌ **ABIERTO** | Exige el merge + el deploy. El recorrido de 10 pasos ya está escrito, y su limpieza **ya no tiene el agujero del hallazgo 2**: `DELETE /api/pets/{id}` cascadea swipes/favoritos y responde 409 si hay solicitudes vivas |
+| 3 | CHANGELOG 3.0.0 publicado y `main`/`develop` sincronizadas | 🟡 **MITAD CERRADA** | El `CHANGELOG.md` 3.0.0 está escrito. Sincronizar es el merge + push |
+| 4 | `validate_feature_list.py` sale 0 con los items `done` en ambos JSON | ❌ **ABIERTO** | Sale 0 hoy con AD-09 en `in_progress`, que es lo correcto. El `done` lo pone el revisor cuando 1 y 2 cierren |
+
+**Los tres que faltan cuelgan del mismo gancho: el merge.** Y el merge es un despliegue a producción — dispara el auto-deploy de `main` sobre `petfinder-col.com`, donde hay datos reales. **No se hace sin autorización explícita**, aunque el bloqueo técnico ya no exista.

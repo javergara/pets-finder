@@ -1,13 +1,21 @@
 # Cómo desplegar el módulo de adopción (AD-03 … AD-08) en producción
 
 > Para Javier (dueño del repo y único con acceso a Supabase y Vercel).
-> Este documento existe porque **el merge a `main` está bloqueado hasta que ejecutes cuatro sentencias SQL a mano**, y porque el orden entre esas sentencias y el merge no es una formalidad: al revés, tumba `/adoptar` entero en producción.
+> Este documento existe porque **el merge a `main` estuvo bloqueado hasta ejecutar cuatro sentencias SQL a mano**, y porque el orden entre esas sentencias y el merge no es una formalidad: al revés, tumba `/adoptar` entero en producción.
 >
 > Es el hermano operativo de `docs/revision-modulo-adopcion.md` (que cubrió AD-01+AD-02 y funcionó). Aquel decía *cómo revisar*; este dice *cómo desplegar*.
 
 ---
 
-## TL;DR — lo único que no puede salir mal
+## ✅ Estado: la ventana de migración se cerró el 2026-08-17
+
+**Las cuatro migraciones ya corrieron en Supabase, en el orden de abajo, y están verificadas** (RLS activo en las cinco tablas del módulo; `ck_pets_publicador_exclusivo`, `uq_swipe_user_pet`, `uq_match_user_pet` y `uq_favorite_user_pet` presentes con su nombre exacto). **El merge de `feat/adoptar` a `main` está desbloqueado.**
+
+**No hace falta volver a ejecutar la sección 2**, y si la ejecutas tampoco pasa nada: los cuatro archivos son `create table if not exists`. Lo que sigue vivo de este documento es de la **sección 4 en adelante** — la verificación post-merge y el recorrido manual —, y las secciones 1-3 se conservan como el registro de lo que se hizo y como receta para un entorno nuevo (staging, Postgres local, un proyecto Supabase de cero: allí `AD-01-pets.sql` va primero).
+
+---
+
+## TL;DR — lo único que no puede salir mal *(ya ejecutado; se conserva como registro)*
 
 **Ejecuta las cuatro migraciones en Supabase ANTES de mergear, en este orden:**
 
@@ -54,13 +62,17 @@ git fetch origin && git checkout feat/adoptar && git pull
 bash init.sh
 ```
 
-Debe imprimir **`Todo en verde.`** y salir 0, con **738 tests de Python + 487 de web**. La línea base al abrir el módulo era 174 + 148.
+Debe imprimir **`Todo en verde.`** y salir 0, con **753 tests de Python + 487 de web**. La línea base al abrir el módulo era 174 + 148.
+
+*(Este documento nació diciendo 738 + 487, la cuenta al cerrar AD-08. Los 15 tests de Python que faltaban llegaron después, con el arreglo del 500 al despublicar una mascota con swipes o favoritos — `tests/api/test_despublicar_rastros.py`. Si ves 738, tu copia es vieja.)*
 
 Y el build de producción, que es lo único que typechequea el frontend (`init.sh` corre `oxlint` pero **no** `tsc -b`):
 
 ```bash
 cd src/web && npm run build     # tsc -b + vite build, debe salir 0
 ```
+
+Sale **exit 0 con un aviso**, y el aviso es esperado: `Some chunks are larger than 500 kB after minification`. Medido hoy sobre `feat/adoptar`: `dist/assets/index-BPUHh8ML.js` = **619.80 kB crudos / 176.32 kB gzip** (el número que se registró en la feature 46 eran 612 kB crudos, así que el módulo entero costó ~8 kB). Es **deuda preexistente desde la feature 44** — el `import()` dinámico que partiría el bundle nunca se hizo— y **no bloquea el despliegue**: lo que viaja por la red son los 176 kB gzip. No lo confundas con un error: si el build sale 0, está bien.
 
 Dos cosas que puedes dar por comprobadas porque son un comando, no una promesa:
 
@@ -78,7 +90,9 @@ git diff origin/main...feat/adoptar -- src/api api | grep "^[+-].*os\.environ"
 
 Cada archivo es **puramente aditivo**: `create table if not exists`, índices, una constraint y `enable row level security`. Ninguno lleva `drop`, `truncate`, `delete` ni `alter` sobre tablas existentes — solo las referencian por clave foránea. Ninguno puede modificar ni borrar una fila que ya exista: tus reportes importados y tus organizaciones no se tocan. Y como llevan `if not exists`, re-ejecutar uno no rompe nada.
 
-Que no son una transcripción a ojo del modelo lo garantizan los cuatro tests anti-drift (`tests/api/test_migracion_{pets,swipes,matches,favorites}.py`), que comparan cada `.sql` contra su `__table__` columna a columna y exigen que viajen el RLS y las constraints **con su nombre**. No es una promesa: el revisor de AD-07 rompió `AD-07-favorites.sql` de **ocho formas distintas** (sin unique, sin RLS, con un `drop`, una columna nullable de más, sin índice, columna extra, `timestamptz`, unique mal nombrado) y obtuvo **ocho rojos**.
+Que no son una transcripción a ojo del modelo lo garantizan los cuatro tests anti-drift (`tests/api/test_migracion_{pets,swipes,matches,favorites}.py`), que comparan cada `.sql` contra su `__table__` columna a columna y exigen que viajen el RLS y las constraints **con su nombre**.
+
+⚠️ **Son cuatro archivos para cinco tablas, y no falta ninguno**: `home_profiles` **no tiene archivo propio** — su anti-drift vive dentro de `tests/api/test_migracion_swipes.py`, que está parametrizado sobre las dos tablas de la ventana de AD-03 (`@pytest.mark.parametrize(..., [("swipes", Swipe), ("home_profiles", HomeProfile)])`) y además le dedica dos casos propios: `test_home_profiles_tiene_user_id_como_primary_key` y `test_el_presupuesto_mensual_queda_nullable_en_produccion`. Si buscas `test_migracion_home_profiles.py` no existe, y esa ausencia no es un hueco de cobertura. No es una promesa: el revisor de AD-07 rompió `AD-07-favorites.sql` de **ocho formas distintas** (sin unique, sin RLS, con un `drop`, una columna nullable de más, sin índice, columna extra, `timestamptz`, unique mal nombrado) y obtuvo **ocho rojos**.
 
 ### 2.1 — `AD-03-swipes.sql`
 
