@@ -1,34 +1,45 @@
-"""Mascotas en adopción (AD-01/AD-02), el módulo `/adoptar`.
+"""Mascotas en adopción (AD-01/AD-02/AD-03), el módulo `/adoptar`.
 
 ⚠️ Orden obligatorio de las rutas en este archivo: **literal antes que
-dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/{pet_id}"` →
-`PUT "/{pet_id}"` → `DELETE "/{pet_id}"`. Si `/adopciones` se registrara después
-de `/{pet_id}`, FastAPI intentaría parsearla como int y respondería 422 (misma
-regla que ya sigue `routers/reports.py`).
+dinámica**. `POST ""` → `GET ""` → `GET "/adopciones"` → `GET "/deck"` →
+`GET "/{pet_id}"` → `PUT "/{pet_id}"` → `DELETE "/{pet_id}"`. Si `/adopciones` o
+`/deck` se registraran después de `/{pet_id}`, FastAPI intentaría parsearlas como
+int y responderían 422 (misma regla que ya sigue `routers/reports.py`).
 """
 
+import math
 from collections.abc import Sequence
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, false, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from ..media import borrar_foto
+from ..models.favorite import Favorite
+from ..models.home_profile import HomeProfile
+from ..models.match import Match
 from ..models.organizacion import Organizacion
 from ..models.pet import Pet
 from ..models.report import Report
+from ..models.swipe import Swipe
 from ..models.user import User
 from ..schemas.pet import (
     AdopcionesResumenOut,
+    AfinidadOut,
     PetIn,
     PetOut,
     PetResumenOut,
     PetUpdate,
     PublicadorOut,
 )
+from ..services.afinidad import calcular_afinidad
 from ..services.db import get_session
+from ..services.descubrir import ordenar_deck
+from ..services.filtros import EDAD_CATEGORIA_RANGOS, FiltrosDeck, aplicar_filtros
+from ..services.solicitudes import ESTADOS_TERMINALES, mensaje_solicitudes_vivas
 
 router = APIRouter(prefix="/api/pets", tags=["pets"])
 
@@ -52,6 +63,36 @@ def _dueno_user_id(session: Session, pet: Pet) -> int | None:
         organizacion = session.get(Organizacion, pet.organizacion_id)
         return organizacion.user_id if organizacion is not None else None
     return pet.user_id
+
+
+def _condicion_edad(categorias: Sequence[str]) -> ColumnElement[bool]:
+    """Traduce los tramos de edad (`cachorro`/`joven`/`adulto`/`senior`) a un
+    `OR` de rangos sobre `Pet.edad_meses`, a partir de `EDAD_CATEGORIA_RANGOS`.
+
+    ⚠️ **Tiene que ser SQL, no un filtro en Python.** `listar_mascotas` cuenta el
+    total con la query sin paginar y recién después aplica el `LIMIT`: recortar
+    tramos de edad sobre la página ya traída haría que `X-Total-Count` mintiera
+    (diría 40 y la UI pintaría 3), y además dejaría páginas de tamaño irregular.
+
+    Los cortes no se repiten aquí: salen del diccionario de `services/filtros.py`,
+    que es la fuente de verdad única (y que ya importa el 84 de `descubrir.py`).
+    Una categoría fuera de catálogo no encuentra a nadie —mismo trato que
+    `?especie=dinosaurio`—, en vez de ignorarse y devolver el catálogo entero como
+    si el filtro hubiera funcionado.
+    """
+    condiciones: list[ColumnElement[bool]] = []
+    for categoria in categorias:
+        rango = EDAD_CATEGORIA_RANGOS.get(categoria)
+        if rango is None:
+            continue
+        minimo, maximo = rango
+        if math.isinf(maximo):
+            condiciones.append(Pet.edad_meses >= minimo)
+        else:
+            condiciones.append(Pet.edad_meses.between(minimo, int(maximo)))
+    if not condiciones:
+        return false()
+    return or_(*condiciones)
 
 
 def _mascota_del_reporte(session: Session, report_id: int) -> Pet | None:
@@ -121,15 +162,74 @@ def _publicadores_por_pet(session: Session, pets: Sequence[Pet]) -> dict[int, Pu
     return publicadores
 
 
-def _pet_out(pet: Pet, publicadores: dict[int, PublicadorOut]) -> PetOut:
+def _ids_favoritos(session: Session, adoptante_id: int | None) -> set[int]:
+    """Qué mascotas tiene guardadas quien mira, en **una** consulta constante.
+
+    Es lo que llena `es_favorito` en el catálogo, la ficha y el deck (AD-07). Se
+    trae la lista entera de esa persona y no se acota con un `IN (...)` de los
+    pet_ids de la página a propósito: los favoritos de alguien son decenas de
+    filas —el índice por `user_id` las resuelve de un golpe—, mientras que el `IN`
+    viajaría con cientos de parámetros en el deck y haría que el costo dependiera
+    del tamaño de página en vez de ser fijo. Lo que este helper NO puede ser es
+    una consulta por mascota: eso serían ~40 round-trips extra por página contra
+    el pooler de Supabase solo para pintar un corazón (mismo criterio que
+    `_publicadores_por_pet`; hay tests de conteo de consultas que lo fijan).
+
+    **Sin adoptante no toca la base**: devuelve el conjunto vacío. El tráfico
+    anónimo es la mayoría en esta app y no tiene por qué pagar una consulta para
+    que le respondan que no tiene favoritos.
+
+    ⚠️ El parámetro se llama `adoptante_id` y no `user_id` a secas por el aviso de
+    colisión de `models/favorite.py`: en `favorites` el `user_id` es quien MIRA y
+    en `pets` es quien PUBLICA, las dos son FK a `users.id` y ninguna base de
+    datos avisa si se cruzan. El síntoma sería que a quien publica le salieran sus
+    propias mascotas con el corazón encendido.
+    """
+    if adoptante_id is None:
+        return set()
+    filas = session.execute(select(Favorite.pet_id).where(Favorite.user_id == adoptante_id))
+    return set(filas.scalars().all())
+
+
+def _pet_out(
+    pet: Pet,
+    publicadores: dict[int, PublicadorOut],
+    home: HomeProfile | None = None,
+    favoritos: set[int] | None = None,
+) -> PetOut:
     """`PetOut` con lo que el ORM no sabe calcular (patrón de
     `OrganizacionOut.necesidades_pendientes`).
 
-    En AD-01 solo se llena `publicador`; `afinidad`, `es_favorito` y
-    `ya_solicitada` se quedan en su default hasta AD-03/05/07.
+    `home` llega solo desde el deck y **es opcional a propósito**: sin perfil de
+    hogar la afinidad no se puede calcular, así que `afinidad` viaja en `None` y
+    la tarjeta se muestra igual (decisión de AD-03; `adopta-v1` devolvía 404 y
+    eso rompía el onboarding entero). `ya_solicitada` se queda en su default.
+
+    `favoritos` (AD-07) son los ids de mascota que **quien mira** tiene guardados.
+    Es un conjunto y no un `bool` a propósito: quien pinta una lista los resuelve
+    con **una sola query** para toda la página y se lo pasa igual a cada fila —
+    dos formas del mismo dato (un bool aquí, un conjunto allá) se separarían en la
+    primera corrección. `None` es "no hay a quién preguntarle" (tráfico anónimo, o
+    los endpoints que todavía no lo llenan) y `es_favorito` se queda en `False`.
+
+    ⚠️ El conjunto es de la persona que MIRA, nunca de quien publica: ver el aviso
+    de colisión de `user_id` en `models/favorite.py`.
+
+    `razones` se convierte a lista aquí: `AfinidadResultado` es un dataclass
+    `frozen` y las guarda como tupla.
     """
     out = PetOut.model_validate(pet)
     out.publicador = publicadores.get(pet.id)
+    if favoritos is not None:
+        out.es_favorito = pet.id in favoritos
+    if home is not None:
+        resultado = calcular_afinidad(pet, home)
+        out.afinidad = AfinidadOut(
+            score=resultado.score,
+            explicacion=resultado.explicacion,
+            razones=list(resultado.razones),
+            incompatible=resultado.incompatible,
+        )
     return out
 
 
@@ -209,6 +309,7 @@ def listar_mascotas(
     tamano: list[str] | None = Query(default=None),
     energia: list[str] | None = Query(default=None),
     sexo: list[str] | None = Query(default=None),
+    edad_categoria: list[str] | None = Query(default=None),
     zona: str | None = None,
     estado: str = "disponible",
     organizacion_id: int | None = None,
@@ -220,11 +321,11 @@ def listar_mascotas(
 ) -> list[PetOut]:
     """Catálogo de adopción, lo más recién publicado primero.
 
-    **`especie`, `tamano`, `energia` y `sexo` son multivalor**: se repite el
-    parámetro (`?especie=perro&especie=gato`) y se aplica **OR dentro de cada
-    criterio y AND entre criterios** — "perros o gatos, y además grandes". Sin el
-    parámetro (o con la lista vacía) el criterio no restringe nada, igual que
-    `estado=todos`. Declararlos como `str` en vez de `list[str]` hacía que
+    **`especie`, `tamano`, `energia`, `sexo` y `edad_categoria` son multivalor**:
+    se repite el parámetro (`?especie=perro&especie=gato`) y se aplica **OR dentro
+    de cada criterio y AND entre criterios** — "perros o gatos, y además grandes".
+    Sin el parámetro (o con la lista vacía) el criterio no restringe nada, igual
+    que `estado=todos`. Declararlos como `str` en vez de `list[str]` hacía que
     Starlette entregara **solo el último** valor repetido: el catálogo filtraba
     por uno y descartaba el resto en silencio, sin error (defecto del paso 6,
     corregido en el 6b).
@@ -232,10 +333,11 @@ def listar_mascotas(
     `zona` sí es de valor único a propósito: el selector de zona lo es en toda la
     app (`SelectorCiudad`), y "Todo Colombia" se pide omitiendo el parámetro.
 
-    ⚠️ Este listado **todavía no filtra por edad**: `edad_categoria`
-    (cachorra/joven/adulta/senior) es un tramo derivado de `edad_meses`, no una
-    columna, y su dueño es `services/filtros.py` en AD-03. Si llega en la query
-    se ignora — la UI no debe ofrecer ese chip hasta entonces.
+    `edad_categoria` (cachorro/joven/adulto/senior) es un tramo derivado de
+    `edad_meses`, no una columna: lo traduce a SQL `_condicion_edad` con los
+    cortes de `services/filtros.py`. ⚠️ Se filtra en la base **antes** de contar y
+    paginar, nunca en Python sobre la página ya traída — ver el aviso de ese
+    helper: el `X-Total-Count` de abajo mentiría.
 
     `estado` por defecto es "disponible": una mascota adoptada o en proceso sale
     del catálogo — se piden explícitamente (`estado=adoptado`) o todas con
@@ -244,17 +346,19 @@ def listar_mascotas(
     ⚠️ `user_id` aquí es **el rescatista que publicó** la mascota, nunca el
     adoptante que mira (en `adopta-v1` significaba justo lo contrario, y
     confundirlos filtra "mis mascotas" por quien no es). El adoptante viaja como
-    `adoptante_id`, que en AD-01 se acepta pero **no altera la respuesta**:
-    `afinidad`, `es_favorito` y `ya_solicitada` se quedan en su default hasta
-    AD-03/05/07. Filtrar por `organizacion_id` y por `user_id` son cosas
-    distintas y excluyentes por el CHECK del modelo.
+    `adoptante_id` y desde AD-07 **sí altera la respuesta**: llena `es_favorito`
+    con lo que esa persona tenga guardado, en **una** consulta para toda la página
+    (`_ids_favoritos`) que sin él ni se ejecuta. `afinidad` sigue siendo cosa del
+    deck y `ya_solicitada` se queda en su default. Filtrar por `organizacion_id` y
+    por `user_id` son cosas distintas y excluyentes por el CHECK del modelo.
 
     El total sin paginar viaja SIEMPRE en el header `X-Total-Count`; sin `limit`
     la respuesta es la lista completa (patrón de `listar_reportes`).
 
     `tags` no se filtra aquí: la columna es JSON (TEXT en SQLite, `json` en
-    Postgres) y ni `LIKE` ni `->>` son portables entre las dos — ese filtro llega
-    en AD-03, en Python, con `services/filtros.py`.
+    Postgres) y ni `LIKE` ni `->>` son portables entre las dos. Ese criterio vive
+    en Python, en `services/filtros.py`, y solo lo usa el deck — por eso tampoco
+    se ofrece como chip en el catálogo.
     """
     query = select(Pet)
     if estado != "todos":
@@ -269,6 +373,8 @@ def listar_mascotas(
         query = query.where(Pet.energia.in_(energia))
     if sexo:
         query = query.where(Pet.sexo.in_(sexo))
+    if edad_categoria:
+        query = query.where(_condicion_edad(edad_categoria))
     if zona is not None:
         query = query.where(Pet.zona == zona)
     if organizacion_id is not None:
@@ -285,7 +391,8 @@ def listar_mascotas(
 
     pets = list(session.execute(query).scalars().all())
     publicadores = _publicadores_por_pet(session, pets)
-    return [_pet_out(p, publicadores) for p in pets]
+    favoritos = _ids_favoritos(session, adoptante_id)
+    return [_pet_out(p, publicadores, favoritos=favoritos) for p in pets]
 
 
 # Ruta literal declarada ANTES que la dinámica /{pet_id} (regla del docstring del
@@ -315,6 +422,114 @@ def resumen_adopciones(session: Session = Depends(get_session)) -> AdopcionesRes
     )
 
 
+# Segunda ruta literal, también ANTES de /{pet_id} (ver el docstring del módulo):
+# si quedara después, "deck" se parsearía como pet_id y esto sería un 422.
+# `test_deck_no_se_parsea_como_pet_id_y_responde_200` es la garantía viva.
+@router.get("/deck", response_model=list[PetOut])
+def deck_de_descubrimiento(
+    adoptante_id: int | None = None,
+    especie: list[str] | None = Query(default=None),
+    tamano: list[str] | None = Query(default=None),
+    energia: list[str] | None = Query(default=None),
+    edad_categoria: list[str] | None = Query(default=None),
+    zona: list[str] | None = Query(default=None),
+    apto_ninos: bool | None = None,
+    apto_perros: bool | None = None,
+    apto_gatos: bool | None = None,
+    distancia_km: float | None = None,
+    incluir_incompatibles: bool = False,
+    limit: int = Query(default=20, ge=1, le=50),
+    session: Session = Depends(get_session),
+) -> list[PetOut]:
+    """El deck de descubrimiento: qué mascotas ve quien está buscando adoptar.
+
+    Pipeline, en este orden exacto: solo `disponible` → quitar las que ese
+    adoptante ya swipeó → `_pet_out` con su perfil de hogar si lo tiene →
+    `aplicar_filtros` (que además calcula `distancia_km`) → quitar incompatibles
+    → `ordenar_deck` → recortar a `limit`.
+
+    ⚠️ **`adoptante_id` es opcional**, no requerido como en el plan original.
+    Exigirlo forzaría al frontend a mandar el id de una persona real cuando no
+    hay cuenta —`getActiveUserId()` cae al `DEMO_USER_ID = 1`—, que es
+    exactamente el bug de autoría del fix `cc4de85`. Sin él: 200, sin excluir
+    swipeadas y sin afinidad. Con un id inexistente sí es 404: es un dato
+    equivocado, no la ausencia del dato.
+
+    ⚠️ **Sin `HomeProfile` responde 200 con `afinidad: null`**, no 404 como
+    `adopta-v1`: un guard bloqueante rompe el onboarding entero y contradice el
+    acceptance de AD-04 (la cuenta liviana del ADR 0005). La invitación a
+    completar el cuestionario la decide el frontend viendo `afinidad === null`.
+
+    ⚠️ **`ordenar_deck` se llama SIEMPRE**, también sin perfil. `adopta-v1` solo
+    ordenaba cuando había `home`, y sin eso las mascotas difíciles de ubicar no
+    se intercalan para quien no completó el cuestionario —la mayoría de la
+    gente— y quedan enterradas al final. Con las afinidades empatadas en `None`
+    la inserción de difíciles es lo único que ordena algo.
+
+    `user_lat`/`user_lng` salen del `User` y **pueden ser `None`**: la mayoría no
+    tiene coordenadas. `services/filtros.py` degrada con elegancia (nadie se
+    excluye por distancia) en vez de devolver un deck vacío.
+
+    Los filtros se aplican en Python y no en SQL, al revés que en el catálogo:
+    aquí no hay paginación que hacer mentir a un `X-Total-Count`, `tags` no es
+    filtrable en SQL de forma portable, y la distancia se calcula al vuelo.
+    """
+    home: HomeProfile | None = None
+    user_lat: float | None = None
+    user_lng: float | None = None
+
+    query = select(Pet).where(Pet.estado == "disponible")
+
+    if adoptante_id is not None:
+        adoptante = session.get(User, adoptante_id)
+        if adoptante is None:
+            raise HTTPException(404, f"El usuario {adoptante_id} no existe")
+        user_lat, user_lng = adoptante.lat, adoptante.lng
+        home = session.get(HomeProfile, adoptante_id)
+        # ⚠️ `Swipe.user_id` es el ADOPTANTE, no quien publicó la mascota (esa es
+        # `Pet.user_id`). Confundirlas mostraría el deck de una persona a otra.
+        ya_swipeadas = select(Swipe.pet_id).where(Swipe.user_id == adoptante_id)
+        query = query.where(Pet.id.not_in(ya_swipeadas))
+
+    # Orden base determinista, el mismo criterio de `listar_mascotas`. ⚠️ No es
+    # cosmético ni redundante con `ordenar_deck`: `sorted` es estable, así que lo
+    # que sale de la base es exactamente lo que decide el orden de todas las
+    # mascotas empatadas — y **sin perfil de hogar empatan todas** (afinidad
+    # `None` → 0). Sin `ORDER BY`, SQLite las devuelve por `rowid` y parece
+    # estable, pero en Postgres el orden de base es arbitrario: dos requests
+    # seguidos pueden barajar el deck y quien recarga vería otra carta encima sin
+    # haber hecho nada. Es una diferencia de motor que los tests, que corren
+    # sobre SQLite, no verían por sí solos.
+    query = query.order_by(Pet.publicado_en.desc(), Pet.id.desc())
+
+    pets = list(session.execute(query).scalars().all())
+    publicadores = _publicadores_por_pet(session, pets)
+    favoritos = _ids_favoritos(session, adoptante_id)
+    resultados = [_pet_out(pet, publicadores, home, favoritos) for pet in pets]
+
+    resultados = aplicar_filtros(
+        resultados,
+        FiltrosDeck(
+            especie=especie,
+            tamano=tamano,
+            energia=energia,
+            edad_categoria=edad_categoria,
+            zona=zona,
+            apto_ninos=apto_ninos,
+            apto_perros=apto_perros,
+            apto_gatos=apto_gatos,
+            distancia_km=distancia_km,
+        ),
+        user_lat,
+        user_lng,
+    )
+
+    if not incluir_incompatibles:
+        resultados = [r for r in resultados if not (r.afinidad and r.afinidad.incompatible)]
+
+    return ordenar_deck(resultados)[:limit]
+
+
 @router.get("/{pet_id}", response_model=PetOut)
 def obtener_mascota(
     pet_id: int,
@@ -323,15 +538,21 @@ def obtener_mascota(
 ) -> PetOut:
     """Ficha completa con su publicador.
 
-    `adoptante_id` se acepta desde ya (el cliente lo manda igual) pero en AD-01
-    no cambia la respuesta: la afinidad, el favorito y la solicitud los llenan
-    AD-03/05/07.
+    `adoptante_id` es opcional (la ficha es pública y se comparte por WhatsApp):
+    cuando viene, `es_favorito` dice si esa persona ya guardó esta mascota —una
+    consulta más, la de `_ids_favoritos`— y cuando no, se queda en su default sin
+    tocar la base. La afinidad de esta pantalla la sigue calculando el deck, y
+    `ya_solicitada` sigue esperando (deuda de AD-05, anotada para el líder).
     """
     pet = session.get(Pet, pet_id)
     if pet is None:
         raise HTTPException(404, f"La mascota {pet_id} no existe")
 
-    return _pet_out(pet, _publicadores_por_pet(session, [pet]))
+    return _pet_out(
+        pet,
+        _publicadores_por_pet(session, [pet]),
+        favoritos=_ids_favoritos(session, adoptante_id),
+    )
 
 
 @router.put("/{pet_id}", response_model=PetOut)
@@ -387,6 +608,33 @@ def despublicar_mascota(pet_id: int, user_id: int, session: Session = Depends(ge
     autoría la resuelve `_dueno_user_id`, igual que el `PUT`, incluido su caso
     `None` (organización eliminada) → 403 y nunca un 500.
 
+    ⚠️ **Antes de borrar la fila hay que limpiar lo que cuelga de ella.** Las tres
+    FK hacia `pets` —`swipes.pet_id`, `matches.pet_id`, `favorites.pet_id`— están
+    declaradas **sin `ON DELETE`**, así que en Postgres un `DELETE` con un solo
+    swipe encima revienta con `IntegrityError`: 500 con traza para quien publicó
+    su mascota y recibió un corazón. En SQLite no se nota (no fuerza las FK), y
+    por eso el test que lo cubre monta su propia base con `PRAGMA
+    foreign_keys=ON` (`tests/api/test_despublicar_rastros.py`).
+
+    La limpieza es **mixta, y la asimetría es de producto**:
+
+    - **`swipes` y `favorites` se van con la mascota.** Son rastros privados sin
+      valor propio: un favorito de una mascota que ya no existe no le sirve a
+      nadie, y un swipe solo existía para no repetir una carta que ya no está.
+    - **Una solicitud viva bloquea con 409.** Es una conversación entre dos
+      personas y hacerla desaparecer en silencio sería peor que el 500 que esto
+      arregla: al otro lado hay alguien esperando respuesta. "Viva" = estado **no
+      terminal** (`ESTADOS_TERMINALES` de `services/solicitudes.py`, la misma
+      frontera que usa el cierre en cadena de `aprobar` — aquí no se redefine).
+      Las que ya terminaron (`adoptado`, `cerrado`) no bloquean y se borran con
+      ella.
+
+    ⚠️ El 409 va **antes** de `borrar_foto`, igual que en `eliminar_reporte`: al
+    revés, el endpoint se llevaría las fotos del bucket y solo después se negaría
+    a borrar, dejando al usuario sin imágenes y con la mascota publicada. Como
+    `borrar_foto` no lanza, el status no delataría nada — por eso el test espía
+    las llamadas en vez de mirar solo el código.
+
     ⚠️ Las fotos solo se borran si la mascota **no** vino de un reporte. Cuando
     `report_id` no es nulo, esas URLs son las del reporte de "encontrada", que
     sigue vivo en la app: borrarlas del bucket dejaría al reporte con imágenes
@@ -406,6 +654,16 @@ def despublicar_mascota(pet_id: int, user_id: int, session: Session = Depends(ge
     if user_id != _dueno_user_id(session, pet):
         raise HTTPException(403, "Solo quien publicó la mascota puede despublicarla")
 
+    vivas = session.scalar(
+        select(func.count())
+        .select_from(Match)
+        .where(Match.pet_id == pet_id, Match.estado.not_in(ESTADOS_TERMINALES))
+    )
+    if vivas:
+        raise HTTPException(409, mensaje_solicitudes_vivas(vivas))
+
+    for modelo in (Swipe, Favorite, Match):
+        session.execute(delete(modelo).where(modelo.pet_id == pet_id))
     if pet.report_id is None:
         for foto in pet.fotos:
             borrar_foto(foto)

@@ -1,9 +1,11 @@
 import type { FiltrosMascotas } from '../api/client';
 import type {
+  AccionSolicitud,
   CategoriaEdad,
   EnergiaMascota,
   EspecieAdopcion,
   EstadoMascota,
+  EstadoSolicitud,
   Mascota,
   SexoMascota,
   TamanoMascota,
@@ -68,6 +70,62 @@ export const ETIQUETA_ESTADO_MASCOTA: Record<EstadoMascota, { texto: string; col
   adoptado: { texto: 'Adoptada 💚', color: 'bg-forest' },
 };
 
+// ── Copy de las solicitudes de adopción (AD-05) ──────────────────────────────
+// La tabla se llama `matches`, pero de cara al usuario esto es siempre una
+// **solicitud**. Los dos `Record` van tipados contra su `Literal` de
+// `api/types.ts`: si el backend suma un estado o una acción, esto deja de
+// compilar hasta que alguien decida su copy — en vez de que un badge muestre
+// `undefined` en producción.
+
+/** Badge del estado de una solicitud.
+ *
+ * `ochre` es "todavía no pasa nada" (esperar no es una mala noticia), `forest`
+ * es avanzar, y `cerrado` va en neutro: es el final más frecuente y honesto de
+ * una adopción con varias familias interesadas, no un error.
+ *
+ * ⚠️ **`danger` no aparece y no puede aparecer**: el rojo está reservado en toda
+ * la app al dominio de emergencia ("perdido"), y es la misma regla que ya
+ * respeta `ETIQUETA_ESTADO_MASCOTA`. Hay un test que lo comprueba estado por
+ * estado.
+ *
+ * El texto es un respaldo estable para listas y chips: el backend manda además
+ * una `etiqueta` propia por solicitud ("Sin responder · 5 días"), que depende de
+ * los días transcurridos y por eso no se puede calcular aquí.
+ *
+ * (La forma del badge va en un alias en vez de escrita en línea como en
+ * `ETIQUETA_ESTADO_MASCOTA` por una razón mecánica: con el nombre más largo, la
+ * anotación completa pasa de 100 columnas y las dos versiones de prettier que
+ * conviven en el repo —la del hook y la local— la parten distinto, así que ese
+ * bloque cambiaría de forma según quién guarde el archivo.) */
+type BadgeSolicitud = { texto: string; color: string };
+
+export const ETIQUETA_ESTADO_SOLICITUD: Record<EstadoSolicitud, BadgeSolicitud> = {
+  solicitado: { texto: 'Esperando respuesta', color: 'bg-ochre' },
+  en_revision: { texto: 'En revisión', color: 'bg-ochre' },
+  visita_agendada: { texto: 'Visita agendada', color: 'bg-forest' },
+  adoptado: { texto: 'Adopción cerrada', color: 'bg-forest' },
+  cerrado: { texto: 'Solicitud cerrada', color: 'bg-muted' },
+};
+
+/** El copy de los cuatro botones de quien publicó la mascota.
+ *
+ * ⚠️ Este mapeo es **todo** lo que el frontend sabe de la máquina de estados.
+ * Qué acciones se pueden ejecutar sobre una solicitud lo decide el backend y
+ * llega en `acciones_disponibles`: aquí solo se traduce cada una a su etiqueta.
+ * En la era Adopta la pantalla reimplementaba la matriz de transiciones con
+ * arrays de estados (`['solicitado','en_revision'].includes(...)`), y las dos
+ * fuentes de verdad se separaron en la primera corrección del backend.
+ *
+ * "Confirmar adopción" en vez de "Aprobar": es irreversible —cierra la mascota y
+ * descarta a las demás familias—, así que el botón nombra la consecuencia y no
+ * el trámite. */
+export const ETIQUETA_ACCION_SOLICITUD: Record<AccionSolicitud, string> = {
+  'agendar-visita': 'Agendar visita',
+  'pedir-informacion': 'Pedir más información',
+  aprobar: 'Confirmar adopción',
+  descartar: 'Descartar solicitud',
+};
+
 /** Los siete sí/no de una mascota (salud + convivencia) con los mismos valores
  * iniciales de `PetIn`: salud conservadora (no) y convivencia optimista (sí),
  * para no prometer lo que nadie verificó.
@@ -96,6 +154,36 @@ export const FILTROS_ADOPCION_DEFAULT: FiltrosMascotas = {
   edad: [],
   zona: '',
 };
+
+/** Cuántas cosas eligió la persona en los filtros del módulo de adopción.
+ *
+ * Cuenta **valores**, no grupos: elegir perro y gato son dos, y la zona suma uno
+ * (`''` = todas las zonas, no cuenta). Es lo que la persona recuerda haber
+ * tocado, y es el número que va en el botón plegable ("Filtros · 2").
+ *
+ * ⚠️ **Fuente de verdad única**, y esa es su razón de existir. Antes de AD-08
+ * había dos cuentas paralelas —una en `FiltrosAdopcion` para decidir si mostrar
+ * "Limpiar filtros" y otra en `CatalogoAdopcion` para el texto del estado
+ * vacío— y **la del catálogo se saltaba `edad`**: con un tramo de edad como
+ * único filtro y cero resultados, la pantalla decía "Todavía no hay mascotas
+ * publicadas en adopción" en vez de "Ninguna coincide con estos filtros". Le
+ * contaba a la persona que el catálogo estaba vacío cuando lo que pasaba es que
+ * su filtro no casaba, y le ofrecía publicar una mascota en vez de la salida
+ * que necesitaba.
+ *
+ * Desde el plegado móvil el número importa además por otra razón: con el panel
+ * cerrado, es la única señal de que el catálogo está recortado. Si un grupo
+ * nuevo de `FiltrosMascotas` no se suma aquí, plegar escondería un filtro
+ * activo en silencio. */
+export function contarFiltrosActivos(filtros: FiltrosMascotas): number {
+  return (
+    filtros.especie.length +
+    filtros.tamano.length +
+    filtros.energia.length +
+    filtros.edad.length +
+    (filtros.zona === '' ? 0 : 1)
+  );
+}
 
 // Cortes de los tramos de edad, en meses. Son los mismos de
 // `EDAD_CATEGORIA_RANGOS` en el backend (cachorro 0-11, joven 12-35, adulto
@@ -142,7 +230,12 @@ type AtributosTituloMascota = Pick<Mascota, 'nombre' | 'especie' | 'tamano' | 'r
  * `tituloReporte`: el nombre manda. La columna `nombre` es obligatoria, pero un
  * formulario puede mandar espacios, y una mascota sin nombre en la tarjeta se
  * ve rota — de ahí la composición de respaldo ("Perro mediano labrador"), que
- * dice más que un hueco. La raza "Otra" no aporta señas y no entra. */
+ * dice más que un hueco. La raza "Otra" no aporta señas y no entra.
+ *
+ * ⚠️ Espejo de `titulo_pet` (src/api/reencuentro_api/services/titulos.py), que
+ * compone el og:title que ven los rastreadores al compartir la ficha. Son la
+ * misma regla en dos lenguajes y nada las ata: si cambias esta, cambia la otra
+ * (y sus casos, que están escritos iguales a propósito en los dos tests). */
 export function tituloMascota(mascota: AtributosTituloMascota): string {
   const nombre = mascota.nombre.trim();
   if (nombre) return nombre;

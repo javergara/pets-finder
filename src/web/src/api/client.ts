@@ -10,6 +10,7 @@ import {
   type ConsultaBusqueda,
   type ResultadoBusqueda,
   type Conteos,
+  type DireccionSwipe,
   type EnergiaMascota,
   type EspecieAdopcion,
   type EstadoMascota,
@@ -18,10 +19,15 @@ import {
   type MascotaUpdate,
   type Necesidad,
   type Organizacion,
+  type PerfilHogar,
+  type PerfilHogarIn,
   type OrganizacionIn,
   type Reporte,
   type ReporteIn,
   type ReunidosResumen,
+  type Solicitud,
+  type SolicitudDetalle,
+  type Swipe,
   type TamanoMascota,
   type TipoOrganizacion,
   type UserProfile,
@@ -448,4 +454,261 @@ export function editarMascota(mascotaId: number, datos: MascotaUpdate): Promise<
  * sabe no parsear. `userId` va en la query: un DELETE no lleva body aquí. */
 export function eliminarMascota(mascotaId: number, userId: number): Promise<void> {
   return request(`/api/pets/${mascotaId}?user_id=${userId}`, { method: 'DELETE' });
+}
+
+// ── Deck de descubrimiento (AD-03) ───────────────────────────────────────────
+// Las dos funciones son del **adoptante**, no de quien publica: aquí `user_id`
+// significa lo contrario que en las escrituras de arriba (`Swipe.user_id` es
+// quien mira). Por eso el parámetro se llama `adoptanteId` en las dos.
+
+/** Registra la decisión sobre una mascota del deck.
+ *
+ * El adoptante va **en el body** (`user_id`, como lo espera `SwipeIn`) y no en
+ * la query: mandarlo como query param da un 422 sin pista útil para el usuario.
+ *
+ * Repetir el mismo swipe no es un error: el backend responde 200 con la misma
+ * fila en vez de 409 (un doble-tap del gesto en móvil es un accidente del dedo).
+ * `Swipe.solicitud` viaja siempre en `null` hasta AD-05.
+ */
+export function registrarSwipe(
+  adoptanteId: number,
+  mascotaId: number,
+  direccion: DireccionSwipe,
+): Promise<Swipe> {
+  return request('/api/swipes', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: adoptanteId, pet_id: mascotaId, direccion }),
+  });
+}
+
+/** Las mascotas que le tocan a quien está descubriendo: solo disponibles, sin
+ * las que ya swipeó, con su afinidad si tiene perfil de hogar.
+ *
+ * ⚠️ `adoptanteId` es **opcional y solo viaja si existe de verdad**. Sin cuenta
+ * no se manda: `getActiveUserId()` cae al `DEMO_USER_ID = 1` y mandarlo haría
+ * que un visitante viera el deck de otra persona —con sus swipes ya
+ * descontados—, que es el bug de autoría del fix `cc4de85`. Sin él el backend
+ * responde 200 igual, con `afinidad: null` y sin excluir nada.
+ *
+ * Multivalor con `append` (nunca `set`), por la misma razón que
+ * `listarMascotas`: `set` pisa el valor anterior y deja la multi-selección
+ * reducida a uno solo, así que el filtro parecería funcionar a medias.
+ */
+export function listarDeck(
+  adoptanteId?: number,
+  filtros: Partial<FiltrosMascotas> = {},
+): Promise<Mascota[]> {
+  const params = new URLSearchParams();
+  filtros.especie?.forEach((valor) => params.append('especie', valor));
+  filtros.tamano?.forEach((valor) => params.append('tamano', valor));
+  filtros.energia?.forEach((valor) => params.append('energia', valor));
+  filtros.edad?.forEach((valor) => params.append('edad_categoria', valor));
+  // El deck acepta `zona` multivalor, pero en la UI sigue siendo de valor único
+  // (mismo criterio que el resto de la app): '' = todas las zonas.
+  if (filtros.zona) params.append('zona', filtros.zona);
+  if (adoptanteId !== undefined) params.append('adoptante_id', String(adoptanteId));
+  const query = params.toString();
+  return request(`/api/pets/deck${query ? `?${query}` : ''}`);
+}
+
+/** Guarda (o reemplaza) el cuestionario de hogar. Upsert: siempre 200. */
+export function guardarPerfilHogar(userId: number, datos: PerfilHogarIn): Promise<PerfilHogar> {
+  return request(`/api/users/${userId}/home-profile`, {
+    method: 'PUT',
+    body: JSON.stringify(datos),
+  });
+}
+
+/** El cuestionario propio, o `null` si esa persona todavía no lo contestó.
+ *
+ * ⚠️ **El 404 se mapea a `null`, y SOLO el 404.** "Todavía no contestó" no es un
+ * error: es el estado inicial de todo el mundo, y la pantalla tiene que poder
+ * distinguirlo de un fallo real. Por eso esta función no pasa por `request<T>()`
+ * (que no expone el status y convierte cualquier respuesta no-ok en `ApiError`)
+ * sino que hace su propio `fetch`, como `subirFoto` y `listarReportesPaginado`.
+ *
+ * ⚠️ Y por eso mismo está **prohibido** resolverlo con un `.catch(() => null)` en
+ * la pantalla: eso se tragaría también el 403 (estar mirando el hogar de otra
+ * persona) y los errores de red, y el wizard arrancaría en blanco pisando el
+ * cuestionario que la persona ya había contestado.
+ */
+export async function obtenerPerfilHogar(
+  userId: number,
+  solicitanteId: number,
+): Promise<PerfilHogar | null> {
+  const respuesta = await fetch(
+    `${API_BASE_URL}/api/users/${userId}/home-profile?solicitante_id=${solicitanteId}`,
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  if (respuesta.status === 404) return null;
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.json().catch(() => ({}));
+    throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);
+  }
+  return respuesta.json() as Promise<PerfilHogar>;
+}
+
+// ── Solicitudes de adopción (AD-05) ──────────────────────────────────────────
+// Aquí conviven las dos mitades del módulo: quien adopta solo lee (`las que
+// envié`), y quien publica lee y además mueve el estado con las cuatro
+// acciones. El corte no lo hace este archivo — lo hace el backend con un 403 —,
+// pero sí lo refleja: `listarSolicitudes` y `obtenerSolicitud` las usan los dos;
+// las cuatro acciones, solo quien publicó la mascota.
+
+/** El filtro de `GET /api/solicitudes`: **exactamente uno de los tres**.
+ *
+ * Son tres preguntas distintas ("las que envié", "las de mi fundación", "las que
+ * recibí a título propio") y el backend responde 422 si llegan cero o dos —un
+ * guard escrito a mano, porque FastAPI sabe exigir un parámetro requerido pero
+ * no "uno de tres"—. La unión hace ese mismo trabajo en tiempo de compilación,
+ * así que ese 422 es inalcanzable desde la app.
+ *
+ * ⚠️ Los `?: never` no son ruido: **medido en este repo**, una unión pelada
+ * (`{adoptanteId} | {organizacionId} | {publicadorId}`) acepta
+ * `{ adoptanteId: 7, organizacionId: 2 }` sin protestar. TypeScript solo aplica
+ * el chequeo de propiedades de más contra la unión entera, así que la clave
+ * sobrante se considera legítima porque existe en otro miembro. Con los `never`
+ * declarados, ese literal no compila. */
+export type FiltroSolicitudes =
+  | { adoptanteId: number; organizacionId?: never; publicadorId?: never }
+  | { organizacionId: number; adoptanteId?: never; publicadorId?: never }
+  | { publicadorId: number; adoptanteId?: never; organizacionId?: never };
+
+/** Las solicitudes de una persona (las que envió) o de quien publica (las que
+ * recibió), lo más reciente primero.
+ *
+ * `acciones_disponibles` viene calculado por el backend para quien pregunta: al
+ * adoptante le llega siempre `[]`.
+ */
+export function listarSolicitudes(filtro: FiltroSolicitudes): Promise<Solicitud[]> {
+  const params = new URLSearchParams();
+  // Tres `if` independientes en vez de una cadena con `else`: el tipo ya
+  // garantiza que solo uno llega definido, y así esta función nunca elige por su
+  // cuenta cuál filtro gana si alguna vez la llamaran desde JavaScript sin
+  // tipos — el backend respondería su 422, que es la respuesta honesta.
+  if (filtro.adoptanteId !== undefined) params.set('adoptante_id', String(filtro.adoptanteId));
+  if (filtro.organizacionId !== undefined) {
+    params.set('organizacion_id', String(filtro.organizacionId));
+  }
+  if (filtro.publicadorId !== undefined) params.set('publicador_id', String(filtro.publicadorId));
+  return request(`/api/solicitudes?${params}`);
+}
+
+/** El detalle: el cuestionario del hogar, el mensaje y el teléfono de quien
+ * adopta.
+ *
+ * `solicitanteId` es requerido y solo lo pasan dos personas: quien envió la
+ * solicitud y quien publicó la mascota. Cualquier otra recibe **403** — los ids
+ * son secuenciales y adivinables, así que sin ese corte cualquiera leería datos
+ * personales ajenos. */
+export function obtenerSolicitud(
+  solicitudId: number,
+  solicitanteId: number,
+): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}?solicitante_id=${solicitanteId}`);
+}
+
+// Las cuatro acciones de quien publicó la mascota. Una función por endpoint, con
+// su nombre y su ruta escritos enteros, en vez de un `avanzarSolicitud(accion)`
+// genérico: cada una cambia el estado de una adopción real (`aprobar` cierra la
+// mascota y descarta a las demás familias), y con un parámetro suelto ese
+// destino se decidiría en una variable que ningún tipo mira dos veces.
+//
+// Las cuatro devuelven el detalle ya actualizado —incluida
+// `acciones_disponibles` recalculada—, así que la pantalla no necesita un `GET`
+// detrás de cada botón. Un 403 significa que quien pide no es el publicador; un
+// 409, que esa acción no es válida desde el estado actual (una pestaña vieja,
+// típicamente): los dos llegan como `ApiError` con el texto del backend, que ya
+// es copy de producto en español.
+
+/** Cita para conocer a la mascota. Válida desde `solicitado` o `en_revision`. */
+export function agendarVisita(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/agendar-visita`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Deja la solicitud `en_revision`. Válida **solo** desde `solicitado`: pedirla
+ * dos veces es 409, no un no-op. */
+export function pedirInformacion(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/pedir-informacion`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Cierra la adopción: esta solicitud gana, la mascota sube a la franja de
+ * celebración y **las demás de esa mascota se cierran solas**. Es irreversible.
+ */
+export function aprobarSolicitud(solicitudId: number, userId: number): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/aprobar`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
+  });
+}
+
+/** Cierra la solicitud con un motivo **obligatorio** (el backend responde 422 si
+ * llega vacío o en blanco).
+ *
+ * ⚠️ Ese motivo es la nota interna de quien publica: se guarda, pero no vuelve
+ * en ninguna respuesta y el adoptante nunca lo ve (ADR 0002). Por eso no existe
+ * en ningún tipo de `api/types.ts`. */
+export function descartarSolicitud(
+  solicitudId: number,
+  userId: number,
+  motivo: string,
+): Promise<SolicitudDetalle> {
+  return request(`/api/solicitudes/${solicitudId}/descartar`, {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, motivo }),
+  });
+}
+
+// ── Favoritos (AD-07) ────────────────────────────────────────────────────────
+// Las tres cuelgan de `/api/users/{userId}` y aquí `userId` es **quien mira**,
+// exactamente al revés que `Pet.user_id` (quien publica). Las dos son ids de
+// `users`, así que nada avisa si se cruzan: el síntoma sería que a una fundación
+// le salgan sus propias mascotas como "guardadas".
+//
+// ⚠️ **Ninguna se llama sin cuenta.** `getActiveUserId()` cae al
+// `DEMO_USER_ID = 1`, que en producción es una persona real: guardar sin cuenta
+// escribiría en la lista de otra, y leer sin cuenta mostraría la suya. El gate
+// (`hasActiveUser()` → `/registro?volver=…`) vive en cada pantalla que las usa,
+// como el de "Me interesa" del deck.
+//
+// Una función por endpoint, con su verbo escrito entero, en vez de un
+// `alternarFavorita(guardada)` con un booleano: el destino de la escritura no se
+// decide en una variable que ningún tipo mira dos veces.
+
+/** Guarda la mascota en la lista de quien mira.
+ *
+ * `pet_id` viaja **en el body** (`FavoritoIn`), no en la query: el actor ya está
+ * en la ruta. Repetirlo no es error —el backend responde 200 con la misma fila
+ * en vez de 409, porque el doble-tap de un corazón es un accidente del dedo— y
+ * la respuesta es la mascota completa ya con `es_favorito: true`, así que la
+ * tarjeta no necesita volver a pedirla. */
+export function marcarFavorita(userId: number, petId: number): Promise<Mascota> {
+  return request(`/api/users/${userId}/favorites`, {
+    method: 'POST',
+    body: JSON.stringify({ pet_id: petId }),
+  });
+}
+
+/** Quita la mascota de la lista. Responde **204 siempre**, incluso si no estaba
+ * guardada: apagar dos veces el corazón no es un error que haya que pintar. */
+export function desmarcarFavorita(userId: number, petId: number): Promise<void> {
+  return request(`/api/users/${userId}/favorites/${petId}`, { method: 'DELETE' });
+}
+
+/** Las mascotas guardadas por esa persona, lo último guardado primero.
+ *
+ * ⚠️ `solicitante_id` es **requerido** por el backend (sin él, 422) y viaja con
+ * el mismo id del path porque esto es siempre una auto-consulta: una lista de
+ * favoritos es un historial de navegación, y pedir la de otra persona responde
+ * 403. Que sea el mismo valor dos veces no es redundancia inútil — es lo que
+ * convierte una fuga accidental (el frontend cayendo al `DEMO_USER_ID`) en algo
+ * que solo puede pasar a propósito. */
+export function listarFavoritas(userId: number): Promise<Mascota[]> {
+  return request(`/api/users/${userId}/favorites?solicitante_id=${userId}`);
 }

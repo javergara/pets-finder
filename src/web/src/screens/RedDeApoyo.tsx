@@ -134,6 +134,28 @@ export function RedDeApoyo() {
             </div>
           </div>
 
+          {/* Cruce al módulo de adopción (AD-08): quien entra aquí a ofrecer
+              hogar de paso es exactamente quien puede adoptar, y hasta ahora las
+              dos mitades de la app no se hablaban.
+
+              ⚠️ **Permanente, NO condicionado a elegir "hogar de paso" en el
+              selector de categoría**: un cruce que exige filtrar primero no lo
+              ve nadie. Y una línea de texto no compite con los dos CTAs de
+              arriba ("Necesito ayuda" / "Quiero ayudar"), que siguen siendo lo
+              primero de la pestaña. Vive dentro de `pestana === 'comunidad'` a
+              propósito: en el directorio de lugares (dirección, horario, cómo
+              donar) no viene a cuento. */}
+          <p className="text-sm text-muted">
+            ¿Puedes dar hogar de paso? También hay mascotas rescatadas esperando adopción definitiva
+            →{' '}
+            <Link
+              to="/adoptar"
+              className="font-medium text-forest underline-offset-4 hover:underline"
+            >
+              Ver mascotas en adopción
+            </Link>
+          </p>
+
           <div className="flex flex-wrap items-center gap-2">
             {(['', 'pido', 'ofrezco'] as const).map((t) => (
               <button

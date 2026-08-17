@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiError, editarMascota, listarMascotas } from '../api/client';
-import type { EstadoMascota, Mascota } from '../api/types';
+import { ApiError, editarMascota, listarMascotas, listarSolicitudes } from '../api/client';
+import type { EstadoMascota, Mascota, Solicitud } from '../api/types';
 import { ETIQUETA_ESTADO_MASCOTA, tituloMascota } from '../lib/adopcion';
 import { getActiveUserId } from '../lib/session';
+import { ListaSolicitudes } from './ListaSolicitudes';
 import { MascotaCard } from './MascotaCard';
 
 // Las mascotas que una organización tiene en adopción, dentro de su ficha
@@ -32,6 +33,8 @@ type Props = {
 const MENSAJE_ERROR_CARGA =
   'No pudimos cargar las mascotas en adopción de este lugar. Revisa tu conexión e intenta de nuevo.';
 const MENSAJE_ERROR_ESTADO = 'No pudimos cambiar el estado. Intenta de nuevo.';
+const MENSAJE_ERROR_SOLICITUDES =
+  'No pudimos cargar las solicitudes de este lugar. Revisa tu conexión e intenta de nuevo.';
 
 // Mismo orden que el catálogo: disponible → en proceso → adoptado.
 const ESTADOS = Object.keys(ETIQUETA_ESTADO_MASCOTA) as EstadoMascota[];
@@ -47,6 +50,8 @@ export function PanelAdopcionOrganizacion({
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
   const [guardando, setGuardando] = useState<number | null>(null);
+  const [solicitudes, setSolicitudes] = useState<Solicitud[] | null>(null);
+  const [errorSolicitudes, setErrorSolicitudes] = useState<string | null>(null);
 
   useEffect(() => {
     setErrorCarga(null);
@@ -59,6 +64,25 @@ export function PanelAdopcionOrganizacion({
       // producto, se muestra tal cual.
       .catch((err) => setErrorCarga(err instanceof ApiError ? err.message : MENSAJE_ERROR_CARGA));
   }, [organizacionId]);
+
+  // Las solicitudes que recibió el lugar (AD-05). **Solo si `esAutor`**, y no
+  // basta con esconderlas: la respuesta trae el nombre de quien pidió cada
+  // mascota, así que pedirlas ya sería exponer datos de terceros a cualquier
+  // visitante de la ficha. El backend lo vuelve a verificar con un 403; esto es
+  // la mitad de UI del mismo trato, igual que el resto del panel.
+  //
+  // `organizacionId` y no `publicadorId`: aquí se responde como el lugar. El
+  // filtro de publicador traería además las mascotas que esa persona publicó a
+  // título propio, que no son de esta ficha (esas se ven en /adoptar/mis-solicitudes).
+  useEffect(() => {
+    if (!esAutor) return;
+    setErrorSolicitudes(null);
+    listarSolicitudes({ organizacionId })
+      .then(setSolicitudes)
+      .catch((err) =>
+        setErrorSolicitudes(err instanceof ApiError ? err.message : MENSAJE_ERROR_SOLICITUDES),
+      );
+  }, [esAutor, organizacionId]);
 
   async function cambiarEstado(mascotaId: number, estado: EstadoMascota) {
     setErrorEstado(null);
@@ -192,6 +216,34 @@ export function PanelAdopcionOrganizacion({
             ? ' Si rescataron una que ya nadie reclamó, publícala aquí: quien la busque la verá en el catálogo.'
             : ' Si buscas adoptar, mira el resto del catálogo mientras tanto.'}
         </p>
+      )}
+
+      {/* Las solicitudes van al final y solo para el autor: la rejilla de arriba
+          es lo que vino a ver cualquiera, y esto es su bandeja de entrada.
+          Mientras cargan no se pinta nada —ni siquiera el título— para no dejar
+          un encabezado suelto sobre un hueco; un fallo aquí no toca la rejilla,
+          que es información pública y sigue en pie. */}
+      {esAutor && (solicitudes !== null || errorSolicitudes !== null) && (
+        <div className="space-y-3 border-t border-line pt-4">
+          <h3 className="font-display text-lg text-ink">Solicitudes recibidas</h3>
+          {errorSolicitudes && (
+            <p
+              role="alert"
+              className="rounded-2xl border border-line bg-surface p-4 text-sm text-ink-soft"
+            >
+              {errorSolicitudes}
+            </p>
+          )}
+          {solicitudes !== null &&
+            (solicitudes.length > 0 ? (
+              <ListaSolicitudes solicitudes={solicitudes} perspectiva="recibida" />
+            ) : (
+              <p className="rounded-2xl border border-line bg-surface p-6 text-sm text-ink-soft">
+                Nadie ha pedido todavía una de estas mascotas. Cuando alguien lo haga, aparecerá
+                aquí con su cuestionario de hogar.
+              </p>
+            ))}
+        </div>
       )}
     </section>
   );

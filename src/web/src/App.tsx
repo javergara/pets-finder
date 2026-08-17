@@ -2,12 +2,16 @@ import { NavLink, Outlet, Route, Routes } from 'react-router-dom';
 import { SLUGS_ZONA } from './lib/ciudades';
 import { BuscarMascota } from './screens/BuscarMascota';
 import { CatalogoAdopcion } from './screens/CatalogoAdopcion';
+import { CuestionarioHogar } from './screens/CuestionarioHogar';
+import { DescubrirMascotas } from './screens/DescubrirMascotas';
 import { EditarMascota } from './screens/EditarMascota';
 import { EditarReporte } from './screens/EditarReporte';
 import { LandingEmergencia } from './screens/LandingEmergencia';
 import { MapaReportes } from './screens/MapaReportes';
 import { MascotaDetalle } from './screens/MascotaDetalle';
+import { MisFavoritas } from './screens/MisFavoritas';
 import { MisReportes } from './screens/MisReportes';
+import { MisSolicitudes } from './screens/MisSolicitudes';
 import { OrganizacionDetalle } from './screens/OrganizacionDetalle';
 import { PublicarAvisoAyuda } from './screens/PublicarAvisoAyuda';
 import { PublicarMascota } from './screens/PublicarMascota';
@@ -17,6 +21,7 @@ import { RegistrarOrganizacion } from './screens/RegistrarOrganizacion';
 import { ReportarMascota } from './screens/ReportarMascota';
 import { ReporteDetalle } from './screens/ReporteDetalle';
 import { Reportes } from './screens/Reportes';
+import { SolicitudDetalle } from './screens/SolicitudDetalle';
 import { ZonaLanding } from './screens/ZonaLanding';
 
 function Nav() {
@@ -48,6 +53,14 @@ function Nav() {
       </NavLink>
       <NavLink to="/mis-reportes" className={linkClass}>
         Mis reportes
+      </NavLink>
+      {/* Adopción (AD-08): la fase 2 del producto entra en la nav DETRÁS de la
+          emergencia, nunca delante. Reportar, mirar y lo mío van primero porque
+          quien acaba de perder a su mascota no debería tener que saltarse un
+          enlace de adopción para llegar a lo suyo. El orden lo fija un test
+          (`App.test.tsx`), no este comentario. */}
+      <NavLink to="/adoptar" className={linkClass}>
+        Adoptar
       </NavLink>
       <NavLink to="/ayudar" className={linkClass}>
         Centros de ayuda
@@ -87,13 +100,33 @@ function App() {
           <Route path="/ayudar/registrar" element={<RegistrarOrganizacion />} />
           <Route path="/ayudar/publicar-aviso" element={<PublicarAvisoAyuda />} />
           <Route path="/organizacion/:id" element={<OrganizacionDetalle />} />
-          {/* Módulo de adopción (AD-01). El enlace en la nav llega en AD-08:
-              hasta entonces las rutas existen y son compartibles, pero no se
-              anuncian. La ficha va bajo /adoptar/mascota/:id para no chocar con
-              /reporte/:id, que es el otro dominio (perdidos y encontrados). */}
+          {/* Módulo de adopción (AD-01), ya anunciado en la nav y en la landing
+              desde AD-08. Las rutas interiores (deck, cuestionario, solicitudes,
+              favoritas) siguen sin enlace propio en la nav: se llega a ellas
+              desde el catálogo. La ficha va bajo /adoptar/mascota/:id para no
+              chocar con /reporte/:id, que es el otro dominio (perdidos y
+              encontrados). */}
           <Route path="/adoptar" element={<CatalogoAdopcion />} />
           {/* Literal antes que dinámica, como en el router de la API. */}
           <Route path="/adoptar/publicar" element={<PublicarMascota />} />
+          {/* Deck de descubrimiento (AD-03). Se entra desde /adoptar; mirarlo no
+              pide cuenta, y el gate de "Me interesa" vive en la pantalla. */}
+          <Route path="/adoptar/descubrir" element={<DescubrirMascotas />} />
+          {/* Cuestionario de hogar (AD-04). Es una escritura, así que la
+              pantalla se manda sola al registro si no hay cuenta. */}
+          <Route path="/adoptar/mi-hogar" element={<CuestionarioHogar />} />
+          {/* Solicitudes propias (AD-05). Leen datos personales de terceros (quién
+              pidió cada mascota, con su mensaje y su teléfono en el detalle), así
+              que las dos pantallas se mandan solas al registro si no hay cuenta.
+              Literal antes que dinámica, como el resto del archivo. */}
+          <Route path="/adoptar/mis-solicitudes" element={<MisSolicitudes />} />
+          <Route path="/adoptar/solicitud/:id" element={<SolicitudDetalle />} />
+          {/* Lista guardada (AD-07). "mis-favoritas" y no "favoritas" por
+              consistencia con las dos rutas de arriba y con /mis-reportes: el
+              prefijo "mis" es lo que distingue lo propio de lo público en toda
+              la app. También se manda sola al registro sin cuenta — los
+              favoritos de alguien son un historial de navegación con nombre. */}
+          <Route path="/adoptar/mis-favoritas" element={<MisFavoritas />} />
           <Route path="/adoptar/mascota/:id" element={<MascotaDetalle />} />
           {/* Edición de quien publicó (AD-02): el sufijo la distingue de la
               ficha, igual que /reporte/:id/editar en el otro dominio. */}

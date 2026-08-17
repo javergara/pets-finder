@@ -1,5 +1,8 @@
 from .aviso_ayuda import AvisoAyuda
 from .base import Base, SessionLocal, engine
+from .favorite import Favorite
+from .home_profile import HomeProfile
+from .match import Match
 from .necesidad import Necesidad
 from .organizacion import Organizacion
 from .pet import Pet
@@ -8,6 +11,7 @@ from .report import Report
 from .report_foto import ReportFoto
 from .sighting import Sighting
 from .suscripcion import Suscripcion
+from .swipe import Swipe
 from .user import User
 
 __all__ = [
@@ -24,4 +28,8 @@ __all__ = [
     "AvisoAyuda",
     "RadarAviso",
     "Pet",
+    "HomeProfile",
+    "Swipe",
+    "Match",
+    "Favorite",
 ]

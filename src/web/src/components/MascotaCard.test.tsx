@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { describe, expect, it, vi } from 'vitest';
 import type { Mascota } from '../api/types';
 import { MascotaCard } from './MascotaCard';
 
@@ -45,10 +45,20 @@ function mascota(overrides: Partial<Mascota> = {}): Mascota {
   };
 }
 
-function renderCard(datos: Mascota) {
+/** Imprime la ruta actual del router de prueba. El corazón vive DENTRO de un
+ * `<Link>` que ocupa la tarjeta entera, así que "no navegó" hay que aseverarlo
+ * sobre la ubicación real: mirar solo que el handler se llamó pasaría igual
+ * aunque el clic se llevara a la persona a la ficha. */
+function Ubicacion() {
+  const { pathname } = useLocation();
+  return <p>{`ubicación ${pathname}`}</p>;
+}
+
+function renderCard(datos: Mascota, onAlternarFavorita?: () => void) {
   return render(
-    <MemoryRouter>
-      <MascotaCard mascota={datos} />
+    <MemoryRouter initialEntries={['/adoptar']}>
+      <Ubicacion />
+      <MascotaCard mascota={datos} onAlternarFavorita={onAlternarFavorita} />
     </MemoryRouter>,
   );
 }
@@ -134,5 +144,60 @@ describe('MascotaCard', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nala' })).toBeInTheDocument();
     expect(screen.getByRole('link')).toHaveAttribute('href', '/adoptar/mascota/7');
+  });
+
+  // ── El corazón (AD-07) ─────────────────────────────────────────────────────
+  describe('corazón de favoritos', () => {
+    it('sin la prop no pinta ningún corazón (no un corazón muerto)', () => {
+      renderCard(mascota());
+
+      // `PanelAdopcionOrganizacion` usa esta misma tarjeta y no tiene favoritos:
+      // un botón que no guarda nada es peor que ningún botón.
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      expect(screen.queryByText('♡')).not.toBeInTheDocument();
+      expect(screen.queryByText('♥')).not.toBeInTheDocument();
+    });
+
+    it('con la prop, el clic en el corazón guarda y NO navega a la ficha', () => {
+      const alternar = vi.fn();
+      renderCard(mascota(), alternar);
+
+      const noCancelado = fireEvent.click(
+        screen.getByRole('button', { name: 'Guardar en favoritos' }),
+      );
+
+      expect(alternar).toHaveBeenCalledTimes(1);
+      // Dos aserciones porque son dos navegaciones distintas, y una sola no
+      // basta:
+      //
+      // 1. La ubicación cubre la del router: sin el handler propio, el `onClick`
+      //    del `<Link>` correría y la persona acabaría en la ficha.
+      // 2. `fireEvent.click` devuelve `false` solo si alguien canceló el evento,
+      //    y eso es lo único que aquí prueba el `preventDefault`: lo que ese
+      //    `preventDefault` frena es la navegación NATIVA del `<a href>` —una
+      //    recarga entera de la página en un navegador de verdad—, que jsdom no
+      //    simula y por eso jamás aparecería en la ubicación de arriba.
+      expect(screen.getByText('ubicación /adoptar')).toBeInTheDocument();
+      expect(noCancelado).toBe(false);
+    });
+
+    it('el resto de la tarjeta sigue navegando a la ficha', () => {
+      const alternar = vi.fn();
+      renderCard(mascota({ id: 42 }), alternar);
+
+      fireEvent.click(screen.getByRole('heading', { name: 'Nala' }));
+
+      expect(screen.getByText('ubicación /adoptar/mascota/42')).toBeInTheDocument();
+      expect(alternar).not.toHaveBeenCalled();
+    });
+
+    it('ya guardada, el corazón invita a quitarla', () => {
+      renderCard(mascota({ es_favorito: true }), vi.fn());
+
+      expect(screen.getByRole('button', { name: 'Quitar de favoritos' })).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Guardar en favoritos' }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

@@ -29,7 +29,16 @@ import {
 // desplaza el pie de la tarjeta; el resto de los tags se ven en la ficha.
 const MAX_TAGS = 3;
 
-export function MascotaCard({ mascota }: { mascota: Mascota }) {
+type Props = {
+  mascota: Mascota;
+  /** Opcional a propósito, igual que en `MascotaSwipeCard`: **sin esta prop no
+   * se pinta ningún corazón**. `PanelAdopcionOrganizacion` reusa esta tarjeta
+   * para las mascotas de una fundación, donde guardar no significa nada; un
+   * corazón que no guarda es peor que ningún corazón. */
+  onAlternarFavorita?: () => void;
+};
+
+export function MascotaCard({ mascota, onAlternarFavorita }: Props) {
   const titulo = tituloMascota(mascota);
   const estado = ETIQUETA_ESTADO_MASCOTA[mascota.estado];
   const foto = mascota.fotos[0];
@@ -63,13 +72,42 @@ export function MascotaCard({ mascota }: { mascota: Mascota }) {
           >
             {estado.texto}
           </span>
-          {/* En AD-01 `afinidad` siempre viaja en null: la calcula AD-03 y solo
-              para quien ya tiene perfil de hogar. */}
-          {mascota.afinidad && (
-            <span className="ml-auto rounded-full bg-forest px-3 py-1 font-mono text-xs text-bg">
-              {mascota.afinidad.score}% afín
-            </span>
-          )}
+          {/* La afinidad y el corazón comparten la esquina derecha, así que el
+              `ml-auto` vive en el grupo y no en cada uno: con dos `ml-auto`
+              hermanos el espacio libre se reparte entre ambos y el chip de
+              afinidad se despega del borde. */}
+          <div className="ml-auto flex items-center gap-2">
+            {/* En AD-01 `afinidad` siempre viaja en null: la calcula AD-03 y solo
+                para quien ya tiene perfil de hogar. */}
+            {mascota.afinidad && (
+              <span className="rounded-full bg-forest px-3 py-1 font-mono text-xs text-bg">
+                {mascota.afinidad.score}% afín
+              </span>
+            )}
+            {onAlternarFavorita && (
+              <button
+                type="button"
+                aria-label={mascota.es_favorito ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                onClick={(e) => {
+                  // ⚠️ Los dos, y AQUÍ DENTRO, no en cada pantalla que use la
+                  // tarjeta: toda la `MascotaCard` es un `<Link>` a la ficha, así
+                  // que sin `preventDefault` guardar una mascota sacaría a la
+                  // persona del catálogo —perdiendo scroll y filtros— justo
+                  // cuando estaba comparando varias. Delegarlo al llamador sería
+                  // esperar que las tres pantallas lo recuerden; la primera que
+                  // lo olvide reintroduce el bug.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onAlternarFavorita();
+                }}
+                className={`flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-xl ${
+                  mascota.es_favorito ? 'text-forest' : 'text-muted'
+                }`}
+              >
+                {mascota.es_favorito ? '♥' : '♡'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

@@ -32,7 +32,7 @@
       "id": "AD-03-deck-swipe-y-afinidad",
       "title": "Deck de descubrimiento con swipe y afinidad explicable",
       "description": "Portar Descubrir.tsx (deck swipe con gestos), services/deck.py y services/affinity.py (funciones puras, ADR 0003: afinidad calculada al vuelo, sin persistir scores) y services/filters.py desde adopta-v1. Modelo Swipe (user_id, pet_id, direccion, unique(user_id,pet_id)) para no repetir tarjetas. El score se muestra CON razones ('le va bien con niños como pides', 'energía media como tu hogar') — misma filosofía explicable de la feature 38. Sin HomeProfile aún, la afinidad usa los defaults (AD-04 la completa). Ruta /adoptar/descubrir con acceso desde el catálogo.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-01-modelo-pet-y-catalogo"],
       "acceptance": [
         "El deck muestra mascotas disponibles no swipeadas por el usuario, con swipe izquierda/derecha por gesto y botones accesibles",
@@ -45,7 +45,7 @@
       "id": "AD-04-perfil-de-hogar",
       "title": "Perfil de hogar: cuestionario interactivo del adoptante",
       "description": "Portar HomeProfile (home_profile.py cuelga de users — el modelo User actual es idéntico al de Adopta, ver integracion-adopcion.md §4.1) y la pantalla Cuestionario.tsx (onboarding interactivo: tipo de vivienda, niños, otras mascotas, horas solo, experiencia, energía buscada). Endpoints GET/PUT /api/users/{id}/home-profile (solo el propio usuario, 403). La afinidad de AD-03 pasa a usar el perfil real cuando existe; sin perfil, el deck invita a completarlo ('mejora tus coincidencias') sin bloquear.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-03-deck-swipe-y-afinidad"],
       "acceptance": [
         "El cuestionario guarda el perfil de hogar del usuario activo y se puede reeditar desde su perfil",
@@ -58,7 +58,7 @@
       "id": "AD-05-solicitudes-de-adopcion",
       "title": "Solicitudes: del swipe-derecha a la visita (match no mutuo)",
       "description": "Portar Match (match.py: user/pet/organizacion, estado, motivo_descarte), services/solicitudes.py (transiciones solicitado→en_revision→visita_agendada→aprobado|descartado con sus reglas) y las pantallas MisMatches.tsx (adoptante) + la gestión en el panel de la organización (de PanelRefugio.tsx y SolicitudDetalle.tsx). ADR 0002 vigente: el match NO es mutuo — swipe-derecha crea la solicitud, la organización la gestiona. Al aprobar, la mascota pasa a estado adoptado y las demás solicitudes se descartan con motivo automático. Franja de celebración de adopciones (métrica de esperanza, como los reencuentros).",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-03-deck-swipe-y-afinidad"],
       "acceptance": [
         "El swipe-derecha crea la solicitud (una por user+pet, idempotente) visible en /adoptar/mis-solicitudes con su estado",
@@ -71,7 +71,7 @@
       "id": "AD-06-comunicacion-solicitud",
       "title": "Comunicación de la solicitud (exige ADR nuevo — NO portar WebSockets)",
       "description": "El chat de adopta-v1 (ADR 0004) usa WebSockets con estado en memoria: INCOMPATIBLE con Vercel serverless (integracion-adopcion.md §4.2). Escribir ADR 0013 (el 0012 quedó tomado por las coincidencias visuales) eligiendo entre: (a) WhatsApp directo con mensaje precargado por estado de la solicitud — recomendada, coherente con ADR 0005 y cero infra; (b) Supabase Realtime sobre tabla mensajes; (c) polling. Implementar la opción elegida en las pantallas de solicitud de AD-05. Si se elige (a), MensajesMatch/MensajesSolicitud de adopta-v1 NO se portan y este item es pequeño.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "ADR 0013 escrito con las 3 opciones evaluadas y la decisión justificada",
@@ -84,7 +84,7 @@
       "id": "AD-07-favoritos-y-apadrinamiento",
       "title": "Favoritos y apadrinamiento (paridad opcional con Adopta 1.0)",
       "description": "Portar Favorite (favorites.py + Favoritos.tsx: guardar mascotas sin swipe, lista propia) y Sponsorship (sponsorship.py + Apadrinar.tsx: compromiso de apadrinamiento SIN pasarela de pagos — registro en DB + contacto WhatsApp, igual que 'Cómo donar' de la red de apoyo). Ambos son independientes y pueden recortarse si el dueño prioriza cerrar antes: confirmar alcance con él antes de arrancar este item.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)",
@@ -96,7 +96,7 @@
       "id": "AD-08-integracion-transversal",
       "title": "Integración transversal: nav, landing, og tags y cruces con los flujos actuales",
       "description": "Coser el módulo a la app: pestaña 'Adoptar' en la nav y CTA en la landing (sin robar protagonismo a los dos caminos de emergencia); og tags por mascota para compartir por WhatsApp (extender routers/paginas.py y el rewrite de bots de vercel.json a /adoptar/mascota/:id); título auto-compuesto reutilizando services/titulos.py; avisos de seguridad (feature 40) en publicar/contactar; cruces: la Comunidad de /ayudar enlaza el catálogo en la categoría hogar_de_paso, y la búsqueda por descripción (feature 38) opcionalmente incluye mascotas en adopción. Actualizar CLAUDE.md, AGENTS.md, docs/architecture.md y product-research con el módulo.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-02-publicar-en-adopcion", "AD-05-solicitudes-de-adopcion"],
       "acceptance": [
         "La nav y la landing dan acceso a /adoptar y compartir una ficha muestra vista previa con foto y nombre en WhatsApp (test del HTML de bots)",

@@ -34,6 +34,15 @@ from reencuentro_api.schemas.pet import (  # noqa: E402
 
 EDAD_MESES_SENIOR = 84  # el umbral que usa el deck de AD-03
 
+# Catálogos de las tres columnas del perfil de hogar que todavía no tienen un
+# `Literal` propio: los declara `schemas/user.py` en AD-04. Hasta entonces la
+# fuente de verdad es `services/afinidad.py` (AD-03 paso 3), que **indexa**
+# diccionarios con estos valores: una clave fuera de catálogo no da un 422, da
+# un `KeyError` a mitad del cálculo del deck.
+VIVIENDAS = ("apartamento", "casa")
+ESPACIOS_EXTERIORES = ("ninguno", "patio", "jardin")
+EXPERIENCIAS_PREVIAS = ("ninguna", "algo", "mucha")
+
 
 def _mascotas_de_organizacion() -> list[dict]:
     return [datos for datos in seed.PETS if datos.get("organizacion_idx") is not None]
@@ -126,6 +135,57 @@ def test_los_valores_del_seed_estan_en_el_catalogo_de_la_api():
 
     for datos in seed.ORGANIZACIONES:
         assert datos["tipo"] in get_args(TipoOrganizacion), datos["nombre"]
+
+
+# --- Perfil de hogar del seed (AD-03 paso 2) ---------------------------------
+
+
+def test_el_seed_siembra_exactamente_un_perfil_de_hogar():
+    """Uno solo, y el de la usuaria demo: sin él, el score con sus razones
+    (acceptance A3 de AD-03) no se puede ver en el recorrido manual ni probar de
+    extremo a extremo. Más de uno no aporta nada al recorrido y sí ruido."""
+    assert isinstance(seed.HOME_PROFILE, dict)
+    assert seed.HOME_PROFILE["user_idx"] == 0  # Ana Martínez, el DEMO_USER_ID = 1
+
+
+def test_el_perfil_de_hogar_apunta_a_un_usuario_que_existe():
+    assert 0 <= seed.HOME_PROFILE["user_idx"] < len(seed.USERS)
+
+
+def test_los_valores_del_perfil_de_hogar_estan_en_los_catalogos():
+    """Mismo criterio que las mascotas: el modelo guarda `String`, así que un
+    valor fuera de catálogo se sembraría igual y reventaría más tarde."""
+    perfil = seed.HOME_PROFILE
+    assert perfil["vivienda"] in VIVIENDAS
+    assert perfil["espacio_exterior"] in ESPACIOS_EXTERIORES
+    assert perfil["experiencia_previa"] in EXPERIENCIAS_PREVIAS
+    assert perfil["preferencia_energia"] in get_args(EnergiaPet)
+    for especie in perfil["preferencia_especies"]:
+        assert especie in get_args(EspeciePet), especie
+    for tamano in perfil["preferencia_tamanos"]:
+        assert tamano in get_args(TamanoPet), tamano
+
+
+def test_el_perfil_de_hogar_es_coherente_con_las_mascotas_sembradas():
+    """El deck tiene que mostrar **variedad** de scores, no todo 100 ni todo
+    incompatible: para eso las preferencias dejan fuera a algunas mascotas del
+    catálogo sin dejar fuera a todas, y la regla dura de niños excluye a alguna
+    (`apto_ninos=False`) pero no a la mayoría."""
+    perfil = seed.HOME_PROFILE
+
+    en_preferencia = [p for p in seed.PETS if p["tamano"] in perfil["preferencia_tamanos"]]
+    assert 0 < len(en_preferencia) < len(seed.PETS)
+
+    if perfil["tiene_ninos"]:
+        sin_ninos = [p for p in seed.PETS if p.get("apto_ninos") is False]
+        assert len(sin_ninos) == 1, "una sola incompatible: con más, el deck se queda vacío"
+
+
+def test_el_perfil_de_hogar_declara_un_presupuesto_pero_la_columna_es_opcional():
+    """El dato es opcional (decisión de producto: pedir COP en plena emergencia
+    añade fricción), pero el seed sí lo da para que el recorrido manual ejercite
+    la rama completa de `_score_experiencia_presupuesto`, no la degradada."""
+    assert seed.HOME_PROFILE["presupuesto_mensual_cop"] > 0
 
 
 # --- Pines dentro de su zona (misma validación que los reportes) --------------

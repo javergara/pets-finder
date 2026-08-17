@@ -51,7 +51,381 @@ Alcance real en producción (dato del líder): las 27 organizaciones importadas 
 
 **La UI es hoy la única barrera de autoría de toda la app.** El backend acepta estas escrituras porque el `user_id` que manda el cliente **es** el del autor: nada impide que alguien llame al endpoint a mano con el id correcto. `esUsuarioActivo()` cierra la puerta que se abría sola en el navegador, pero no cambia eso. Es deuda directa del "registro mínimo sin contraseña" (ADR 0005) y **merece un ADR propio** que decida el mecanismo (token de sesión firmado, magic link por email, o aceptar el riesgo por escrito con su alcance). No se implementa nada de esto aquí.
 
-## Feature activa: AD-02-publicar-en-adopcion (in_progress)
+## Feature activa: AD-06-comunicacion-solicitud (in_progress) — IMPLEMENTADA, a la espera del revisor
+
+Rama **`feat/adoptar`**. **Línea base: 665 tests de Python + 397 de web.** **Sin migración**: AD-06 no toca la base de datos. La feature es pequeña porque la decisión de producto la vacía, así que entró entera en una sesión, en **tres commits**. `feature_list.json` sin tocar: el `done` lo decide el revisor.
+
+- **`9b27b8b` (`docs:`) — ADR 0013**, `docs/decisions/0013-comunicacion-solicitud-adopcion.md`. Las tres opciones con su costo real y la decisión (WhatsApp directo), **declarando que supera al ADR 0004**. ⚠️ Comprobado antes de escribir: el 0012 lo ocupa *coincidencias visuales*, y `ls docs/decisions/` no tiene ningún número repetido.
+- **`d1c067c` (`feat:`) — WhatsApp en las dos direcciones.** `lib/contacto.ts` gana `mensajeAdopcionAdoptante(estado, mascota)` y `mensajeAdopcionPublicador(estado, mascota, adoptante)`, con texto distinto por estado y los dos `Record<EstadoSolicitud, string>` exhaustivos. `SolicitudDetalle.tsx` pasa del `tel:` pelado a un botón de WhatsApp hacia el otro lado + `AvisoSeguridad contexto="contactar"`, conservando el número marcable. ⚠️ **El lado se decide comparando con `adoptante.id`, no con `acciones_disponibles`**: esa lista llega vacía también para quien publicó cuando la solicitud está cerrada, y usarla dejaría a esa persona escribiéndose a sí misma. Rojo inicial: **21 casos**.
+- **Este commit (`fix:`) — el copy de los 409/403 y el guardarraíl.** `ACCION_LEGIBLE`/`ESTADO_LEGIBLE` en `services/solicitudes.py` (el equivalente backend de `ETIQUETA_ESTADO_SOLICITUD`) producen *"Ya no puedes pedir más información: esta solicitud ya está en revisión. Actualiza la página para verla como está ahora."* en vez del slug + nombre de columna de antes. `tests/api/test_comunicacion_solicitud.py` recorre `src/api/reencuentro_api/**/*.py` y falla si aparece `WebSocket`, `websockets` o `ConnectionManager`. Rojo inicial: `ImportError` en los dos archivos de test que ahora importan el copy.
+- **Las aserciones que el fix obligaba a tocar no se ablandaron**: `test_solicitudes_acciones.py` exigía `accion in detail` y `estado in detail` —o sea, exigía la fuga—; ahora exige lo contrario y, además, que el mensaje diga qué pasó, comparando contra las constantes de copy. Igual con los dos `pytest.raises(match=…)` de `test_solicitudes_service.py`, que buscaban `"en_revision"` y `"adoptado"` dentro del texto. Las tres cadenas viejas que quedaban como fixture en el frontend (`SolicitudDetalle.test.tsx`, `client.test.ts`) y el comentario que la citaba en `SolicitudDetalle.tsx` se actualizaron al copy nuevo.
+- **Tres mutaciones verificadas**: `ConnectionManager` en `services/db.py` y `WebSocket` en `routers/solicitudes.py` dejan el guardarraíl en rojo nombrando el archivo (los dos restaurados con `git diff` vacío); y las dos direcciones del WhatsApp aseveran el `href` exacto, así que invertir el lado las rompe.
+- **Verificado en esta sesión**: `bash init.sh` **exit 0 con 681 tests de Python + 419 de web**; `ruff`, `black`, `npx tsc -b` y oxlint limpios; prettier de acuerdo en los archivos tocados; **`grep -rn "WebSocket\|websocket\|ConnectionManager" src/` sin una sola línea**.
+- **Para el revisor**: los 5 acceptance tienen test detrás salvo el 5 (`init.sh` en verde, sin migración), que es la corrida de arriba y él repite. No se tocó `feature_list.json` ni se marcó nada como `done`.
+
+## Feature activa: AD-05-solicitudes-de-adopcion (in_progress)
+
+Rama **`feat/adoptar`**. **Línea base: 508 tests de API + 345 de web.** Migración `CREATE TABLE matches` + RLS, escrita y **NO ejecutada**. Un commit por paso, test en rojo primero. El `done` lo decide el revisor.
+
+**8 pasos**, con corte natural para dos sesiones: **1-4 = backend completo y coherente** (la API queda usable aunque no haya UI), **5-8 = frontend y cierre**.
+
+### Decisiones del líder (no se re-litigan)
+
+1. **Cinco estados persistidos**: `solicitado`, `en_revision`, `visita_agendada`, `adoptado`, `cerrado`. `aprobar`/`descartar` son **nombres de acción HTTP**, nunca estados. Inventar `"aprobado"` no falla: cae al branch de "solicitado" y muestra *"Sin responder · N días"* sobre una adopción cerrada. Hay un guard explícito para eso.
+2. **`acciones_disponibles` lo calcula el backend** para el `solicitante_id` que consulta. Para el adoptante es **siempre `[]`** (ADR 0002).
+3. **`publicador_id` incluye las dos vías**: mascotas del rescatista **y** de organizaciones cuyo autor es esa persona. Si no, quien registró una fundación tendría que mirar en dos sitios.
+4. **`routers/solicitudes.py` importa `_dueno_user_id` de `.pets`** — primer import router→router del repo, con comentario. Duplicar una regla de autoría es peor: se desincroniza y el que se queda viejo autoriza de más.
+5. **La franja de celebración ya existe** desde AD-01. El acceptance 3 no pide una nueva: pide que **aprobar** empuje la mascota hasta ella.
+6. **`SolicitudEnviadaModal`** es lo único sin acceptance detrás: si un paso desborda, es lo primero que se corta.
+
+### Pasos
+
+1. ✅ **HECHO (2026-08-15)** — **Cimientos sin HTTP**: `services/solicitudes.py` (port literal + la acción `aprobar` + `ORDEN_ACCIONES`), `models/match.py` (**`user_id` es el ADOPTANTE**, sin `shelter_id`, sin afinidad, **sin `relationship`**), `migrations/AD-05-matches.sql` y sus tres archivos de test. Ver "Resultado del paso 1".
+2. ✅ **HECHO (2026-08-15)** — **Lecturas**: `GET /api/solicitudes` (exactamente uno de `adoptante_id`/`organizacion_id`/`publicador_id`, 422 si cero o dos — lo lanza el código, FastAPI no lo da solo) y `GET /{id}` con 403 para terceros. Batch por tipo de entidad, nunca `session.get` por fila. **`motivo_descarte` no aparece en ningún schema.** Ver "Resultado del paso 2".
+3. ✅ **HECHO (2026-08-15)** — **Las cuatro acciones**, con `aprobar` en una sola transacción y una sola query de cierre. El adoptante recibe **403** en las cuatro. ⚠️ El test de conteo cuenta **filas**, no sentencias: el flush agrupa los `UPDATE` en un `executemany` y un bucle también daría "una sentencia". Ver "Resultado del paso 3".
+4. ✅ **HECHO (2026-08-15)** — **El swipe-derecha crea la solicitud**, en el mismo commit que el swipe, copiando `mensaje` y `telefono_contacto`. Idempotente sobre **dos** constraints. **Con esto el backend de AD-05 queda completo**: la API es usable de punta a punta sin UI. Ver "Resultado del paso 4".
+5. ✅ **HECHO (2026-08-15)** — **Cliente y copy**: los seis tipos espejo (+ `Swipe.solicitud` ampliado), una función por endpoint y los dos `Record` de copy. ⚠️ La unión de `listarSolicitudes` necesitó `?: never` explícitos: **medido**, la unión pelada acepta dos filtros a la vez. Ver "Resultado del paso 5".
+6. ✅ **HECHO (2026-08-15)** — **`MisSolicitudes`, la bandeja del panel y el modal.** Gate de cuenta con el `?volver=` exacto, `ListaSolicitudes` compartida por la pantalla y el panel, y el acuse del swipe **sin** la animación muerta. El riesgo medido del `vi.mock` con factory se confirmó y quedó saldado. Ver "Resultado del paso 6".
+7. ✅ **HECHO (2026-08-15)** — **`SolicitudDetalle`: los botones los manda el backend.** Cero arrays de estados en el archivo (grep del plan vacío, incluidos los comentarios), gate de cuenta con el `?volver=` de esa solicitud y `HogarResumen` con su caso `null`. La mutación de la matriz a mano deja el caso decisivo en rojo con los cuatro botones. Ver "Resultado del paso 7".
+8. ✅ **HECHO (2026-08-16)** — **Cierre**: `init.sh` en la línea base exacta, ciclo entero recorrido en Chrome real contra la DB, 360px y base devuelta al seed. Ver "Resultado del paso 8".
+
+**Orden de la ventana de migración cuando el dueño autorice**: `AD-03-swipes.sql` y `AD-03-home-profiles.sql` **antes**, luego `AD-05-matches.sql`.
+
+**AD-05 completa: los 8 pasos hechos.** Queda a la espera del revisor (corre `init.sh`, aprueba o rechaza y es quien marca `done` en `feature_list.json` — el implementador no lo tocó).
+
+### Resultado del paso 8 (2026-08-16)
+
+Sin código de producto: este paso solo verifica. `feature_list.json` intacto, árbol limpio salvo `changes.md` y este archivo.
+
+- **`bash init.sh` exit 0 con 665 tests de Python + 397 de web** — la línea base exacta, como debe ser en un paso que no añade tests. `npx tsc -b`, `npm run lint` y `npm run build` limpios en `src/web` (612 kB de bundle, el aviso de tamaño de siempre, previo a AD-05).
+- **Recorrido en Chrome 151** (CDP sobre Chrome de escritorio, `dev.sh` con la base en el seed), comprobando cada efecto en `data/app.db` y no solo en pantalla:
+  1. Ana (usuario 1) → `/adoptar/descubrir` → "Me interesa" sobre **Lía** → **acuse "Ya pediste a Lía"** → desde el modal a `/adoptar/mis-solicitudes` → *"Lía · Publicada por Carlos Gómez · Cuestionario nuevo · Esperando respuesta"* en "Las que enviaste". DB: `swipes` 1 fila, `matches` 1 fila en `solicitado`.
+  2. Segunda solicitud de **Jorge (usuario 4)** sobre Lía por API, más una de Valentina (5) sobre **Bonita** (organización 2) para la bandeja del panel.
+  3. Carlos (usuario 2) → `/organizacion/2?tab=adopcion` → *"Solicitudes recibidas"* con la de Bonita y enlace a `/adoptar/solicitud/3`, que abre el detalle con sus cuatro botones. Su `/adoptar/mis-solicitudes` muestra en **una sola bandeja** la de la organización y las dos de su mascota propia: la decisión 3 del plan (`publicador_id` cubre las dos vías) comprobada en vivo.
+  4. En el detalle de la solicitud de Ana: `solicitado` → cuatro botones; **"Agendar visita"** → badge *Visita agendada* y **dos** botones (desaparecen "Agendar visita" y "Pedir más información", exactamente lo que dice `TRANSICIONES_VALIDAS`); **"Confirmar adopción"** → badge *Adopción cerrada* y la sección de acciones **deja de existir**. Nadie tocó el frontend entre paso y paso: los botones los mandó el backend.
+  5. Las cuatro consecuencias: `/adoptar` pasa de 7 a **6 mascotas buscan hogar** sin Lía en la rejilla; la franja dice **2 adopciones logradas** con *"Lía, ya tiene hogar"*; la solicitud de Jorge queda en `cerrado` con `motivo_descarte = "La mascota fue adoptada por otra familia"` en la columna; y en su propio detalle **no aparece ni el motivo ni la cadena "otra familia"** —ni en el HTML ni en el JSON de `GET /api/solicitudes/2?solicitante_id=4`, cuyas claves no incluyen `motivo_descarte`—. La solicitud de Bonita, de otra mascota, quedó intacta.
+  6. **El 409 se provocó en el navegador, no por API**: dos pestañas sobre la misma solicitud; al aprobar en una, la otra siguió pintando los cuatro botones de `solicitado`, y pulsar ahí "Pedir más información" trajo *"No se puede 'pedir-informacion' una solicitud en estado 'adoptado'"* en el `role="alert"`, con los tres `matches` sin cambiar después. Es la carrera exacta contra la que existe el guard.
+  7. **360px sin scroll lateral** (`scrollWidth == clientWidth == 360`) en `/adoptar/mis-solicitudes`, en el detalle cerrado, en el abierto con los cuatro botones y con el formulario del motivo desplegado. **Consola sin errores** en todo el recorrido: los únicos registros son los que el navegador anota por el status 403/409 de la respuesta, que la pantalla convierte en su aviso en español.
+  8. Base devuelta al seed (`scripts/seed.py`: 0 swipes, 0 matches, Pelusa como única adoptada). Nada tocó producción.
+- ⚠️ **Hallazgo del seed, para el líder**: con los datos semilla **Ana no alcanza por el deck ninguna mascota de organización ajena** — las de la fundación 1 son suyas y Bonita queda fuera por la regla dura (`apto_ninos=false` contra su `tiene_ninos=true`), que es el comportamiento correcto. Por eso el ciclo aprobado corrió sobre Lía, publicada por Carlos como **rescatista**, y la bandeja de `/organizacion/2?tab=adopcion` se verificó aparte con una solicitud real. Si se quiere que el recorrido pase por el panel de organización de punta a punta, lo barato es que el seed tenga una mascota de organización apta para niños.
+- ⚠️ **Copy de los errores de acción**: el 409 y el 403 llegan a la pantalla con identificadores internos dentro (`pedir-informacion`, `adoptado`). Están en español y vienen del servicio desde el paso 1, pero `docs/conventions.md` §3 pide copy de producto. **No se cambió aquí** (hay tests que comparan la cadena exacta y este paso no escribe producto): que el líder decida si entra en AD-06 o en un fix propio.
+- **Observación menor ya prevista**: `/adoptar` y `/adoptar/mis-solicitudes` no se anuncian en la nav —se llega por URL o por el header del catálogo—. Es alcance de **AD-08** (integración transversal), no una omisión de AD-05.
+
+### Resultado del paso 7 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: `Failed to resolve import "./SolicitudDetalle"` en el archivo de test nuevo (0 tests recogidos) y el caso de `App` en rojo por la ruta inexistente.
+
+- `src/web/src/screens/SolicitudDetalle.tsx` (nueva, 342 líneas) — `/adoptar/solicitud/:id`. **Los botones salen de `acciones_disponibles`** mapeados con `ETIQUETA_ACCION_SOLICITUD`; `solicitud.estado` aparece **una sola vez** en el archivo, para elegir el badge. Una acción que no llega no se renderiza (nada de deshabilitar "por estado"). `ejecutarAccion(fn)` centraliza loading/error y repinta con el detalle que devuelve la acción, sin `GET` extra. `LLAMADA` es un `Record<Exclude<AccionSolicitud,'descartar'>, …>`: el `Exclude` lo mantiene exhaustivo y `descartar` va aparte porque abre el formulario del motivo.
+- **Gate `hasActiveUser()`** → `<Navigate to="/registro?volver=%2Fadoptar%2Fsolicitud%2F42" replace />`, con el mismo guard dentro del efecto. El `getActiveUserId()` se lee **dentro** del efecto, después del guard, y en los handlers (que solo existen con la solicitud ya cargada).
+- `src/web/src/components/HogarResumen.tsx` (nueva, 50) — importa los tres catálogos de `lib/hogar.ts` en vez de redeclararlos como `adopta-v1` (eran `Record<string,string>`; ahora un valor nuevo del catálogo no compila sin decidir su copy). **No pinta presupuesto ni preferencias**, con el porqué escrito. Se renderiza solo con `home_profile !== null`; si es `null`, una línea explicativa —desde AD-04 el perfil es opcional—.
+- `App.tsx` (+3/-2, las 2 son el comentario reescrito) y `App.test.tsx` (+1 caso, +`obtenerSolicitud` en la factory y su `mockReturnValue` en el `beforeEach` — la promesa que nunca resuelve deja el esqueleto, que es lo que ese archivo comprueba).
+- `SolicitudDetalle.test.tsx` — **17 casos**. Los dos primeros son los que matan el hardcodeo, y el decisivo (`['aprobar']` sobre `solicitado`) compara la **lista exacta** de botones dentro de una `region` con nombre accesible propio, para que "← Volver" y los enlaces no cuenten.
+- **Mutación obligatoria verificada**: con la matriz reimplementada a mano caen **3** casos y el decisivo falla con `expected ['Agendar visita','Pedir más información','Confirmar adopción','Descartar solicitud'] to deeply equal ['Confirmar adopción']`. Pantalla restaurada con `diff` limpio y el mismo md5 (`a6ba7fe4164567ee8faefb7ab6649e66`).
+- ⚠️ **El comentario de cabecera tuvo que dejar de citar el array de adopta-v1**: el grep del plan es un guard mecánico y una cita literal lo ensucia para siempre. Queda descrito en prosa, con el porqué escrito en el propio archivo.
+- Verificado: `bash init.sh` **exit 0 con 665 tests de Python + 397 de web** (665 y 379 al empezar; Python intacto porque no se tocó backend), `npx tsc -b` y oxlint limpios, y **las dos versiones de prettier de acuerdo** en los cinco archivos (el 3.1.0 del hook reformateó una línea del test; el local 3.9.6 lo acepta). Sin migración, sin backend y `feature_list.json` intacto.
+- **Nota para el paso 8, no implementada aquí**: el detalle enseña el teléfono de quien pidió la mascota como enlace `tel:`, no como botón de WhatsApp. `lib/contacto.ts` solo tiene mensajes en la dirección contraria (`mensajeAdoptarMascota`, del adoptante hacia quien publica) y escribir uno nuevo era alcance sin test detrás. Si el líder lo quiere, es una función de copy y una línea en la pantalla.
+
+### Resultado del paso 6 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: **5 fallos** más `MisSolicitudes.test.tsx` sin poder resolver su import (366 pasando de 364 de línea base). Los dos casos negativos —el `pass` que no abre modal y el no-autor que no pide solicitudes— nacieron verdes a propósito: son guards de regresión.
+
+- `src/web/src/screens/MisSolicitudes.tsx` (nueva, 158 líneas) — dos secciones (`{adoptanteId}` / `{publicadorId}`) con su vacío y su CTA propios, esqueleto `role="status"`, error `role="alert"`. **Gate `hasActiveUser()` → `<Navigate to="/registro?volver=%2Fadoptar%2Fmis-solicitudes" replace />`**, con el mismo guard repetido dentro del efecto (el `<Navigate>` se renderiza, pero los efectos corren igual después del commit). Las dos listas se piden con un `Promise.all` y comparten error: salen del mismo endpoint.
+- `src/web/src/components/ListaSolicitudes.tsx` (nueva, 88) — la fila, compartida por la pantalla y el panel. `perspectiva` es prop y no se deduce: la solicitud trae siempre las dos partes. La `etiqueta` del backend solo se pinta cuando difiere del badge (en los estados cerrados dicen lo mismo).
+- `src/web/src/components/SolicitudEnviadaModal.tsx` (nueva, 77) — port de `MatchModal` **sin `[animation:popIn_.24s…]`**, con el porqué escrito en el archivo. Copy sin "match", sin "refugio" y sin prometer tiempo de respuesta. La acción principal es un `Link` real a `/adoptar/mis-solicitudes`.
+- `DescubrirMascotas.tsx` (+18) — el modal se abre con `swipe.solicitud`, no con la dirección pulsada. `PanelAdopcionOrganizacion.tsx` (+40) — bandeja de solicitudes **solo si `esAutor`** (ni se pide sin autoría), filtro `{organizacionId}`, error propio que no toca la rejilla. `App.tsx` y `CatalogoAdopcion.tsx`, una entrada cada uno.
+- ⚠️ **El riesgo del `vi.mock` con factory era real**: `listarSolicitudes: vi.fn()` en la factory + `mockResolvedValue([])` en los **cinco** tests de autor que ya existían (el plan estimaba ~6). Sin eso, `Cannot read properties of undefined (reading 'then')`. El aviso quedó escrito encima de la factory para el próximo que la toque.
+- `git diff --numstat` de los tests modificados: `18 1` App, `93 2` Panel, `13 0` Catálogo, `62 0` Descubrir. Las **3 líneas eliminadas** son un comentario ampliado, un import ampliado y la factory reformateada a varias líneas; **ninguna aserción se borró**.
+- **Mutación verificada**: quitando el gate (el `<Navigate>` y el guard del efecto) queda en rojo **solo** `MisSolicitudes sin cuenta > redirige al registro...` (1 failed | 378 passed). Pantalla restaurada con el mismo md5 (`8d775aa0a432c2b41cc92bb1773a5f32`).
+- Verificado: `bash init.sh` **exit 0 con 665 tests de Python + 379 de web** (665 y 364 al empezar; Python intacto porque no se tocó backend), `npx tsc -b` y oxlint limpios. **Las dos versiones de prettier de acuerdo** en los doce archivos: el local 3.9.6 y el del hook 3.1.0 querían cosas distintas en `MisSolicitudes.tsx` y `SolicitudEnviadaModal.tsx`, y se formatearon con el **3.1.0** (el del hook, que es la verdad del repo) tras comprobar que el local también los acepta. Ninguna pantalla pasa de 400 líneas. Sin migración, sin backend y `feature_list.json` intacto.
+- **Nota para el paso 7, no implementada aquí**: `ListaSolicitudes` no pinta la afinidad aunque `Solicitud` la trae. Es el dato con el que se decide y su sitio es el detalle, junto al cuestionario de hogar; meterlo también en la fila habría sido alcance sin test detrás.
+
+### Resultado del paso 5 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: 19 fallos en los dos archivos de test, el primero `TypeError: listarSolicitudes is not a function`.
+
+- `src/web/src/api/types.ts` (+102/-6) — `EstadoSolicitud`, `AccionSolicitud`, `AdoptanteResumen`, `SolicitudResumen`, `Solicitud` y `SolicitudDetalle`, espejo campo a campo de `schemas/solicitud.py`. **Ningún tipo declara `motivo_descarte`** (el porqué queda escrito en la cabecera de la sección). Las **6 líneas borradas** son el comentario de AD-03 y su `solicitud: null`, que pasa a `SolicitudResumen | null`.
+- `src/web/src/api/client.ts` (+119/-0) — `listarSolicitudes` con el tipo `FiltroSolicitudes`, `obtenerSolicitud` y las cuatro acciones como funciones separadas. `registrarSwipe` **no** se tocó.
+- ⚠️ **Corrección medida a la firma del plan**: la unión pelada `{adoptanteId} | {organizacionId} | {publicadorId}` **acepta** `{adoptanteId: 7, organizacionId: 2}` — el chequeo de propiedades de más se hace contra la unión entera, así que una clave que existe en otro miembro pasa. Con eso, el 422 seguiría siendo alcanzable desde la app y el tipo no haría el trabajo que el plan le pide. La firma lleva por eso `?: never` en las claves ajenas de cada miembro; comprobado con un archivo temporal (`__check_filtro.ts`, borrado): un filtro compila, dos dan `TS2345`, cero da error también.
+- `src/web/src/lib/adopcion.ts` (+53/-0) — `ETIQUETA_ESTADO_SOLICITUD` (`bg-ochre` esperar / `bg-forest` avanzar / `bg-muted` cerrado, **ningún `danger`**) y `ETIQUETA_ACCION_SOLICITUD`. **Cero arrays de estados en el módulo**: lo que el paso 7 va a matar en la pantalla no entra por aquí de contrabando.
+- `client.test.ts` (+143) y `adopcion.test.ts` (+88/-2, las 2 son imports ampliados) — 19 casos: URL exacta de los tres filtros, body exacto de las cuatro acciones, 403 y 409 como `ApiError` con el texto del backend, y la cobertura de los dos `Record` contra su `Literal` (las listas del test van tipadas, así que un estado nuevo no compila sin decidir su copy).
+- **Mutación verificada**: quitar `aprobar` de `ETIQUETA_ACCION_SOLICITUD` deja 3 casos rojos —incluido el de cobertura del `Record`— **y** `tsc` en `TS2741`. Restaurado con el mismo md5 (`ef39696497d576dadd78df46dd50ebb5`, antes del reformateo de prettier).
+- ⚠️ **Vuelta nueva del gotcha de prettier**: además de colapsar uniones, las dos versiones **parten distinto** una anotación `Record<...>` que pasa de 100 columnas (el hook 3.1.0 deja el `= {` colgando en la línea siguiente; el local 3.9.6 abre el `Record` en tres líneas). El badge usa por eso un alias local `BadgeSolicitud`, con el motivo escrito al lado. En `types.ts` se revirtió a mano lo que el local quería hacerle a cuatro uniones (tres ajenas al paso): el hook queda en verde y el archivo conserva el estilo de sus vecinas.
+- Verificado: `bash init.sh` **exit 0 con 665 tests de Python + 364 de web** (665 y 345 al empezar; Python intacto porque no se tocó backend), `npx tsc -b` y `npm run lint` limpios. Sin pantallas, sin migración, `feature_list.json` intacto.
+
+### Resultado del paso 4 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: 10 fallos en `tests/api/test_swipes.py` (19 pasaban), el primero `assert None is not None` sobre `respuesta.json()["solicitud"]` del like.
+
+- `src/api/reencuentro_api/routers/swipes.py` (+144/-11) — el `like` crea el `Match` en `solicitado` con `mensaje`/`telefono_contacto` del `SwipeIn`, **en el mismo `commit()` que el swipe**. Helpers nuevos: `_solicitud_existente` (gemelo de `_swipe_existente`, también a nivel de módulo), `_nueva_solicitud`, `_texto_o_none` (`""`/`"   "` → `NULL`), `_resumen_solicitud`, `_swipe_out` y `_solicitud_del_swipe_previo` (el repetido y el swipe huérfano de AD-03). El `except IntegrityError` cubre ahora `uq_swipe_user_pet` **y** `uq_match_user_pet`.
+- `src/api/reencuentro_api/schemas/swipe.py` — `SwipeOut.solicitud: SolicitudResumenOut | None` (importado de `.solicitud`; sin ciclo). Conserva el default porque el ORM no puede llenarlo: **no hay `relationship()` entre `swipes` y `matches`**, el router lo arma a mano.
+- `tests/api/test_swipes.py` (+307/-11) — 12 casos nuevos (17 → 29). Las **11 líneas borradas son docstrings, dos nombres y una línea de payload**: `test_solicitud_viene_null` pasó al `pass` (su premisa con `like` la mató este paso) y `..._se_aceptan_y_no_se_persisten` pasó a `..._no_son_columnas_del_swipe`. Ninguna aserción eliminada.
+- ⚠️ **La mutación pedida no da rojo, y es una buena noticia**: quitar el select previo del match deja los 29 en verde porque `uq_match_user_pet` + el `except` responden igual (el segundo cinturón haciendo su trabajo). Con dientes de verdad: quitando además el `except` caen **5** (los dos de idempotencia de AD-03 se vuelven 500 con `UNIQUE constraint failed: matches.user_id, matches.pet_id`), y quitando también la constraint del modelo caen **3** con `assert 2 == 1`. Router y modelo restaurados con `diff` + md5 (`d2cbed7be06c98176ccf839009bdc2fd`, `84f924156a12f63fc2d8d99a8f03a1e3`).
+- Verificado: `bash init.sh` **exit 0 con 665 tests de Python + 345 de web** (653 y 345 al empezar; `tests/api` solo: 591 → 603), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto.
+- **Observación para AD-07/AD-08, no implementada aquí**: nada impide hoy solicitar **tu propia mascota** (swipear tu publicación crea una solicitud tuya sobre ti mismo, y `_publicador_o_403` te dejaría además gestionarla). Ningún acceptance de AD-05 lo pide y añadirlo sería alcance inventado; queda para que el líder decida dónde entra —el deck ya podría excluirlas antes, que es más barato que un 409—.
+
+### Resultado del paso 3 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: `ImportError: cannot import name 'ACCION_AJENA' from 'reencuentro_api.routers.solicitudes'` en la colección de `tests/api/test_solicitudes_acciones.py`.
+
+- `src/api/reencuentro_api/routers/solicitudes.py` (+191 líneas, único archivo de producción tocado) — las cuatro rutas `POST /{id}/<accion>`, que responden el **detalle ya actualizado** (`SolicitudDetalleOut`) con `acciones_disponibles` recalculadas. Helpers nuevos: `_detalle_out` (extraído del `GET` y reusado por las cuatro), `_publicador_o_403` y `_validar_o_409` (lanza **antes** de tocar una columna). Constantes `ACCION_AJENA` y `ESTADOS_TERMINALES`.
+- **403 para el adoptante** en las cuatro, igual que para un tercero: `_publicador_o_403` compara contra `_dueno_user_id`, que devuelve `None` si la organización fue eliminada — entonces nadie queda autorizado, en vez de autorizar de más.
+- **`aprobar`**: `UPDATE` masivo con `synchronize_session=False` + `NOT IN ESTADOS_TERMINALES`, `match.estado="adoptado"`, `pet.estado="adoptado"`, `pet.adoptado_en=ahora` y **un solo** `commit()`.
+- `tests/api/test_solicitudes_acciones.py` — **nuevo, 43 casos**. Las 4 acciones desde un estado válido (estado + etiqueta + `acciones_disponibles` + `actualizado_en`), 403 del adoptante y de un tercero (×4 cada uno, con el estado releído), 404 (×4), 422 sin `user_id`, los **11** 409 de la matriz derivados de `TRANSICIONES_VALIDAS` sin mutación, los dos terminales sin efecto en cadena, motivo vacío/espacios → 422 y recortado al persistir, la mascota adoptada, el cierre de las hermanas (respetando las terminales y las de otras mascotas), el conteo de filas, el recorrido `GET /api/pets` → `/api/pets/adopciones` y la privacidad del motivo para el adoptante descartado.
+- ⚠️ **Hallazgo que cambia la receta del anti-N+1 para escrituras**: contar **sentencias** no sirve aquí. Al hacer flush, SQLAlchemy agrupa los `UPDATE` de varias instancias con las mismas columnas en un solo `executemany`, así que un bucle sobre N hermanas sale también como una sentencia. El listener suma `len(parameters)` cuando `executemany` es `True`. Medido: la mutación da `[1, 4]` en **una** sentencia.
+- **Mutación obligatoria verificada**: sustituir el `UPDATE` masivo por `select` + bucle deja rojo **solo** `test_aprobar_cierra_las_demas_con_una_sola_query` (`assert 2 == 5`, `[1,1]` contra `[1,4]`); los otros 42 siguen verdes porque el bucle es funcionalmente equivalente. Router restaurado con `diff` + md5 (`e13d0360184007a2383870b295bcc3ca`).
+- Verificado: `bash init.sh` **exit 0 con 653 tests de Python + 345 de web** (610 y 345 al empezar; `tests/api` solo: 548 → 591), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto y `routers/swipes.py` sin tocar (paso 4).
+
+### Resultado del paso 2 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: `ModuleNotFoundError: No module named 'reencuentro_api.schemas.solicitud'` en la colección de `tests/api/test_solicitudes.py`.
+
+- `src/api/reencuentro_api/schemas/solicitud.py` — `EstadoSolicitud`/`AccionSolicitud` como `Literal` de módulo, `AdoptanteResumen` (**sin email**: sin contraseñas, el correo es la credencial de entrar-o-registrar), `SolicitudResumenOut` (la consumirá `SwipeOut` en el paso 4), `SolicitudOut`, `SolicitudDetalleOut`, `AccionSolicitudIn` y `DescartarIn` (`min_length=1, max_length=500` + validador que hace `strip()`). **Ningún schema declara `motivo_descarte`.**
+- `src/api/reencuentro_api/routers/solicitudes.py` — `_solicitudes_out` con un lote por tipo de entidad y `_cargar_solicitud_o_404` (devuelve match + mascota + adoptante: sin la mascota no se puede resolver quién autoriza). **Importa `_dueno_user_id` y `_publicadores_por_pet` de `.pets`**, con el porqué escrito en el docstring del módulo. `publicador_id` cubre las dos vías con un `IN` sobre las organizaciones propias, en la misma query. Orden `creado_en desc, id desc`.
+- `main.py` — `include_router(solicitudes.router)` antes de `paginas`. `schemas/user.py` — solo el docstring de `HomeProfileOut` (desde AD-05 también lo recibe quien publicó la mascota).
+- `tests/api/test_solicitudes.py` — 30 casos. Los dos candados de `Literal` contra el servicio, las tres vías de listado (incluida la de quien tiene fundación **y** mascotas propias), 422 sin filtro y con cada par, 404 por id inexistente en los tres filtros, 200 con `[]`, el detalle para publicador/autor de la organización/propio adoptante/tercero (403), `afinidad: null` sin perfil de hogar, y `"motivo_descarte" not in respuesta.text` en lista y detalle.
+- **Mutación verificada**: sustituir el batch de publicadores por un `_publicadores_por_pet` por fila deja rojo **solo** el test de conteo (`assert 7 == 11`: constante con 2 y con 6 solicitudes, contra 7 y 11 con la versión ingenua). Router restaurado con `diff` + md5 (`b06465ad70244602131b318f2ae421a3`).
+- ⚠️ El conteo se sostiene porque **ninguna fila comparte entidad con otra** —mascota, publicador, adoptante ni hogar—: las organizaciones de la siembra son distintas por fila aunque todas tengan el mismo dueño. Está dicho en el docstring del test, con la corrección de AD-03 paso 7 (el `expunge_all()` no es lo determinante).
+- Verificado: `bash init.sh` **exit 0 con 610 tests de Python + 345 de web** (580 y 345 al empezar; `tests/api` solo: 518 → 548), ruff y black limpios. Sin migración, sin frontend, `feature_list.json` intacto.
+
+### Resultado del paso 1 (2026-08-15)
+
+Rojo inicial confirmado antes de escribir producción: los tres archivos de test fallaban en la colección con `ModuleNotFoundError: No module named 'reencuentro_api.services.solicitudes'` y `... .models.match`.
+
+- `src/api/reencuentro_api/services/solicitudes.py` — port literal con **cero imports fuera de `datetime`**. `ESTADOS_SOLICITUD` (los 5 persistidos), `MOTIVO_ADOPTADA_POR_OTRA`, `calcular_etiqueta_solicitud` (incluido el `creado_en.replace(tzinfo=timezone.utc)`, que sigue haciendo falta porque la columna es `timestamp without time zone` **también** en Postgres), `TransicionInvalidaError`, `TRANSICIONES_VALIDAS` con las 4 acciones, `ORDEN_ACCIONES` y `acciones_disponibles(estado, es_publicador)` → `[]` para el adoptante.
+- `src/api/reencuentro_api/models/match.py` + registrado en `models/__init__.py`. Calcado de `swipe.py`; el docstring dice con todas las letras que **`user_id` es el ADOPTANTE**. Sin `shelter_id`/`organizacion_id`, sin afinidad, sin `relationship()`.
+- `migrations/AD-05-matches.sql` — **ESCRITO, NO EJECUTADO**, con el orden de despliegue en la cabecera. `serial`, `timestamp without time zone`, sin `DEFAULT` de DB. Añadido al índice de `migrations/README.md`.
+- `tests/api/test_solicitudes_service.py` (52 casos), `test_match_modelo.py` (9) y `test_migracion_matches.py` (11). `soporte_migraciones.py` solo cambia su docstring para nombrar al tercer anti-drift.
+- **Mutación obligatoria verificada**: con `"aprobado"` añadido a `ESTADOS_SOLICITUD` caen tres tests — `test_ningun_estado_persistido_cae_al_branch_de_solicitado` (*"El estado 'aprobado' cae en la rama de 'solicitado' y muestra 'Sin responder · 5 días' sobre una solicitud que ya avanzó"*), `test_acciones_disponibles_por_estado[aprobado]` y `test_las_acciones_no_son_estados`. Servicio restaurado y comprobado con `diff` + md5 (`3708f5344741a55b5af1fe4f947c0370`).
+- Verificado: `bash init.sh` **exit 0 con 580 tests de Python + 345 de web** (508 y 345 al empezar; `tests/api` solo: 446 → 518), ruff y black limpios. Ninguna ruta HTTP tocada, `feature_list.json` intacto.
+
+---
+
+## Feature cerrada: AD-04-perfil-de-hogar (done, 2026-08-15)
+
+Rama **`feat/adoptar`** (antes `feat/adopcion-ad03-ad09`): rama única donde caen AD-01…AD-09, para enviar el módulo entero a `develop` de una vez. Ya integrada con `origin/main`.
+
+**Línea base tras integrar el trabajo paralelo de Javier: 478 tests de API + 330 de web.** (`init.sh` cambió en `main`: ahora corre también los testpaths de crawler y dedup.)
+
+⚠️ **Cambios del entorno que hay que tener presentes:**
+- **AD-01 y AD-02 están EN PRODUCCIÓN.** Javier mergeó el PR #6, ejecutó `AD-01-pets.sql` y las revisó por su cuenta (`a995bdf`). `GET /api/pets` responde 200 en petfinder-col.com y el catálogo está vivo.
+- **El ADR del chat de AD-06 pasa de 0012 a 0013**: el 0012 lo ocupó *coincidencias visuales* (feature 24). El plan maestro ya está corregido.
+- Siguen **sin ejecutar** en prod `AD-03-swipes.sql` y `AD-03-home-profiles.sql`.
+
+**AD-04 NO trae migración**: el modelo `HomeProfile` y su tabla entraron en AD-03 porque `calcular_afinidad(pet, home)` no podía existir sin ellos. Si aparece un `migrations/AD-04-*.sql`, el paso está mal planteado.
+
+### Qué le falta exactamente al acceptance 2 (y qué NO duplicar)
+
+Ya cubierto en AD-03 y **no se toca**: que las razones citen energía/vivienda/horas de *un* hogar, el mínimo de dos razones, la degradación sin presupuesto, y el deck con y sin perfil. Falta solo esto:
+- Que el score **cambie**: hoy ningún test compara la **misma** mascota contra **dos hogares distintos**.
+- Que las razones **cambien** con las respuestas: hoy se comprueban las de un hogar fijo.
+- El camino **de extremo a extremo por HTTP**: guardar el perfil con el endpoint nuevo (no sembrando la fila a mano) y ver el deck pasar de `afinidad: null` a scores reales.
+
+### Pasos de AD-04
+
+1. **La cobertura pura que falta + el guard del 84** (solo tests, sin código de producto). Tres casos en `test_afinidad.py`: dos hogares distintos dan **scores exactos** distintos a la misma mascota; las razones cambian y citan sus propios valores; y **`EDAD_MESES_SENIOR == 84`** con el borde 84/85 — la deuda que dejó el revisor de AD-03. Va pegado a `test_afinidad_no_importa_descubrir`: uno prohíbe el import, el otro prohíbe el drift. ⚠️ Este paso **no puede tener rojo inicial** (el código ya existe), así que la prueba son **mutaciones reportadas**.
+2. **`HomeProfileIn/Out` + `PUT`/`GET /api/users/{id}/home-profile`.** Los `Literal` se **importan de `schemas/pet.py`**, no se reescriben. `PUT` → 200 upsert (nunca 201: obligaría al cliente a ramificar) / 404 / **403** si el `user_id` del body no es el de la ruta. `GET` con `solicitante_id` requerido → 200 / **403** / 404. ⚠️ Las dos rutas **antes** de `GET /{user_id}`, y el **403 antes del 404-de-perfil**, con **dos** tests (tercero con perfil y tercero sin) — con uno solo, invertir el orden pasaría inadvertido. `GET /api/users/{id}` **no cambia**: hay un test candado contra portar `UserOut.home_profile`/`metricas`.
+3. **Cliente TS: el 404 se mapea a `null`, y solo el 404.** `request<T>()` no expone el status, así que hace falta un `fetch` propio (precedente: `subirFoto`, `listarReportesPaginado`). **Prohibido** resolverlo con `.catch(() => null)` en la pantalla: se tragaría el 403 y los errores de red. Tests: 404 → `null`; 403 y 500 → `ApiError`.
+4. **`CuestionarioHogar` en `/adoptar/mi-hogar`** (wizard de 6 pasos). Reusa `OpcionCard`/`OpcionesSiNo`/`GrupoOpciones` ya extraídos; `CampoNumero` local. Presupuesto **opcional** de verdad: nada del `300000` por defecto de adopta-v1, que mete un dato que nadie dio. La preferencia de especie ofrece **las tres** (incluida "Otro animal"): excluirla condenaría a cero a toda mascota que no sea perro ni gato. Gate `hasActiveUser()` **antes de leer ningún id** — sin él un visitante sobrescribe el perfil del usuario 1, y aquí es una **escritura**. < 400 líneas.
+5. **La invitación del deck pasa a enlace** y el header de `/adoptar` gana el acceso para reeditar. ⚠️ Es el único paso que **reemplaza** una aserción existente: el test que decía "todavía no es un enlace" pierde su premisa, igual que pasó con los chips de edad en AD-03. Dejarlo escrito.
+6. **Cierre**: `init.sh` > 478/330, build, recorrido real (precarga, cambiar horas y ver el score moverse, cuenta nueva en incógnito, 360px), DB al seed.
+
+### Decisiones del líder sobre lo que dejó abierto el revisor de AD-03
+
+- **El test `84 == EDAD_MESES_SENIOR` entra aquí** (paso 1): una línea, no toca producción, y AD-05/AD-07 no vuelven a pasar por `afinidad.py`.
+- **Los filtros a 360px NO entran en AD-04**: ningún acceptance lo cubre, `FiltrosAdopcion` lo comparten dos pantallas, y es una decisión de diseño. **Se agenda en AD-08** —que ya toca nav y landing— con un acceptance añadido al copiar el item, del estilo *"a 360px la primera tarjeta del catálogo y la del deck son visibles sin scroll; los filtros van plegados por defecto en móvil"*. Editar acceptances al copiar ya estaba previsto (AD-07 borra el de apadrinamiento).
+
+**AD-04 completa: los 6 pasos hechos y verificados en navegador real (`8aadbf1`). APROBADA por el revisor independiente: 508 tests de API + 345 de web, seis mutaciones comprobadas, incluido el guard del umbral 84 en las dos direcciones.**
+
+### Resultado de los pasos 3 y 5 (2026-08-15)
+
+- **Paso 3** (`fa6e498`) — `api/client.ts`: `guardarPerfilHogar` (PUT) y `obtenerPerfilHogar`, **con el 404 mapeado a `null` y solo el 404**. `fetch` propio (precedente `subirFoto`/`listarReportesPaginado`) porque `request<T>()` no expone el status. **Dos mutaciones verificadas**: sin el mapeo del 404 cae solo ese caso; con "cualquier error → `null`" caen solo el 403 y el 500. `client.ts` restaurado con el mismo md5 (`54d516becf7ad691f3b4c2851a904846`). `types.ts` **solo adiciones** (revertido a mano el reformateo de tres uniones ajenas que metió el prettier local 3.9.6). El `user_id` de más en `PerfilHogar` —el desajuste que levantó el paso 2— lo corrigió el paso 4 al integrarlo.
+- **Paso 5** (`d621068`) — la invitación del deck pasa a **enlace** a `/adoptar/mi-hogar` y `/adoptar` gana "Mi hogar" en el header. ⚠️ Único punto de AD-04 que **reemplaza** una aserción: el caso de AD-03 "la invitación todavía no es un enlace" perdió su premisa al existir la ruta (mismo patrón que los chips de edad); el porqué quedó escrito encima del caso nuevo. **Rojo inicial** en los dos casos (el `href` no existía). El header hace falta porque la invitación **se apaga justo cuando ya contestaste** (se pinta con `afinidad === null`), que es cuando alguien querría cambiar una respuesta.
+- El wizard del paso 4 quedó partido en tres para no pasar de 400 líneas y porque eran cosas distintas: `lib/hogar.ts` (dato puro), `components/PasosHogar.tsx` (formulario), `screens/CuestionarioHogar.tsx` (flujo, 164 líneas). De paso desaparecieron los avisos de fast-refresh de oxlint.
+- Verificado con todo integrado: `bash init.sh` **exit 0 con 508 tests de API + 345 de web** (478 y 330 al empezar la feature), `npx tsc -b` y oxlint limpios, prettier del hook en verde. Sin migración y sin tocar `feature_list.json`.
+
+### Resultado del paso 2 (2026-08-15)
+
+- `src/api/reencuentro_api/schemas/user.py` — `HomeProfileIn`/`HomeProfileOut` + los tres `Literal` propios del hogar (`ViviendaHogar`, `EspacioExteriorHogar`, `ExperienciaPreviaHogar`). Los de mascota se **importan** de `schemas/pet.py`; no hay ciclo (`pet.py` no importa `user.py`). Los tres booleanos de convivencia van **requeridos sin default**: un `False` implícito desactivaría una regla dura de `afinidad.py`. `HomeProfileOut` son **12 campos, sin `user_id`**, y las preferencias salen `list[str]` (columnas JSON: una fila con un valor retirado del catálogo debe poder leerse y corregirse, no dar 500).
+- `src/api/reencuentro_api/routers/users.py` — `PUT`/`GET /api/users/{user_id}/home-profile`, declaradas antes de `GET /{user_id}`. `PUT`: 200 upsert siempre (nunca 201), 404 usuario, 403 si `payload.user_id != user_id`. `GET`: `solicitante_id` requerido, **403 antes de cualquier consulta**, luego 404 de usuario y 404 de perfil. `GET /api/users/{id}` y `UserOut` intactos.
+- `tests/api/test_home_profile.py` — **nuevo**, 24 casos (`test_home_profile_modelo.py` no se tocó). **Rojo inicial**: 24 fallos, `assert 404 == 200` (PUT) y `assert 404 == 403` (GET ajeno). El upsert se comprueba leyendo la fila con `db_session` y con `select(func.count())` == 1 tras dos `PUT` (acceptance 1); el 403 asevera además **cero filas**. Los 422 van uno por uno en un `parametrize` de 11 casos (catálogos, `horas_fuera_dia` 25 y -1, `personas_en_casa=0`, presupuesto fuera de rango).
+- `tests/api/test_deck.py` (+2, solo adiciones) — acceptance 2 por HTTP: `afinidad: null` → scores **distintos entre sí** tras el `PUT` (energías `media`/`alta` contra 10 horas fuera), y razones que citan "9 horas fuera al día", "apartamento" y "niños".
+- `tests/api/test_users.py` (+1) — candado `set(cuerpo)` exacto contra portar `UserOut.home_profile`/`metricas`. **Nace verde a propósito**: es regresión, no comportamiento nuevo.
+- **Mutación del 403/404 verificada de verdad**: invertirlos deja en rojo **solo** el caso del tercero **sin** perfil (1 failed | 445 passed). Router restaurado con el mismo md5 (`93ba391145dadb35263d291361d463a7`).
+- ⚠️ **Corrección medida al plan — la mutación del orden de rutas NO da rojo**: moverlas debajo de `GET /{user_id}` deja 446/446 en verde. `^/api/users/(?P<user_id>[^/]+)$` no cruza barras, así que nunca compite con una ruta de tres segmentos; el precedente de `/api/pets/deck` no aplica (allí `deck` peleaba por el **mismo** segmento). Se dejan declaradas arriba por lectura, y el test de esa sección fija el **contrato** (el cuerpo no es un `UserOut`) con el porqué escrito al lado.
+- Verificado: `pytest tests/api` **446** (419 antes), ruff + black limpios. Sin migración y sin tocar `feature_list.json`.
+- ⚠️ **Desajuste de contrato con el paso 3, que ya está commiteado (`fa6e498`) y NO se toca desde aquí**: `src/web/src/api/types.ts::PerfilHogar` declara `user_id: number` como campo de la **respuesta**, pero `HomeProfileOut` devuelve **12 campos sin `user_id`** — igual que el `HomeProfileOut` de `origin/adopta-v1` (comprobado) y igual que pide el plan. Los tests del cliente mockean el `fetch`, así que están verdes contra un cuerpo que el backend nunca manda. Si el wizard del paso 4 lee `perfil.user_id` recibirá `undefined` sin error de compilación. Arreglo mínimo: quitar `user_id` de `PerfilHogar` (no añadirlo al schema: el dueño del perfil es siempre quien pregunta, y devolverlo sería repetirle lo que puso en la URL). **Decisión del líder**, no la tomo yo.
+- ⚠️ **Aviso para el líder**: el árbol de trabajo **no estaba limpio** al empezar — el intento colgado sí había escrito el paso 2 completo (producción + tests), y además durante esta sesión apareció trabajo del **paso 3** en `src/web/src/api/{client,types,client.test}.ts` escrito por otro proceso en paralelo. Los restos del intento colgado quedaron en `git stash@{0}` y en el scratchpad; este commit toca **solo** los cinco archivos del paso 2 más `changes.md`/`progress`, sin arrastrar nada de `src/web`.
+
+### Resultado del paso 1 (2026-08-15)
+
+- `tests/api/test_afinidad.py` — **solo adiciones** (+3 casos, 10 → 13). Ni una línea de producción tocada: `git diff src/api` vacío al terminar.
+- `test_dos_hogares_distintos_dan_scores_distintos_a_la_misma_mascota`: el mismo `_pet()` (perro grande, energía alta) contra un hogar apretado (apartamento/ninguno, 10 h fuera, sin experiencia) y uno holgado (casa/patio, 4 h, mucha experiencia) → **52 y 100 exactos**, más `A < B`. Los helpers `_hogar_apretado()`/`_hogar_holgado()` los comparte con el caso siguiente.
+- `test_las_razones_cambian_con_las_respuestas_del_hogar`: tuplas distintas **y** cada una citando lo suyo ("10 horas fuera al día"/"tu apartamento" contra "4 horas fuera al día"/"tu casa"), con las aserciones negativas cruzadas.
+- `test_el_umbral_senior_es_el_mismo_en_afinidad_y_descubrir`, **pegado a `test_afinidad_no_importa_descubrir`**: `EDAD_MESES_SENIOR == 84` + el borde real de `_dificultad_mascota` (84 → 1, 85 → 2, con energía media para que la dificultad la decida solo la edad). Salda la deuda del revisor de AD-03.
+- **Tres mutaciones verificadas de verdad** (el paso no podía tener rojo inicial): (a) `_score_tamano` fijo en 70 → rojo el caso de los scores (58 ≠ 52); (b) las horas del hogar sustituidas por el literal 6 en `_razones` → rojo **solo** el caso de las razones — el `test_razones_citan_energia_y_vivienda` de AD-03 usa un hogar de 6 horas y sigue verde, que es justo por qué el caso nuevo hacía falta; (c) `84` → `90` en `_dificultad_mascota` → rojo **solo** el guard del umbral. `afinidad.py` restaurado con el mismo md5 (`172fabf17f6ec5ecfc1da9e3ea4b48ca`).
+- Verificado: `pytest tests/api/test_afinidad.py -v` 13/13; `pytest` **481** (478 antes); ruff + black limpios; `bash init.sh` exit 0 con **481 de API + 330 de web**. Sin migración y sin tocar `feature_list.json`.
+
+---
+
+## Feature cerrada: AD-03-deck-swipe-y-afinidad (done, 2026-08-15)
+
+Rama **`feat/adopcion-ad03-ad09`**, salida de `develop`. El PR #6 (`develop` → `main`) está en revisión de Javier y **no debe crecer**, por eso AD-03 en adelante va en rama propia (convención `feat/<slug>`, `docs/conventions.md` §6).
+
+Línea base heredada: **292 tests de API + 285 de web**. Al cerrar AD-03 ambos deben subir. Cada paso = un commit, test en rojo primero. El `done` lo decide el revisor.
+
+⚠️ **Orden de despliegue**: `migrations/AD-01-pets.sql` sigue **sin ejecutar** en producción y el PR #6 sigue abierto. AD-03 no puede desplegarse antes que AD-01/AD-02 — su `swipes.pet_id` referencia `public.pets`.
+
+### Cuatro decisiones del líder que corrigen el plan maestro (aceptadas)
+
+1. **`models/home_profile.py` se adelanta de AD-04 a AD-03**, y su tabla viaja en esta ventana de migración. Motivo del código, no de preferencia: `calcular_afinidad(pet: Pet, home: HomeProfile)` no puede existir sin él, y el acceptance A3 solo se prueba de extremo a extremo con un perfil real. Consecuencia dura: si el deck consulta `home_profiles` y la tabla no existe en prod, la ruta responde **500** (`SKIP_DB_CREATE_ALL=1` no crea nada). AD-03 lleva **dos** `.sql`; **AD-04 se queda sin migración** (solo schemas, endpoints y wizard).
+2. **`adoptante_id` en el deck es opcional, no requerido.** Obligatorio forzaría al frontend a mandar el id de una persona real cuando no hay cuenta (`getActiveUserId()` cae a `DEMO_USER_ID = 1`) — el mismo bug de autoría del fix `cc4de85`. Sin él: 200, sin excluir swipeadas, `afinidad: null`.
+3. **`SolicitudEnviadaModal` NO se crea aquí.** `SwipeOut.solicitud` es `null` hasta AD-05: sería código muerto y el revisor lo rechaza. El gotcha viaja anotado a AD-05: al portar `MatchModal` hay que quitarle `[animation:popIn_.24s…]`, porque `@keyframes popIn` no existe ni en adopta-v1 ni aquí.
+4. **La invitación de perfil de AD-03 no lleva link.** `/adoptar/mi-hogar` no existe hasta AD-04 y quedaría rota en producción entre los dos deploys. AD-04 la convierte en enlace.
+
+### Pasos de AD-03
+
+1. ✅ **HECHO (2026-08-15)** — **ADR 0002 restaurado** (`docs:`, sin código) con nota de vigencia: `Shelter` → `Organizacion`, la tabla es `matches` pero en API y copy es "solicitud", los estados son `solicitado/en_revision/visita_agendada/adoptado/cerrado` (nunca `aprobado`), y **el párrafo de "HomeProfile obligatorio" queda superado** (aquí el deck responde 200 con `afinidad: null`). El 0004 no se restaura. Ver "Resultado del paso 1".
+2. ✅ **HECHO (2026-08-15)** — **`models/home_profile.py` + perfil en el seed.** ⚠️ Trampa que rompe el arranque entero: adopta-v1 declara `relationship(back_populates="home_profile")` y el `User` de este repo no tiene ese atributo → `InvalidRequestError` al configurar mappers, falla el *import*. **Se borra la relación al portar.** `presupuesto_mensual_cop` nullable. Test de guard: `from reencuentro_api.main import app` no lanza. Ver "Resultado del paso 2".
+3. ✅ **HECHO (2026-08-15)** — **`services/afinidad.py`** — port con cinco cambios exactos: imports, `razones: tuple[str, ...]` (tuple, no list, el dataclass es `frozen`), `_razones()` nueva con ≥2 frases, el literal `84` repetido con comentario (**no importar de `descubrir.py`**: invertiría la capa modelos→schemas), y `presupuesto None` → solo experiencia (sin esa línea, `None >= costo` es `TypeError` y revienta el deck de quien no dé el dato). Pesos y reglas duras intactos.
+4. ✅ **HECHO (2026-08-15)** — **`services/descubrir.py`** — port sin cambios de lógica. Conservar `datetime.now(timezone.utc).replace(tzinfo=None)`: `publicado_en` es `timestamp without time zone` en ambos motores. Caso nuevo: `ordenar_deck` con todas las afinidades en `None`, que es el camino por defecto de AD-03.
+5. ✅ **HECHO (2026-08-15)** — **`services/filtros.py`** + el catálogo honra `edad_categoria`. `distancia_km` pierde el default `15.0` (escondía resultados en silencio: aquí muchas mascotas no tienen pin). ⚠️ El tramo de edad se traduce a **SQL**, no se filtra en Python después del `LIMIT`, o `X-Total-Count` miente. `tags` sí en Python (JSON no es portable en SQL) y por eso no se ofrece como chip. Ver "Resultado del paso 5".
+6. ✅ **HECHO (2026-08-15)** — **`Swipe` + `POST /api/swipes`** idempotente. ⚠️ **`Swipe.user_id` es el ADOPTANTE**, al revés que en `pets`. `UniqueConstraint` nuevo respecto a adopta-v1 + select previo **Y** `IntegrityError` con `rollback()` (en serverless dos requests corren a la vez). Los 404 salen de comprobaciones **en el código**: SQLite no fuerza las FK. Ver "Resultado del paso 6".
+7. ✅ **HECHO (2026-08-15)** — **`GET /api/pets/deck`** declarado **entre `/adopciones` y `/{pet_id}`** (mutación verificada: al revés son 19 rojos con 422). `ordenar_deck` se llama **siempre**, también sin perfil. ⚠️ El test de query-count trajo un hallazgo: lo que lo hace real son los **publicadores distintos por fila**, no el `expunge_all()` — medido, y anotado en `memory/memory.md`. Ver "Resultado del paso 7".
+8. ✅ **HECHO (2026-08-15)** — **Los dos `.sql` + test anti-drift** calcado del de AD-01, con el parser extraído a `tests/api/soporte_migraciones.py`. **No se ejecutó una sola sentencia contra ninguna base.** Ver "Resultado del paso 8".
+9. ✅ **HECHO (2026-08-15)** — **Cliente y chip de edad.** `registrarSwipe` con el body exacto, `listarDeck` con `params.append` (nunca `set`) y `adoptante_id` solo si existe de verdad. `Swipe.solicitud` tipado como `null` hasta AD-05. Aviso de cabecera de `FiltrosAdopcion` **borrado** al añadir el grupo. Ver "Resultado del paso 9".
+10. ✅ **HECHO (2026-08-15)** — **`MascotaSwipeCard`** — las tres rutas testeadas, umbral de 110px con su mutación. ⚠️ **Corrección medida al plan**: en este entorno `PointerEvent` **sí** existe y `fireEvent.pointerDown` **sí** transporta `clientX`; lo que falta es `setPointerCapture`. Ver "Resultado del paso 10".
+11. ✅ **HECHO (2026-08-15)** — **`DescubrirMascotas`** en `/adoptar/descubrir` (`a48017d`). Carta quitada optimistamente con `slice(1)` y **sin refetch**; un fallo de red no la revierte. Sin cuenta, "Me interesa" lleva a `/registro`. Sin `RequiereHomeProfile`. Ver "Resultado del paso 11".
+12. ✅ **HECHO (2026-08-15)** — **Cierre**: `init.sh` exit 0 con **403 API + 328 web**, build limpio, recorrido en Chrome 151 real con las tres rutas, 360px sin scroll lateral, DB devuelta al seed. **Encontró un bug real que la suite no podía ver** (`3dec147`). Ver "Resultado del paso 12".
+
+**AD-03 implementada por completo. Paso actual: ninguno — le toca al revisor.**
+
+### Fix aparte, aceptado por el líder: orden determinista del deck (2026-08-15, `0f7596f`)
+
+Es la observación que dejó el paso 7. `routers/pets.py::deck_de_descubrimiento` gana `order_by(Pet.publicado_en.desc(), Pet.id.desc())` antes de `ordenar_deck`, el mismo criterio de `listar_mascotas`. No es cosmético: `sorted` es estable, así que el orden que sale de la base decide entre las empatadas, y **sin perfil de hogar empatan todas**. En Postgres el orden base es arbitrario y dos requests seguidos pueden barajar el deck. `tests/api/test_deck.py` **solo adiciones** (+2): el orden exacto y las dos llamadas seguidas con la misma respuesta; la siembra va del más antiguo al más nuevo para que el orden natural de SQLite sea el inverso del esperado y la ausencia del `ORDER BY` se note en el motor de los tests (**rojo inicial** confirmado: `assert ['Canela','Rocky','Luna'] == ['Luna','Rocky','Canela']`). Fechas relativas a la corrida, nunca literales. `pytest tests/api` 403/403.
+
+### Resultado del paso 9 (2026-08-15)
+
+- `src/web/src/api/types.ts` — **solo adiciones** (`git diff --numstat`: `29 0`): `DireccionSwipe` y `Swipe`, espejo de `SwipeOut`. `Swipe.user_id` lleva el aviso de que es el **ADOPTANTE** (al revés que `Mascota.user_id`). **`solicitud` se tipa como `null`**, no como un `SolicitudResumen | null` inventado: ese schema no existe hasta AD-05 y el comentario dice quién lo amplía.
+- `src/web/src/api/client.ts` — `registrarSwipe(adoptanteId, mascotaId, direccion)` → `POST /api/swipes` con `{user_id, pet_id, direccion}` **en el body** y nada en la query; `listarDeck(adoptanteId?, filtros?)` con `params.append` para todos los multivalor y `adoptante_id` **solo si llega**. Mandar el `DEMO_USER_ID = 1` por defecto le mostraría a un visitante el deck de otra persona, con sus swipes descontados: el bug de autoría del fix `cc4de85`.
+- `src/web/src/components/FiltrosAdopcion.tsx` — grupo "Edad" con `CATEGORIAS_EDAD`/`ETIQUETA_CATEGORIA_EDAD` y `edad` sumada a `hayFiltros` (si no, "Limpiar filtros" no aparecería con solo un tramo elegido). **El aviso de cabecera que anunciaba este grupo se borró** y quedó en su lugar el porqué de la espera (el backend lo ignoraba hasta el paso 5).
+- `client.test.ts` — **solo adiciones** (+6). **Rojo inicial**: los 6, `TypeError: registrarSwipe is not a function` / `listarDeck is not a function`. Cubren el body exacto, `pass`, el 409 como `ApiError` en español, la URL `?especie=perro&especie=gato&edad_categoria=senior&adoptante_id=7`, la llamada sin adoptante y la zona vacía.
+- `CatalogoAdopcion.test.tsx` — el caso "no ofrece chips de tramo de edad: el backend todavía los ignora" **se reemplaza** por el del chip "Cachorra" (segunda llamada con `edad: ['cachorro']` + `aria-pressed="true"`). Su premisa dejó de ser cierta en el paso 5; el porqué del reemplazo quedó escrito encima del caso nuevo. **Rojo inicial**: `Unable to find an accessible element with the role "button" and name "Cachorra"`.
+- Verificado: `npm test` **291/291** (285 antes), `npx tsc -b` y oxlint limpios. ⚠️ Gotcha nuevo: el `npx prettier` local es 3.9.6 y el del pre-commit 3.1.0 — el primero reformatea uniones de tipos que el segundo deja largas. Se revirtió a mano ese ruido en `types.ts` para que el diff quedara puramente aditivo, y el hook pasó limpio.
+
+### Resultado del paso 10 (2026-08-15)
+
+- `src/web/src/components/MascotaSwipeCard.tsx` — nuevo (port de `SwipeCard` con la piel visual de `MascotaCard`). Botones con `aria-label` en el orden del gesto (izquierda "Ahora no", derecha "Me interesa"), teclado sobre el `role="group"` con `tabIndex={0}`, y arrastre con `UMBRAL_PX = 110`. Copy sin "rechazar", paleta `forest`/`ochre`, sin `!important` (el `@media (prefers-reduced-motion: reduce)` de `index.css` ya neutraliza la transición). `onAlternarFavorita` es **prop opcional**: el corazón solo se pinta si alguien lo escucha, así que hasta AD-07 no habrá en producción un botón que no guarda nada.
+- **Lo que jsdom hace de verdad, medido antes de escribir el test** (y distinto de lo que anticipaba el plan): `PointerEvent` **sí** existe y `fireEvent.pointerDown(el, {clientX})` **sí** transporta `clientX` y `pointerId` — no hizo falta construir el evento a mano. Lo que **no** existe es `Element.setPointerCapture` (`typeof` → `undefined`): de ahí el `?.` y el `currentTarget`. Con la llamada sin guarda (la de `adopta-v1`) la suite sigue verde pero escupe cuatro `TypeError` por consola, porque la llamada va después de guardar el inicio del arrastre — así que **el test viejo no ejercitaba el drag por otra razón**: solo disparaba `pointerdown` sobre el corazón, nunca `pointermove`/`pointerup`.
+- **Dos apartes del port, escritos en el código**: `pointercancel` ya no decide (en `adopta-v1` compartía handler con `pointerup`, y un gesto abortado por el navegador sacaba la carta del deck sin vuelta atrás), y el `onKeyDown` exige `target === currentTarget` (si no, el Enter que activa "Me interesa" burbujea y abre además la ficha). La edad va por `edadLegible()`.
+- `MascotaSwipeCard.test.tsx` — nuevo, 18 tests. **Rojo inicial**: `Failed to resolve import "./MascotaSwipeCard"`. El caso bajo umbral asevera el `translateX(40px)` **intermedio**: sin eso pasaría igual con un `clientX` que llegara en 0, por la razón equivocada.
+- **Mutación obligatoria verificada de verdad**: `UMBRAL_PX = 0` deja en rojo **solo** el caso de `clientX: 40` (1 failed | 17 passed). Componente restaurado con el mismo md5 (`b387bf64dc558aec933d5b7610cc0b47`).
+- Verificado en esta sesión: `bash init.sh` exit 0 con **403 tests de API + 309 de web** (401 y 285 al empezar). `npx tsc -b`, oxlint y prettier limpios. Sin la pantalla `DescubrirMascotas` (paso 11), sin tocar `feature_list.json` y sin autoaprobar nada.
+- ⚠️ **Corregido en el paso 12**: la captura del puntero en el `pointerdown` dejaba **muertos los tres botones** de esta tarjeta en un navegador real (Chrome redirige también el `click` al elemento que capturó). Ver "Resultado del paso 12".
+
+### Resultado del paso 11 (2026-08-15)
+
+- `src/web/src/screens/DescubrirMascotas.tsx` — nueva, 174 líneas, sin hooks propios ni estado global. `listarDeck(hasActiveUser() ? getActiveUserId() : undefined, filtros)` en un `useEffect` sobre `[filtros]` (los swipes **no** re-consultan). `decidir()` hace `slice(1)` optimista y se traga el error de `registrarSwipe` sin reponer la carta.
+- **El gate sin cuenta son dos guardas y no una**, a propósito: `direccion === 'like' && !conCuenta` → `/registro?volver=%2Fadoptar%2Fdescubrir` **antes** de gastar la carta; y un `if (!conCuenta) return` después del `slice(1)`, para que "Ahora no" avance en local sin mandarle un swipe del usuario 1 al backend. Así la mutación pedida (quitar el `hasActiveUser()` del "Me interesa") es quirúrgica.
+- La invitación "Mejora tus coincidencias" se pinta cuando la carta de arriba trae `afinidad: null` — sin perfil el backend las devuelve todas así. **Sin enlace** (decisión 4 del líder), con un test que asevera que dentro de esa `section` no hay ningún `<a>`. `onAlternarFavorita` **no** se pasa a la tarjeta: sin corazón hasta AD-07.
+- `App.tsx` (ruta tras `/adoptar/publicar`, dentro de `AppLayout`), `CatalogoAdopcion.tsx` (enlace "Descubrir una por una" junto a "Dar en adopción"), y `App.test.tsx` / `CatalogoAdopcion.test.tsx` **solo adiciones** (+1 caso cada uno; en `App.test.tsx`, además, `listarDeck` mockeada para que ninguna ruta salga a la red).
+- `DescubrirMascotas.test.tsx` — nuevo, 15 tests. **Rojo inicial**: `Failed to resolve import "./DescubrirMascotas"`.
+- **Mutación obligatoria verificada de verdad**: quitar el `hasActiveUser()` del "Me interesa" deja en rojo **solo** el caso sin cuenta (1 failed | 14 passed). Pantalla restaurada con el mismo md5 (`a586e98cda60f71a4e6f53fc85657aba`).
+- Verificado: `npm test` de los tres archivos 32/32, `npx tsc -b` y oxlint exit 0, `wc -l` 174 (< 400), `grep danger` sin coincidencias (la regla de paleta se escribe como en `MascotaDetalle`, nombrando el token solo por referencia).
+
+### Resultado del paso 12 — cierre de AD-03 (2026-08-15)
+
+- **El recorrido manual encontró un bug real que la suite no podía ver** (`3dec147`, commit `fix:` aparte del `feat:` del paso 11, por `docs/conventions.md` §6). Con `setPointerCapture` en el `pointerdown`, Chrome redirige el `pointerup` **y el `click`** al elemento que capturó: al pulsar "Me interesa" el `click` llegaba al `role="group"` y **nunca al botón**, así que **las tres acciones de la tarjeta estaban muertas con ratón y con dedo** — funcionaban solo el teclado y el gesto. Medido por CDP en Chrome 151 sobre el deck vivo (`grupo pointerdown target=Me interesa` → `grupo GOT capture` → `grupo click target=Ficha de …`). jsdom no podía verlo: ahí `setPointerCapture` ni existe. Arreglo: la captura se pide en el primer `pointermove` que supera `INICIO_ARRASTRE_PX = 8`; un click nunca captura, el arrastre captura una vez. +2 tests en `MascotaSwipeCard.test.tsx` y mutación verificada (devolver la captura al `pointerdown` deja en rojo **solo** esos dos; los otros 18 siguen verdes, que es por qué el bug llegó vivo hasta el navegador).
+- **Recorrido en Chrome real** con `bash dev.sh` y la base en el seed, como Ana Martínez (`user_id=1`, la única con perfil de hogar): `/adoptar` → "Descubrir una por una" → **las tres rutas de verdad**: botón (Lía→Manchas), teclado `ArrowRight`/`ArrowLeft` (Manchas→Nala→Duque) y **arrastre con el ratón** de +220 px (Duque→Tomás), más el arrastre corto de +40 px que no decide nada. Los cuatro swipes quedaron en `data/app.db` con `user_id=1` y su dirección correcta, así que las tres rutas llegan al backend. Se vio **`94% afín` con tres razones**; el deck vaciado mostró el CTA "Ver el catálogo completo"; al recargar no volvieron las swipeadas; el chip "Gato" refetcheó. En incógnito: sin porcentaje, con la invitación y "Me interesa" → `/registro?volver=%2Fadoptar%2Fdescubrir`. **Consola sin un solo error**; a **360 px `scrollWidth == clientWidth == 360`**. Base local devuelta al seed (`swipes` en 0).
+- `bash init.sh` exit 0 con **403 tests de API + 328 de web** (403 y 309 al empezar; el backend no se toca en estos dos pasos). `npm run build` limpio (el aviso de chunk > 500 kB es el de siempre, no es error). `feature_list.json` **sin tocar**: el `done` es del revisor.
+- ⚠️ **Despliegue, sin cambios**: `migrations/AD-01-pets.sql` sigue **sin ejecutar** en prod y el PR #6 sigue abierto. AD-03 trae **dos** `.sql` propios (`AD-03-swipes.sql`, `AD-03-home-profiles.sql`), **tampoco ejecutados**. Orden obligatorio: **AD-01/AD-02 primero** (`swipes.pet_id` referencia `public.pets`), y sin `home_profiles` el deck responde 500 a quien mande `adoptante_id`.
+- **Observación para el líder** (no implementada, fuera del plan): a 360 px los cinco grupos de filtros ocupan la primera pantalla entera y la tarjeta queda **bajo el pliegue** — hay que hacer scroll para ver el deck, que es la gracia de la pantalla. El layout es el que pedía el plan (aside arriba y apilado en móvil) y el mismo de `adopta-v1`; si se quiere corregir, el sitio es un panel plegable ("Filtros" cerrado por defecto en móvil) en `FiltrosAdopcion`, y afectaría también a `/adoptar`. Es decisión de diseño, no de implementación.
+
+### Resultado del paso 1 (2026-08-15)
+
+- `docs/decisions/0002-mecanica-match-no-mutuo.md` — restaurado desde `origin/adopta-v1` con el **cuerpo intacto** (Estado / Contexto / Decisión / Consecuencias, palabra por palabra) + una sección final "Nota de vigencia tras el pivot (2026-08-15)", en el mismo formato que la del 0003 restaurado en AD-01.
+- La nota fija cuatro cosas: (a) `Shelter` → `Organizacion`, más el rescatista individual que en la era Adopta no existía; (b) la tabla sigue llamándose `matches` pero en API, copy y pantallas es siempre **"solicitud"**; (c) los estados persistidos son `solicitado/en_revision/visita_agendada/adoptado/cerrado` y **nunca `aprobado`/`descartado`**, que solo son nombres de acción HTTP (`/aprobar`, `/descartar`) y prosa del backlog; (d) **el párrafo que declara obligatorio el `HomeProfile` queda superado** — el deck responde 200 con `afinidad: null` sin perfil, por el acceptance de AD-04 y porque un guard bloqueante contradice la cuenta liviana del ADR 0005. Lo esencial (el match no es mutuo, no hay endpoint de "aceptar match") **sigue vigente y no se re-litiga**.
+- La nota deja escrito además que se implementa en **AD-05** (AD-03 solo trae el swipe, con `SwipeOut.solicitud` en `null`) y que **el `0004-chat-websockets-fastapi.md` no se restaura**: queda superado por el ADR 0012 de AD-06.
+- Verificado en esta sesión: `bash init.sh` exit 0 con **292 API + 285 web** (sin cambios — este paso no toca una línea de código). `feature_list.json` sin tocar; sin `models/home_profile.py` (paso 2) ni `services/afinidad.py` (paso 3).
+
+### Resultado del paso 2 (2026-08-15)
+
+- `src/api/reencuentro_api/models/home_profile.py` — nuevo (port de `origin/adopta-v1:src/api/adopta_api/models/home_profile.py`) con **`user_id` como PK** y sin `id` propio: un perfil por persona, y la fila existiendo *es* la señal de "cuestionario completo" (el upsert de AD-04 se apoya en eso). **La relación `user = relationship(back_populates="home_profile")` se borró al portar** — confirmado: el archivo solo la menciona en el docstring, que explica por qué no está.
+- **Mutación de la trampa, verificada de verdad**: reponer esa relación deja la suite **entera** en rojo (183 errores + 47 fallos de 305) con `InvalidRequestError: Mapper 'Mapper[User(users)]' has no property 'home_profile'` — no es un endpoint, es el **import de la app**. Por eso el guard es un test explícito que importa `main` y llama `configure_mappers()`: sin esa llamada la configuración es perezosa y el fallo aparecería recién en el primer request real. Modelo restaurado con el mismo md5 (`0c6afac2155f9976da4219d6c887fff9`).
+- `presupuesto_mensual_cop` → `Mapped[int | None]` (decisión de producto: pedir COP en plena emergencia añade fricción; `afinidad.py` degradará a solo-experiencia, y sin eso `None >= costo` es un `TypeError` que revienta el deck). **Segunda mutación verificada**: dejarla `NOT NULL` deja en rojo **solo** `test_el_presupuesto_mensual_puede_quedar_vacio`. Mismo md5 tras restaurar.
+- `src/api/reencuentro_api/models/__init__.py` — import + `HomeProfile` en `__all__`.
+- `scripts/seed.py` — constante `HOME_PROFILE` (un solo perfil, el de **Ana Martínez**, `user_idx=0` → id 1) e inserción tras el `flush()` de usuarios. Valores elegidos para que el deck muestre **variedad** contra las 8 mascotas ya sembradas: casa+patio favorece medianas/grandes sobre pequeñas, 6 horas fuera penaliza solo a las de energía alta, experiencia "algo" no alcanza para las difíciles, y `tiene_ninos` excluye por regla dura a la única `apto_ninos=False` (Bonita) sin vaciar el deck.
+- **Determinismo comprobado sobre las 11 tablas** (no solo la nueva): tres corridas seguidas de `scripts/seed.py` dan dumps idénticos, y contra el seed de `HEAD` la **única** diferencia es la fila nueva de `home_profiles` — ningún pin ni timestamp se movió.
+- `tests/api/test_home_profile_modelo.py` — nuevo, 8 tests (`HomeProfile` y `User` importados a nivel de módulo): round-trip completo, las listas JSON que vuelven como listas y la vacía que vuelve `[]` (lo que `_score_preferencia` lee como "sin preferencia"), PK con `IntegrityError` al duplicar, edición que reemplaza la misma fila, dos usuarios con perfil propio, presupuesto `None`, y el guard de mappers. **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.models.home_profile'` en la colección.
+- `tests/api/test_seed_pets.py` — **solo adiciones** (+5 tests, +3 constantes): un único perfil y de la usuaria demo, `user_idx` válido, valores en catálogo (los `Literal` reales de `schemas/pet.py` para especies/tamaños/energía; constantes locales para `vivienda`/`espacio_exterior`/`experiencia_previa`, cuyo `Literal` lo crea AD-04), coherencia con las mascotas y presupuesto declarado. **Rojo inicial**: 5 fallos con `AttributeError: module 'seed' has no attribute 'HOME_PROFILE'`.
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_home_profile_modelo.py tests/api/test_seed_pets.py -v` 29/29; `pytest tests/api` **305/305**; ruff + black limpios; `bash init.sh` exit 0 con **305 API + 285 web** (292 antes). `feature_list.json` sin tocar; sin `services/afinidad.py` (paso 3) ni los `.sql` (paso 8).
+
+### Resultado del paso 3 (2026-08-15)
+
+- `src/api/reencuentro_api/services/afinidad.py` — nuevo (port de `origin/adopta-v1:.../services/affinity.py`), **pesos y reglas duras intactos**, con los cinco cambios pactados y ninguno más. Servicio sobre **modelos** (`Pet`, `HomeProfile`), como `titulos.py`.
+- `razones: tuple[str, ...]` en `AfinidadResultado` (tupla, no lista: el dataclass es `frozen`); la conversión a lista es del router, al construir `AfinidadOut`.
+- `_razones()` nueva: devuelve **siempre ≥3** porque energía, rutina y vivienda son incondicionales — el acceptance se cumple por construcción, no por suerte del hogar que consulte. Convivencia (niños/gatos/perros) y especie preferida se suman solo si el hogar las necesita. Son honestas: con mal encaje dicen "Exigente para tus 10 horas fuera al día". `_explicar()` intacto para el texto largo. Incompatible → una sola razón (la tarjeta se excluye del deck).
+- **El literal `84` se repite con su justificación al lado** y `test_afinidad_no_importa_descubrir` (regex sobre el fuente, tolera el comentario) lo fija: importar `EDAD_MESES_SENIOR` de `descubrir.py` invertiría la capa modelos→schemas. `filtros.py` (paso 5) sí puede importarlo.
+- **`presupuesto_mensual_cop is None` → solo experiencia.** Una línea; sin ella `None >= costo_estimado` es `TypeError` y no falla una mascota, revienta el deck entero de quien dejó el campo vacío.
+- `tests/api/test_afinidad.py` — nuevo, 10 tests: los 4 de adopta-v1 adaptados (`Pet` con `zona`/`sexo`/`historia`) + razones ≥2, razones citando energía/vivienda/horas, razones de convivencia, incompatible con score 0 y ≥1 razón, presupuesto ausente y la guarda de capa. **Rojo inicial**: `ImportError: cannot import name 'afinidad' from 'reencuentro_api.services'`.
+- **Mutación verificada de verdad**: quitar la guarda del presupuesto deja en rojo **solo** `test_sin_presupuesto_usa_solo_experiencia` con `TypeError: '>=' not supported between instances of 'NoneType' and 'int'`. El test compara el número exacto (88 sin presupuesto vs. 94 con él), así que tratar el `None` como cero tampoco pasaría. Archivo restaurado con el mismo md5 (`172fabf17f6ec5ecfc1da9e3ea4b48ca`, `diff` vacío).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_afinidad.py -v` 10/10; `pytest tests/api` **315/315**; ruff + black limpios; `bash init.sh` exit 0 con **315 API + 285 web** (305 antes). `feature_list.json` sin tocar; sin `descubrir.py` (paso 4), `filtros.py` (paso 5) ni el modelo `Swipe` (paso 6).
+
+### Resultado del paso 4 (2026-08-15)
+
+- `src/api/reencuentro_api/services/descubrir.py` — nuevo, port de `origin/adopta-v1:.../services/deck.py` **sin un solo cambio de lógica** (`EDAD_MESES_SENIOR = 84`, `DIAS_PUBLICADA_DIFICIL = 90`, `es_dificil_de_ubicar`, `ordenar_deck` alternando cada 4 y 5). Lo único distinto es el nombre del archivo. Trabaja sobre `PetOut`, que es la razón de que `afinidad.py` repita el 84 en vez de importarlo de aquí.
+- **El naive UTC se conserva, ahora con el porqué al lado**: `publicado_en` es `timestamp without time zone` en los dos motores, así que llega naive y restarle un aware es `TypeError` en producción. Nada de `datetime.UTC`.
+- El docstring deja escrito que sin perfil llegan **todas** las mascotas con `afinidad=None` (el camino mayoritario de AD-03): con los scores empatados en el `else 0`, la inserción de difíciles es lo único que ordena algo.
+- `tests/api/test_descubrir.py` — nuevo, 7 tests: los 6 de adopta-v1 con `_pet()` adaptado (`shelter_id`/`shelter` → `organizacion_id`/`publicador=None`, más `zona`, `sexo`, `historia`, `telefono_contacto`) + `test_ordenar_deck_con_afinidad_none_no_revienta` (15 mascotas, todas sin afinidad). **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.services.descubrir'`.
+- **La constante `AHORA` de módulo del original es ahora la función `_ahora()`**: un instante calculado una vez en la importación es una fecha-bomba latente — misma lección que `Reportes.test.tsx` en la feature 35.
+- **Mutación verificada de verdad**: cambiar el naive por `datetime.now(timezone.utc)` deja en rojo **5 de 7** con `TypeError: can't subtract offset-naive and offset-aware datetimes`. Los dos que siguen verdes (senior y "necesita experiencia") retornan antes de la resta — justo por eso hacía falta un caso que llegue hasta ahí. Restaurado con el mismo md5 (`45d9c7c713d15241c846bc6f7eeccca9`, `diff` vacío).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_descubrir.py -v` 7/7; `pytest tests/api` **322/322**; ruff + black limpios; `bash init.sh` exit 0 con **322 API + 285 web** (315 antes). `feature_list.json` sin tocar; sin `filtros.py` (paso 5) ni el modelo `Swipe` (paso 6).
+
+### Resultado del paso 5 (2026-08-15)
+
+- `src/api/reencuentro_api/services/filtros.py` — nuevo (port de `origin/adopta-v1:.../services/filters.py`), función pura sobre `PetOut` con la firma de `aplicar_filtros(pets, filtros, user_lat, user_lng)` **intacta** y tres cambios: `FiltrosDeck` gana `zona` y `tags`, `distancia_km` pasa a `None`, y `EDAD_CATEGORIA_RANGOS` queda como fuente de verdad única de los tramos.
+- **`distancia_km` sin default de 15 km**: era herencia de un producto urbano de Bogotá con coordenadas en todas las fichas; aquí escondía resultados en silencio. La degradación elegante (sin lat/lng no se excluye a nadie, `distancia_km=None`) sobrevive con sus tres tests, y `test_sin_distancia_km_no_excluye_nada` fija el default nuevo.
+- **`tags` se filtra en Python** (JSON = TEXT en SQLite y `json` en Postgres; ni `LIKE` ni `->>` son portables) y por eso **no** se ofrece como chip; solo lo usará el deck del paso 7.
+- `src/api/reencuentro_api/routers/pets.py` — `listar_mascotas` acepta `edad_categoria` multivalor y lo traduce a SQL con `_condicion_edad` (un `or_()` de rangos leído de `EDAD_CATEGORIA_RANGOS`, `math.inf` = sin tope). El aviso de "todavía no filtra por edad" del docstring se reemplazó por el porqué del SQL. Tramo fuera de catálogo → `false()`, nadie, como `?especie=dinosaurio`.
+- `tests/api/test_filtros.py` — nuevo, 19 tests (los 15 de adopta-v1 con las coordenadas de `test_geo.py`, sin inventar distancias, + zona, zona vacía, tags y el default). **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.services.filtros'`.
+- `tests/api/test_pets.py` — **solo adiciones** (+5 tests, +`_sembrar_edades`, `git diff --numstat`: `125 0` antes del formateo). **Rojo inicial**: 5 fallos.
+- **Mutación verificada de verdad**: filtrar el tramo en Python después del `LIMIT` deja en rojo `test_total_count_refleja_el_filtro_de_edad` (`assert '4' == '2'`); los otros tres tests de edad siguen verdes bajo esa mutación, que es justo por qué hacía falta uno que paginara. Router restaurado con el mismo md5 (`ba2f6315ded8beffde4eec1574bcff96`).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_filtros.py tests/api/test_pets.py -v` 88/88; `pytest tests/api` **346/346**; ruff + black limpios; `bash init.sh` exit 0 con **346 API + 285 web** (322 antes). `feature_list.json` sin tocar; sin `Swipe` (paso 6), sin `GET /api/pets/deck` (paso 7) y sin frontend (los cortes de `lib/adopcion.ts` no cambiaron).
+
+### Resultado del paso 6 (2026-08-15)
+
+- `src/api/reencuentro_api/models/swipe.py` — nuevo. ⚠️ **`user_id` es el ADOPTANTE**, al revés que `Pet.user_id` (el rescatista que publicó). Las dos son FK a `users.id`, así que un cruce no lo detecta ninguna base: el aviso quedó en los docstrings del **modelo, el schema y el router**, y `test_user_id_del_swipe_es_el_adoptante_no_el_publicador` lo fija con dos usuarios distintos.
+- **`UniqueConstraint("user_id", "pet_id", name="uq_swipe_user_pet")`**, nuevo respecto a adopta-v1, + `index=True` en las dos FK (los índices que pide el `.sql` del paso 8).
+- `src/api/reencuentro_api/schemas/swipe.py` — `SwipeIn` acepta y **descarta** `mensaje`/`telefono_contacto` (viven en `matches`, AD-05) con el porqué escrito; `SwipeOut.solicitud` es siempre `null` en AD-03.
+- `src/api/reencuentro_api/routers/swipes.py` — 201 el primero, **200 el repetido** (misma fila, misma dirección). La idempotencia usa `_swipe_existente` (a nivel de módulo, cegable por monkeypatch) **y** el `IntegrityError` con `rollback()`. Los 404 se comprueban en el código; 409 solo para `adoptado` (`en_proceso` se acepta: una adopción puede no cuajar).
+- `models/__init__.py` (+`Swipe`) y `main.py` (`include_router(swipes.router)` después de `pets` y **antes de `paginas`**; `test_paginas.py` sigue verde, canario del orden).
+- `tests/api/test_swipes.py` — nuevo, 17 tests. **Rojo inicial**: `ModuleNotFoundError: No module named 'reencuentro_api.models.swipe'`.
+- **Mutación verificada de verdad**: quitar el `except IntegrityError`/`rollback()` deja en rojo **solo** el test de la carrera, con el `UNIQUE constraint failed: swipes.user_id, swipes.pet_id` sin atrapar (un 500 en producción). Router restaurado con el mismo md5 (`e2366bce5c91965fe09ea4e3b977ebdd`).
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_swipes.py -v` 17/17; `pytest tests/api` **363/363**; ruff + black limpios; `bash init.sh` exit 0 con **363 API + 285 web** (346 antes). `feature_list.json` sin tocar; sin `GET /api/pets/deck` (paso 7) ni los `.sql` (paso 8).
+
+### Resultado del paso 7 (2026-08-15)
+
+- `src/api/reencuentro_api/routers/pets.py` — `GET "/deck"` (`deck_de_descubrimiento`) **entre `/adopciones` y `/{pet_id}`**, con el orden del docstring del módulo actualizado. Pipeline exacto del plan: `estado == "disponible"` → `Pet.id.not_in(select(Swipe.pet_id).where(Swipe.user_id == adoptante_id))` → `_pet_out` con `home` → `aplicar_filtros` → quitar incompatibles → `ordenar_deck` → `[:limit]`.
+- **Las dos diferencias con adopta-v1 quedaron escritas en el docstring del endpoint**: sin `HomeProfile` es **200 con `afinidad: null`** (no 404: rompería el onboarding y contradice AD-04) y `adoptante_id` es **opcional** (exigirlo forzaría a mandar el id de una persona real sin cuenta, el bug del fix `cc4de85`); un `adoptante_id` **inexistente** sí es 404, que es un dato equivocado y no la ausencia del dato. **`ordenar_deck` se llama siempre**, también sin perfil.
+- `_pet_out` gana `home: HomeProfile | None = None` **con default**: los tres call sites de AD-01/AD-02 no cambian. Ahí ocurre la conversión de `razones` (tupla del dataclass `frozen`) a lista de `AfinidadOut`.
+- `tests/api/test_deck.py` — nuevo, 19 tests (`Pet`, `Swipe`, `HomeProfile`, `Organizacion` y `User` a nivel de módulo). **Rojo inicial**: los 19, con `assert 422 != 422` en el de la ruta y `TypeError: string indices must be integers` en los que leían el cuerpo del 422 — el bug exacto que previene el orden de rutas.
+- **Mutación (a) verificada de verdad**: mover `/deck` después de `/{pet_id}` deja los 19 en rojo con `422 Unprocessable Entity`. Router restaurado con el mismo md5 (`1f1bfbb2ce64ca4dc2444a2b6f001f3b`).
+- ⚠️ **La mutación (b) salió al revés de lo previsto, y el hallazgo importa**: con `session.get` por fila el test de conteo queda en **rojo igual (7 y 23 consultas en vez de 5) con o sin `expunge_all()`**, porque `expire_on_commit=True` ya expira el identity map en el `commit()` de la siembra — y lo mismo pasa con el test de AD-01. **Lo que sostiene la aserción es que cada fila tenga un publicador propio**: con la implementación ingenua y un solo publicador compartido el conteo vuelve a 5 y el test **pasa**. Comprobado en las cuatro combinaciones; anotado en el docstring del test y en `memory/memory.md` (entrada nueva que corrige la receta de AD-01). El `expunge_all()` se conserva como cinturón sobre tirantes.
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_deck.py -v` 19/19; `pytest tests/api` **382/382**; ruff + black limpios; `test_paginas.py` verde; `bash init.sh` exit 0 con **382 API + 285 web** (363 antes). `feature_list.json` sin tocar; sin los `.sql` (paso 8) ni frontend (pasos 9-11).
+- **Observación para el líder** (no implementada, no está en el plan): la query del deck no lleva `ORDER BY`, igual que en adopta-v1. En SQLite el orden es estable, pero en Postgres el orden de base es arbitrario, así que dos requests seguidos pueden barajar las mascotas empatadas (todas, cuando no hay perfil). Como el frontend consume el deck con `slice(1)` y sin refetch, hoy no se nota; si se quiere determinismo, el sitio es un `order_by(Pet.publicado_en.desc(), Pet.id.desc())` antes de `ordenar_deck`.
+
+### Resultado del paso 8 (2026-08-15)
+
+- `migrations/AD-03-swipes.sql` y `migrations/AD-03-home-profiles.sql` — nuevos, **ESCRITOS Y NO EJECUTADOS** (cero sentencias contra cualquier base en este paso). La cabecera de cada uno lo dice y fija el **orden de despliegue**: AD-01/AD-02 primero, porque `swipes.pet_id` referencia `public.pets`. El de `home_profiles` explica además por qué viaja en esta ventana y no en AD-04: sin la tabla, `GET /api/pets/deck` responde 500 para cualquiera que mande `adoptante_id`.
+- **Tipos idénticos a los que emite `create_all`**: `serial` (no `identity`), `json` (no `jsonb`), `timestamp without time zone`, **sin `DEFAULT` de DB**. `home_profiles.user_id` PK sin `id` propio, `presupuesto_mensual_cop` nullable, `enable row level security` en los dos.
+- `tests/api/test_migracion_swipes.py` — nuevo, 19 casos: columnas exactas contra `Swipe.__table__` y `HomeProfile.__table__`, `uq_swipe_user_pet` (nombre **y** columnas contra el `UniqueConstraint` del modelo), `user_id` como `primary key` contrastado con `__table__.primary_key`, **nulabilidad columna a columna contra el modelo** (más el caso con nombre propio del presupuesto), las FK a `public.users`/`public.pets`, los `ix_swipes_*` de las columnas `index=True`, RLS y la aditividad. **Rojo inicial**: los 19 con `Falta la migración versionada …/AD-03-swipes.sql`.
+- `tests/api/soporte_migraciones.py` — nuevo: el parser de `create table` extraído para que los dos anti-drift no lo dupliquen. `test_migracion_pets.py` cambia **solo** imports y una nota de cabecera —ninguna aserción— y sus 6 casos siguen verdes, que es la prueba de que la extracción no alteró nada. `columnas_del_sql` ahora se construye sobre `definiciones_de_columna` (devuelve la definición entera de cada columna, y es lo que habilita los tests de nulabilidad, FK y tipos).
+- **Tres mutaciones verificadas de verdad**: renombrar `horas_fuera_dia` → rojo el de columnas y el de nulabilidad; `not null` en el presupuesto → rojo el de nulabilidad y el caso con nombre propio; borrar el `constraint uq_swipe_user_pet` → rojo **solo** el suyo. `.sql` restaurados con el mismo md5 (`d611ffee5f81aeb1928f5f2709fd6321` y `fb2e7d79b3f969b65e4f1dda1e2a5cd4`).
+- `migrations/README.md` — dos filas nuevas en el índice, con estado "pendiente de ejecutar" y la dependencia de orden.
+- Verificado en esta sesión: `.venv/bin/pytest tests/api/test_migracion_swipes.py -v` 19/19; `pytest tests/api` **401/401**; ruff + black limpios; `bash init.sh` exit 0 con **401 API + 285 web** (382 antes). `feature_list.json` sin tocar; sin frontend (pasos 9-11).
+
+---
+
+## Feature cerrada: AD-02-publicar-en-adopcion (done, 2026-08-15)
 
 Línea base heredada de AD-01 + el fix de esqueletos: **260 tests de API + 211 de web**, `init.sh` en verde. Al cerrar AD-02 ambos números deben subir. Cada paso = un commit, test en rojo primero; no se commitea en rojo. El `done` lo decide el revisor.
 
@@ -921,6 +1295,579 @@ Revisión independiente de la rama `integracion-pr5` (HEAD `f2c75d3`). Evidencia
 
 **Lo dudoso (no bloquea)**: (a) el desempate del sort cambió de "orden de inserción" a `(-afinidad, id)` — mejor (determinista entre DBs), pero en empates exactos el orden puede diferir del histórico y el test de la propiedad no lo cubre (usa puntajes distintos); cosmético; (b) el radar puede ahora emparejar candidatos de otra zona con parecido ≥ medio y coordenadas cercanas (p. ej. zona "Otro" limítrofe) — comportamiento nuevo documentado en el docstring pero sin test propio del radar; si molesta, un filtro de zona explícito en el radar es trivial; (c) los umbrales calibrados (0.80/0.90/0.9999) dependen de la calibración del ADR con fotos reales — versionada en `embeddings/ejemplos/calibracion.json` con tests, bien, pero re-calibrar exigirá disciplina de re-versionar.
 
+## AD-06 cerrada (2026-08-16): comunicación de la solicitud — WhatsApp directo, ADR 0013
+
+**APROBADA** por revisor independiente que corrió `bash init.sh`: **681 tests de Python + 419 de web**, todo en verde. La feature más pequeña del módulo precisamente porque la decisión la vacía: cero WebSockets, cero tabla `mensajes`, cero dependencias nuevas.
+
+- `docs/decisions/0013-comunicacion-solicitud-adopcion.md` evalúa las tres opciones (WhatsApp directo / Supabase Realtime / polling) y **supera explícitamente al ADR 0004**, cuyo `ConnectionManager` en memoria de un solo proceso es incompatible con el serverless de Vercel.
+- `lib/contacto.ts` gana `mensajeAdopcionAdoptante` y `mensajeAdopcionPublicador`: dos `Record<EstadoSolicitud, string>` **exhaustivos**, así que un sexto estado no compila sin decidir qué se dice en él.
+- Candado de no-regresión: `test_ninguna_dependencia_de_websockets` recorre `src/api/reencuentro_api/**/*.py` y asevera que no aparecen `WebSocket`, `websockets` ni `ConnectionManager`.
+
+**Fix de copy posterior al veredicto (`a82101a`)**, del hallazgo menor del revisor: los dos mensajes de `visita_agendada` preguntaban *"¿Te sirve el día y la hora que acordamos?"*, pero ese estado lo mueve quien publica desde un botón, **no hay campo de fecha en el modelo**, y muchas veces ese WhatsApp es la primera conversación. Ahora quien publica propone y quien pide pregunta. Los tests no cambiaron: aseveran la estructura de la URL y que cada estado y dirección digan algo distinto, **no las cadenas exactas**.
+
+**Deuda anotada en `memory/memory.md`**: `init.sh` corre `oxlint` pero **no `tsc -b`**, así que la exhaustividad de esos `Record` la aplica el build de Vercel, no la verificación local. Candidato a arreglo en AD-09.
+
+## AD-07 abierta (2026-08-16): favoritos — apadrinamiento recortado
+
+Copiada a `feature_list.json` como `in_progress` **sin el acceptance de apadrinamiento y sin la tabla `sponsorships`** en su línea de migración (recorte confirmado con el dueño: sin pasarela de pagos aporta poco hoy, y `Organizacion.como_donar` ya cubre la intención). Trae una tabla nueva: `CREATE TABLE favorites` + RLS.
+
+**Migraciones pendientes de ejecutar en Supabase, en este orden**: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → (al cerrar AD-07) `AD-07-favorites.sql`. Ninguna se ha ejecutado; el merge a `main` está bloqueado hasta que se ejecuten.
+
+### Plan del líder para AD-07 (2026-08-16): 7 pasos
+
+**Cuatro decisiones que el plan maestro dejó abiertas o dio por hechas, ya resueltas:**
+
+1. **`GET /api/users/{id}/favorites` EXIGE `solicitante_id` y responde 403, con el 403 ANTES del 404.** Los favoritos de alguien son un historial de navegación con nombre propio, y los ids son secuenciales y adivinables. El precedente de la familia de URL es `obtener_perfil_hogar` (`routers/users.py:89-108`), que ya lo exige con este razonamiento escrito. El orden 403→404 evita el oráculo de enumeración. **Honestidad sobre lo que NO es**: `solicitante_id` es autodeclarado y no hay autenticación — no es una barrera de seguridad, impide la fuga *accidental* (el frontend cayendo a `DEMO_USER_ID = 1`) y obliga a que una fuga sea deliberada. Va en el docstring para que nadie lo confunda con auth. `POST`/`DELETE` **no** lo llevan: el `user_id` del path ya es el actor y no hay segunda fuente con la que pueda discrepar.
+2. **`_pet_out` NO es reusable tal cual.** El plan maestro decía "reusa `_pet_out` importándolo de `routers/pets.py`" — falso hoy: su firma (`pets.py:162`) no tiene parámetro de favoritos y su docstring dice que `es_favorito` se queda en su default hasta AD-05/07. Importarlo sin más devolvería **`es_favorito=False` en el POST que acaba de crear el favorito**. Se extiende con `favoritos: set[int] | None = None` (conjunto, no bool: el paso 3 necesita esa forma para las listas y dos formas del mismo dato se separan a la primera corrección). **No hay ciclo de imports**: el import router→router ya existe y está justificado en `routers/solicitudes.py`.
+3. **`es_favorito` empieza a llenarse en los tres endpoints que ya aceptan un id de adoptante** (catálogo, ficha, deck) — honrar un contrato ya publicado, no ampliarlo. **Una sola query constante**, `select(Favorite.pet_id).where(Favorite.user_id == adoptante_id)`, sin `IN (...)` de pet_ids: los favoritos de una persona son decenas de filas y acotar por `IN` con el deck entero sería peor contra el pooler. **Se omite entera sin adoptante: el tráfico anónimo paga cero.** ⚠️ `test_deck.py::test_el_deck_no_hace_una_consulta_por_publicador` pasa de 5 a **6** consultas — hay que subir la constante **con el porqué en el docstring**, o el revisor lo lee como una regresión de N+1.
+4. **El corazón de `MascotaSwipeCard` encaja tal cual** (`onAlternarFavorita?: () => void`, ya con `stopPropagation` y dos tests verdes): no se toca la firma. Lo que el plan maestro no decidía: **sin cuenta el corazón se pinta igual** y lleva a `/registro?volver=…`, el mismo gate que "Me interesa". No pintarlo escondería que existen favoritos; escribir con `getActiveUserId()` sin cuenta es el bug `cc4de85`. En `MascotaCard` la tarjeta entera es un `<Link>`: el `preventDefault`+`stopPropagation` vive **dentro** de la tarjeta, no en cada llamador — la primera pantalla que lo olvide navegaría a la ficha al guardar.
+
+**Los 7 pasos** (cada uno = ciclo rojo→verde→`init.sh`→commit; en todo paso de frontend además `npx tsc -b` a mano, porque `init.sh` no typechequea):
+
+1. **Modelo `Favorite` + `models/__init__.py` + `migrations/AD-07-favorites.sql` + anti-drift** (`test_migracion_favorites.py` clonado de matches, reusando `soporte_migraciones.py`). Rojo: unique duplicado → `IntegrityError`, y el nombre `uq_favorite_user_pet` viaja a la migración. Docstring con el aviso de colisión: `Favorite.user_id` es quien MIRA, `Pet.user_id` es quien PUBLICA. **El `.sql` se escribe, NO se ejecuta** (4º en la cola).
+2. **Schema + `routers/favoritos.py` + registro en `main.py`** (antes de `paginas`). 14 tests, con `Favorite`/`Pet`/`User`/`Swipe`/`Match` importados a nivel de módulo. POST con select previo **y** `IntegrityError`+rollback+re-select. GET con **una sola query con join y `ORDER BY` explícito** — `adopta-v1` hacía dos y **sin orden**: en Postgres el orden es arbitrario y la rejilla se baraja entre recargas. DELETE 204 siempre.
+3. **`es_favorito` real** en catálogo, ficha y deck, con `_ids_favoritos(session, adoptante_id)` y test anti-N+1 por conteo de consultas (publicadores distintos por fila, receta de `memory/memory.md`).
+4. **Cliente + corazón en `MascotaCard` + catálogo.**
+5. **Pantalla `MisFavoritas` + ruta `/adoptar/mis-favoritas`** (no `/adoptar/favoritas` del plan maestro: consistencia con `/adoptar/mis-solicitudes` y `/mis-reportes`) + enlace en la cabecera del catálogo. Reusa `MascotaCard` en vez de rejilla propia.
+6. **Corazón en el deck**, con la aserción explícita de que favoritear **no** saca la carta ni llama a `registrarSwipe`.
+7. **Corazón en la ficha** + `changes.md` + paquete para el revisor.
+
+**Riesgo mayor identificado**: `Favorite.user_id` y `Pet.user_id` son ambas FK a `users.id` — ninguna DB avisa del cruce. Candado: `test_los_favoritos_no_se_cruzan_con_quien_publico_la_mascota` (A publica, B favoritea: la lista de A sale vacía) + el helper se llama `_ids_favoritos(session, adoptante_id)`, nunca `user_id` a secas.
+
+#### AD-07 paso 1 HECHO (2026-08-16): modelo `Favorite` + migración escrita + anti-drift
+
+Rojo→verde real. Rojo inicial: los dos archivos de test sin poder importar `reencuentro_api.models.favorite` (`ModuleNotFoundError`, error de colección); tras el modelo, los 11 del anti-drift en `AssertionError: Falta la migración versionada …/AD-07-favorites.sql`.
+
+- `src/api/reencuentro_api/models/favorite.py` (nuevo) — `favorites` con `uq_favorite_user_pet` (que `adopta-v1` NO tenía), FK indexadas, `creado_en` con `timezone.utc`, **sin `relationship()`**, y el aviso de colisión en el docstring (`Favorite.user_id` = quien mira; `Pet.user_id` = quien publica).
+- `src/api/reencuentro_api/models/__init__.py` — import + `__all__`.
+- `migrations/AD-07-favorites.sql` (nuevo) — **escrito, NO ejecutado**; cuarto de la cola (`AD-03-swipes` → `AD-03-home-profiles` → `AD-05-matches` → este). Cero sentencias corridas contra ninguna base.
+- `tests/api/test_favorito_modelo.py` (6) y `tests/api/test_migracion_favorites.py` (11, reusando `soporte_migraciones.py`).
+- `migrations/README.md` — fila nueva en el índice, cuarta en la cola.
+
+Verificación: `bash init.sh` en verde — **698 tests de Python + 419 de web** (línea base 681 + 419). Mutación del anti-drift ejecutada con tres roturas (columna borrada, RLS quitado, constraint renombrada): rojo en cada una, archivo restaurado con el mismo sha1.
+
+**Anotado para el líder** (no tocado, fuera del alcance del paso 1): el docstring de `tests/api/soporte_migraciones.py` sigue diciendo que lo comparten tres anti-drift; ahora son cuatro. Una línea, cuando toque.
+
+#### AD-07 paso 2 HECHO (2026-08-16): schema + `routers/favoritos.py` + registro en `main.py`
+
+Rojo→verde real. Rojo inicial: 14 de los 16 casos en rojo con `assert 404 == 201` / `assert 404 == 200` (la ruta no existía todavía); los 2 verdes desde el principio son los guardarraíles del acceptance 2 (favoritear no crea swipe/solicitud ni saca la carta del deck), que pasan a propósito porque prueban una ausencia.
+
+- `src/api/reencuentro_api/schemas/favorito.py` (nuevo) — `FavoritoIn` con solo `pet_id`; sin `FavoritoOut` (la respuesta del POST es `PetOut` con `es_favorito=True`).
+- `src/api/reencuentro_api/routers/favoritos.py` (nuevo) — POST (201/200 idempotente con select previo + `IntegrityError`/rollback/re-select), GET (`solicitante_id` requerido, **403 antes del 404**, una sola query con join y `ORDER BY creado_en desc, pet_id desc`, sin excluir adoptadas, sin exigir `HomeProfile`) y DELETE (204 siempre). Importa `_pet_out`/`_publicadores_por_pet` de `.pets` con el aviso del precedente de `solicitudes.py`; sin ciclo.
+- `src/api/reencuentro_api/main.py` — `include_router(favoritos.router)` después de `solicitudes` y antes de `paginas`, con la nota de por qué el segundo prefijo `/api/users` no eclipsa a `/{user_id}`.
+- `src/api/reencuentro_api/routers/pets.py` — **solo** el parámetro `favoritos: set[int] | None = None` en `_pet_out` + docstring. `listar_mascotas`, `obtener_mascota` y `deck_de_descubrimiento` **sin tocar**: los llena el paso 3.
+- `tests/api/test_favoritos.py` (nuevo, 16) — los 12 portados de `origin/adopta-v1:tests/api/test_favorites.py` + 403 ajeno, 403 sobre usuario inexistente (el oráculo), no-cruce de `user_id`, sin perfil de hogar y el orden explícito de la lista.
+
+Verificación: `bash init.sh` en verde — **714 tests de Python + 419 de web** (línea base 698 + 419). Mutación ejecutada con cuatro roturas y su fallo real citado en `changes.md`: `ORDER BY` quitado (`assert [1, 2, 3, 4] == [4, 2, 3, 1]`), 403/404 invertidos (`assert 404 == 403`), `session.get(Pet, ...)` borrado (`AttributeError: 'NoneType' object has no attribute 'organizacion_id'`) y la variante fina del 404 después del insert (`assert 1 == 0` en el conteo de `favorites`). Archivo restaurado idéntico tras cada una. Cero `.sql` ejecutado contra ninguna base; `scripts/seed.py` solo el que corre `init.sh` sobre la SQLite local.
+
+**Anotado para el líder** (no tocado, fuera de alcance): el docstring de `_pet_out` decía que `es_favorito` y `ya_solicitada` esperaban a "AD-05/07"; se reescribió la parte de `es_favorito`, pero **`ya_solicitada` sigue sin llenarse en ningún endpoint** aunque AD-05 esté cerrada — decidir si es deuda de AD-05 o entra en algún paso de AD-07.
+
+#### AD-07 paso 3 HECHO (2026-08-16): `es_favorito` real en catálogo, ficha y deck
+
+Rojo→verde real. Rojo inicial: `assert False is True` en el catálogo, la ficha y el deck; `assert 0 == 5` en el anti-N+1 nuevo del catálogo; `AssertionError: assert 5 == 6` en `test_el_deck_no_hace_una_consulta_por_publicador`. (`test_el_catalogo_sin_adoptante_no_marca_ninguna` nació verde a propósito: prueba una ausencia.)
+
+- `src/api/reencuentro_api/routers/pets.py` — helper `_ids_favoritos(session, adoptante_id) -> set[int]` junto a `_publicadores_por_pet` (**una** query constante, `select(Favorite.pet_id) where user_id`, sin `IN` de pet_ids; sin adoptante devuelve `set()` **sin tocar la DB**), usado en `listar_mascotas`, `obtener_mascota` y `deck_de_descubrimiento`. Docstrings de `listar_mascotas` y `obtener_mascota` actualizados (ya no dicen que `adoptante_id` no altera la respuesta).
+- `tests/api/test_pets.py` — 4 tests nuevos (catálogo marcado + la dirección del cruce de `user_id`, catálogo anónimo, ficha marcada + el heredado `False` sin adoptante, anti-N+1 con adoptante) y el sembrado de publicadores distintos extraído a `_sembrar_con_publicadores_distintos`, que ahora comparten los dos tests de conteo.
+- `tests/api/test_deck.py` — 1 test nuevo (deck marcado, y la carta favoriteada **sigue en el deck**) y la constante del anti-N+1 de **5 a 6** con el porqué en el docstring: la sexta es una sola query para todo el deck, no una por carta; lo que el test protege es la **constancia** con el tamaño del deck.
+
+Conteos de consultas medidos (coinciden con la tabla comprometida): `GET /api/pets` anónimo **4** (sin cambio), `?adoptante_id` **5** constante entre página de 3 y de 12, deck con adoptante **6** constante entre 4 y 16 cartas, ficha con adoptante **+1** (2 → 3).
+
+Verificación: `bash init.sh` en verde — **719 tests de Python + 419 de web** (línea base 714 + 419). Mutación ejecutada con dos roturas: query por fila → `assert (7, 16) == (5, 5)` en el catálogo (crece con la página) y `assert 9 == 6` en el deck; esa misma mutación, sin el corte por `adoptante_id is None`, deja el catálogo anónimo en `assert 7 == 4` con `WHERE favorites.user_id IS NULL` en el SQL registrado. Router restaurado con el mismo sha1 (`6140307b…`) y `git diff` limpio de la mutación. Cero `.sql` ejecutado contra ninguna base; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin tocar `src/web/`, ni el router de favoritos, ni el modelo.
+
+**Anotado para el líder** (no tocado, fuera de alcance): `ya_solicitada` sigue en `False` en toda la app (deuda de AD-05, ya anotada en el paso 2) — el docstring de `obtener_mascota` ahora lo dice explícitamente para que no parezca un olvido de AD-07.
+
+#### AD-07 paso 4 HECHO (2026-08-16): cliente + corazón en `MascotaCard` y en el catálogo
+
+Rojo→verde real. Rojo inicial (20 casos): `TypeError: marcarFavorita is not a function` (y sus gemelos de `desmarcarFavorita`/`listarFavoritas`) en `client.test.ts`; `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Guardar en favoritos"` en `MascotaCard.test.tsx`; y `AssertionError: expected last "vi.fn()" call to have been called with [ { …(5) }, undefined ]` en el catálogo. (`sin la prop no pinta ningún corazón` nació verde a propósito: prueba una ausencia.)
+
+- `src/web/src/api/client.ts` — `marcarFavorita` (POST, `pet_id` en el body), `desmarcarFavorita` (DELETE, todo en la ruta, sin cuerpo) y `listarFavoritas` (GET con `solicitante_id` = mismo id del path, auto-consulta). `api/types.ts` **sin tocar**: `es_favorito` existe desde AD-01.
+- `src/web/src/components/MascotaCard.tsx` — `onAlternarFavorita?: () => void` **opcional** (sin la prop, ningún corazón: `PanelAdopcionOrganizacion` no cambia), `aria-label` según `es_favorito` como en `MascotaSwipeCard`, y `preventDefault`+`stopPropagation` **dentro** del handler de la tarjeta. La afinidad y el corazón comparten ahora un grupo con `ml-auto` (dos `ml-auto` hermanos repartirían el espacio libre).
+- `src/web/src/screens/CatalogoAdopcion.tsx` — `adoptante_id` solo con `hasActiveUser()`; sin cuenta el corazón se pinta igual y navega a `/registro?volver=%2Fadoptar`; toggle optimista con `.catch` vacío a propósito y sin refetch.
+- Tests **+18 de web**: `client.test.ts` (+8, incluidas las dos que fijan que `listarMascotas` sigue mandando `adoptante_id`), `MascotaCard.test.tsx` (+4), `CatalogoAdopcion.test.tsx` (+6). Las 6 aserciones preexistentes de `listarMascotas` en el catálogo ahora nombran el segundo argumento (`undefined`), como ya hacía `DescubrirMascotas.test.tsx` con `listarDeck`.
+
+⚠️ **Hallazgo del paso**: la aserción de "no navega" **solo sobre la ubicación del router NO detecta** que falte el `preventDefault` — jsdom no simula la navegación nativa de un `<a href>`, que es lo que ese `preventDefault` frena (recarga entera en un navegador real); lo que la ubicación sí detecta es que falten **los dos** guards. El test asevera ahora las dos cosas: la ubicación y el retorno de `fireEvent.click` (`false` = evento cancelado). Candidato a `memory/memory.md` si el líder lo ve reusable.
+
+Verificación: `npx tsc -b --force` limpio (a mano, `init.sh` no typechequea) y `bash init.sh` en verde — **719 tests de Python + 437 de web** (línea base 719 + 419; el backend no se tocó). Mutación ejecutada con cuatro roturas: `preventDefault` quitado → `expected true to be false`; los dos guards quitados → `Unable to find an element with the text: ubicación /adoptar`; `hasActiveUser()` quitado del listado → `- undefined / + 1` en el catálogo anónimo; gate de registro quitado → `expected "vi.fn()" to not be called at all, but actually been called 1 times` con `[1, 7]`. Los tres archivos restaurados a su sha1 previo (`3529bf8a…`, `2728831c…`, `13d4b925…`) y verificados con `git diff`. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin tocar `MascotaSwipeCard.tsx`, `DescubrirMascotas.tsx`, `MascotaDetalle.tsx` ni backend.
+
+**Anotado para el líder** (fuera de alcance): **`npx prettier` (3.9.6) y el hook de pre-commit (v3.1.0, pineado en `.pre-commit-config.yaml`) no coinciden**. El 3.9.6 mete paréntesis en `mascota.ciudad_texto ?? 'Colombia'` y el hook los quita; manda el hook, así que el archivo quedó con el estilo de siempre y el diff limpio — pero correr `npx prettier --write` a mano en este repo genera ruido que después el hook deshace. Afecta a cualquier `.ts/.tsx` con esa forma, no solo a este.
+
+#### AD-07 paso 5 HECHO (2026-08-16): pantalla `MisFavoritas` + ruta + enlace en el catálogo
+
+Rojo→verde real. Rojo inicial: `Error: Failed to resolve import "./MisFavoritas" from "src/screens/MisFavoritas.test.tsx"` (los 10 casos sin poder recolectarse) y `TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "Mis favoritas"` en el catálogo.
+
+- `src/web/src/screens/MisFavoritas.tsx` (nuevo) — reusa `MascotaCard` (no rejilla propia); el corazón nace lleno y quitarlo **borra la tarjeta** de la lista, en optimista. Gate de cuenta **dentro del efecto y en el render** (patrón literal de `MisSolicitudes.tsx`), carga con `.catch` (`ApiError` → mensaje del backend tal cual), y el `.catch` del quitar **no repone** la tarjeta, con el porqué escrito. Vacío → CTA al deck (`/adoptar/descubrir`), no al catálogo.
+- `src/web/src/App.tsx` — ruta `/adoptar/mis-favoritas` (no `/adoptar/favoritas`: consistencia con `/adoptar/mis-solicitudes` y `/mis-reportes`), junto a las de AD-05 y con la nota del prefijo `mis-`.
+- `src/web/src/screens/CatalogoAdopcion.tsx` — enlace "Mis favoritas" en la fila de la cabecera, junto a "Mis solicitudes" y con su mismo criterio (enlace público, pantalla con gate). **Nav global sin tocar: es AD-08.**
+- Tests **+11 de web**: `MisFavoritas.test.tsx` (10) y `CatalogoAdopcion.test.tsx` (+1, el href del enlace nuevo).
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 448 de web** (línea base 719 + 437; el backend no se tocó). Mutación ejecutada con cuatro roturas: gate fuera del efecto → `expected "vi.fn()" to not be called at all, but actually been called 1 times` con `[1]` (el `DEMO_USER_ID` filtrándose); `.catch` de la carga quitado → `Unable to find role="alert"` en los dos tests de error; `preventDefault` quitado de `MascotaCard` → `expected true to be false`; los dos guards quitados → `Unable to find … "heading" … "Copito"` (el router se llevó la pantalla a la ficha). Archivos restaurados y verificados con `git diff` (`MisFavoritas.tsx` mismo sha1 `a0b29a60…`). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **Hallazgo del paso (candidato a `memory/memory.md`)**: el test de "si quitar falla, la tarjeta NO reaparece" **sobrevivió a la mutación** que sí reponía la tarjeta — `await Promise.resolve()` no basta, porque la promesa rechazada se resuelve en un microtask y React no vuelca ese `setState` hasta el siguiente `act`. Con `waitFor` antes de aseverar la ausencia, la mutación cae. Mismo género que el `preventDefault` del paso 4: **aseverar una ausencia exige forzar antes el flush, o el test pasa por llegar temprano**.
+
+#### AD-07 paso 6 HECHO (2026-08-16): corazón en el deck
+
+Rojo→verde real. Rojo inicial: los 5 casos nuevos con `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Guardar en favoritos"`.
+
+- `src/web/src/screens/DescubrirMascotas.tsx` — `onAlternarFavorita={() => alternarFavorita(actual)}` en `MascotaSwipeCard` y borrado el comentario de que la prop no se pasaba (dejó de ser cierto). `alternarFavorita` solo cambia `es_favorito` de la carta: **sin `slice` y sin `registrarSwipe`**, gate `hasActiveUser()` antes de leer ningún id (→ `/registro?volver=%2Fadoptar%2Fdescubrir`), optimista con `.catch` vacío comentado y sin refetch. Cabecera del archivo con el porqué ("el corazón no es un cuarto botón de decisión").
+- **`MascotaSwipeCard.tsx` NO se tocó**: su firma, su `stopPropagation` de `pointerdown` y sus dos tests siguen igual.
+- `src/web/src/screens/DescubrirMascotas.test.tsx` — **+5 en un `describe` aparte** (los de AD-03/AD-05 no cambian ni una línea): corazón presente, guardar con la carta quieta + `registrarSwipe` sin llamar + sin refetch, segundo toque que quita, gate sin cuenta (no llama a la API y navega con el `?volver=` exacto) y fallo de red sin error en pantalla. Único cambio a líneas previas: la factory del `vi.mock` gana `marcarFavorita`/`desmarcarFavorita` y el `beforeEach` sus dos `mockResolvedValue`.
+- **Ningún test previo de esta pantalla aseveraba la ausencia del corazón** (verificado por grep): el que lo hace es `MascotaSwipeCard.test.tsx` ("sin la prop no pinta ningún corazón") y sigue siendo cierto, porque la prop es opcional. No hubo premisa caducada que reescribir.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 453 de web** (línea base 719 + 448; el backend no se tocó). Mutación ejecutada con cuatro roturas: `.slice(1)` junto al toggle → `Unable to find … "button" … "Quitar de favoritos"` (3 casos); la variante **diferida** (sacar la carta al resolver la promesa) → `Unable to find … "heading" … "Canela"` **en la aserción de ausencia**, que es la prueba de que el `waitFor` previo no es decorativo; `registrarSwipe` añadido al corazón → `expected "vi.fn()" to not be called at all, but actually been called 1 times`; gate de cuenta quitado → la misma forma con `[1, 7]` (el `DEMO_USER_ID`). Archivo restaurado con el mismo sha1 (`b63f073b…`) y `git diff` limpio de mutaciones. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+#### AD-07 paso 7 HECHO (2026-08-16): corazón en la ficha — último paso de la feature
+
+Rojo→verde real. Rojo inicial: `AssertionError: expected "vi.fn()" to be called with arguments: [ 7, 7 ]` y `[ 7, undefined ]` en los dos casos del `adoptante_id` (uno de ellos el test de AD-01, cuya premisa caducó), y `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Guardar en favoritos"` en los cinco del corazón.
+
+- `src/web/src/screens/MascotaDetalle.tsx` — `obtenerMascota(Number(id), hasActiveUser() ? getActiveUserId() : undefined)`; botón en la cabecera junto al chip de estado, **con texto** (el símbolo va `aria-hidden` para que el nombre accesible sea el mismo de las otras dos pantallas); `alternarFavorita` con gate de cuenta → `/registro?volver=%2Fadoptar%2Fmascota%2F{id}`, optimista, `.catch` vacío comentado y **sin refetch de la ficha**. Se pinta también sobre una mascota adoptada (la lista guardada no las excluye).
+- `src/web/src/screens/MascotaDetalle.test.tsx` — **+7** en un tercer `describe` (`vi.spyOn` para las dos escrituras, sin tocar la factory del `vi.mock`). **Una línea previa reescrita con el porqué encima**: `toHaveBeenCalledWith(7)` → `toHaveBeenCalledWith(7, undefined)`; la ficha manda ahora un segundo argumento y aseverar su valor es más fuerte que la aridad anterior.
+- `src/web/src/screens/DescubrirMascotas.test.tsx` — **una línea de arreglo al test del paso 6** "si la API falla… no deshace el corazón": pasa de `waitFor` a `await act(async () => {})`. Medido: con `waitFor` sobrevivía a la mutación que revierte el corazón en el `.catch`; con `act` cae.
+
+⚠️ **Hallazgo del paso, corrige la receta del paso 5** (candidato a `memory/memory.md`): `waitFor` **no siempre** basta para aseverar una ausencia. Cuando lo que se asevera es que **nada cambia** —el estado optimista ya es el correcto desde el clic y la mutación lo revertiría al rechazarse la promesa—, el `waitFor` pasa en su primera comprobación y devuelve antes de que ese `setState` se vuelque. `await act(async () => {})` vacía la cola de microtasks dentro de `act` y sí lo detecta. Los dos casos afectados (ficha y deck) ya lo usan.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **719 tests de Python + 460 de web** (línea base 719 + 453; el backend no se tocó). Mutación ejecutada con tres roturas: gate de cuenta quitado → `expected "marcarFavorita" to not be called at all, but actually been called 1 times` con `[1, 7]`; `adoptante_id` mandado siempre → `- undefined / + 1` en el test nuevo **y** en el de AD-01 reescrito; `.catch` que revierte el corazón → `Unable to find … "button" … "Quitar de favoritos"` (en la ficha y, con el arreglo, también en el deck). `MascotaDetalle.tsx` restaurado con el mismo sha1 (`354bc83d…`) y `DescubrirMascotas.tsx` con el suyo (`b63f073b…`), verificados con `git diff`. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+**Anotado para el líder, medido y NO tocado** (fuera de alcance): el gemelo de ese test en `CatalogoAdopcion.test.tsx` (paso 4, "si la API falla, el catálogo no muestra error ni repone la tarjeta") **sobrevive** a la misma mutación — 22/22 en verde con el `.catch` revirtiendo el corazón. Es la misma línea de arreglo. El de `MisFavoritas` (paso 5) ya se verificó por mutación en su día y sí cae.
+
+### Paquete para el revisor — AD-07 (favoritos), 7 pasos cerrados
+
+**Estado**: los 7 pasos implementados y commiteados en `feat/adoptar` (`0e87f1b`, `2828fb6`, `9e8f192`, `7a4bd7d`, `a6cf76b`, `558ea10` + este). `feature_list.json` **sigue en `in_progress`**: el `done` lo pone el revisor tras correr `init.sh` por su cuenta.
+
+**Verificación final**: `bash init.sh` en verde — **719 tests de Python + 460 de web**. Línea base al abrir AD-07: 681 + 419.
+
+**Los 3 acceptance con el test exacto que los ejercita:**
+
+1. *"Un usuario guarda/quita favoritos y los ve en su lista (unique user+pet)"*
+   - Guardar/quitar (API): `tests/api/test_favoritos.py::test_marcar_favorito_nuevo_devuelve_201`, `::test_marcar_favorito_dos_veces_es_idempotente` (200, sin fila nueva), `::test_desmarcar_favorito_existente_devuelve_204_y_borra`, `::test_desmarcar_favorito_inexistente_devuelve_204_igual`.
+   - Verlos en su lista (API): `::test_listar_favoritos_devuelve_mascotas_con_es_favorito_true`, `::test_listar_favoritos_sin_favoritos_devuelve_200_vacio`, `::test_listar_favoritos_respeta_el_orden_de_guardado` (el `ORDER BY` explícito), `::test_listar_favoritos_no_exige_perfil_de_hogar`, y los dos de privacidad `::test_listar_favoritos_de_otra_persona_devuelve_403` / `::test_listar_favoritos_ajenos_de_un_usuario_inexistente_devuelve_403` (403 antes del 404, el oráculo de enumeración).
+   - **El unique**: `tests/api/test_favorito_modelo.py::test_dos_favoritos_iguales_violan_el_unique` y `::test_el_unique_se_llama_uq_favorite_user_pet` (el nombre viaja a la migración, `tests/api/test_migracion_favorites.py::test_el_unique_del_favorito_viaja_a_produccion_con_su_nombre`).
+   - **El cruce que ninguna DB avisa** (`Favorite.user_id` = quien mira; `Pet.user_id` = quien publica): `tests/api/test_favoritos.py::test_los_favoritos_no_se_cruzan_con_quien_publico_la_mascota` y `tests/api/test_favorito_modelo.py::test_user_id_del_favorito_es_quien_mira_no_quien_publico`.
+   - En pantalla (web): `MisFavoritas.test.tsx` → "pide la lista con el id de quien mira y pinta una tarjeta por mascota", "el corazón lleno quita la mascota: la tarjeta desaparece y no se navega", "redirige al registro con el volver, sin pedir los favoritos de nadie"; `CatalogoAdopcion.test.tsx` → "con cuenta, guarda y el corazón queda lleno al instante (sin re-consultar)" y "con cuenta, tocar una ya guardada la quita"; `MascotaDetalle.test.tsx` → "con cuenta, guardar llama a la API y el corazón queda lleno sin re-consultar la ficha" y "con cuenta, tocar una ya guardada la quita"; `client.test.ts` → método/URL/cuerpo exactos de las tres funciones.
+2. *"Marcar favorito no crea swipe ni solicitud, y la mascota sigue apareciendo en el deck"* — **el acceptance más fácil de romper sin darse cuenta**, porque el corazón vive dentro de la carta del deck.
+   - API: `tests/api/test_favoritos.py::test_marcar_favorito_no_crea_swipe_ni_solicitud` y `::test_la_mascota_favoriteada_sigue_en_el_deck`; además `tests/api/test_deck.py::test_el_deck_marca_las_favoritas_de_quien_mira` asevera que la carta favoriteada **sigue en el deck**.
+   - Web (paso 6): `DescubrirMascotas.test.tsx` → **"con cuenta, guardar llama a la API y la carta NO se va del deck"**, que asevera las dos mitades en la misma corrida: la mascota sigue en pantalla (y la siguiente no ha entrado) **y** `registrarSwipe` no se llamó. Verificado por mutación en sus tres variantes (sacar la carta al instante, sacarla al resolver la promesa, y añadir `registrarSwipe` al corazón): las tres lo tumban.
+3. *"bash init.sh en verde; tabla favorites creada en prod (RLS) antes del merge a main"*
+   - Primera mitad: `bash init.sh` corrido de verdad en cada paso; el último, **719 + 460 en verde**.
+   - Segunda mitad: **NO ejecutada, y es la condición de merge** (ver abajo). El anti-drift que la protege es `tests/api/test_migracion_favorites.py` (9 casos), con `::test_la_tabla_nueva_activa_row_level_security` cubriendo el RLS del acceptance y `::test_columnas_del_sql_son_exactamente_las_del_modelo` el drift modelo↔`.sql`. Verificado por mutación en el paso 1 (columna borrada, RLS quitado, constraint renombrada: rojo en cada una).
+
+**Conteos de consultas, antes y después del paso 3** (medidos con listener `before_cursor_execute`, no estimados):
+
+| endpoint | antes | después | test que lo fija |
+| --- | --- | --- | --- |
+| `GET /api/pets` (anónimo) | 4 | **4** (sin cambio) | `test_pets.py::test_listado_no_hace_una_consulta_por_publicador` |
+| `GET /api/pets?adoptante_id=X` | 4 | **5**, constante entre página de 3 y de 12 | `test_pets.py::test_el_catalogo_con_adoptante_no_hace_una_consulta_por_favorito` |
+| `GET /api/pets/deck?adoptante_id=X` | 5 | **6**, constante entre 4 y 16 cartas | `test_deck.py::test_el_deck_no_hace_una_consulta_por_publicador` (constante subida **con el porqué en el docstring**: la sexta es una query para todo el deck, no una por carta) |
+| `GET /api/pets/{id}?adoptante_id=X` | 2 | **3** | `test_pets.py::test_la_ficha_marca_la_favorita_de_quien_mira` |
+
+Sin `adoptante_id` no se toca la base: `_ids_favoritos` devuelve `set()` y el tráfico anónimo paga cero.
+
+⚠️ **`migrations/AD-07-favorites.sql` está ESCRITO y NO EJECUTADO.** Es el **cuarto** de la cola y **ninguno de los cuatro se ha ejecutado**: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. El merge a `main` está bloqueado hasta que los cuatro corran en Supabase con autorización explícita del dueño; con `SKIP_DB_CREATE_ALL=1` en prod no hay red de seguridad y la API fallaría al instante. En toda AD-07 no se ejecutó ni una sentencia contra ninguna base, y `scripts/seed.py` solo corrió el de `init.sh` sobre la SQLite local.
+
+**Deuda anotada durante la feature, para que el revisor no la lea como olvido**: (a) `ya_solicitada` sigue en `False` en toda la app — deuda de AD-05, con el docstring de `obtener_mascota` diciéndolo; (b) el docstring de `tests/api/soporte_migraciones.py` dice que lo comparten tres anti-drift y ya son cuatro; (c) el test "si la API falla, el catálogo no repone la tarjeta" (paso 4) sobrevive a su mutación y necesita la misma línea `await act(async () => {})` que se aplicó en los pasos 6 y 7; (d) `npx prettier` local (3.9.6) y el del hook (v3.1.0) no formatean igual — manda el hook.
+
+## Veredicto del revisor — AD-07 favoritos (2026-08-16): APROBADA
+
+Revisión independiente sobre `23d9e49`. `bash init.sh` corrido por el revisor **tres veces** (dos completas + una final tras deshacer sus mutaciones): **719 tests de Python + 460 de web, `Todo en verde.`, EXIT=0**, más `npx tsc -b --force` a mano porque `init.sh` no typechequea.
+
+**Corrección de dato**: la línea base al empezar AD-07 eran **681** tests de Python, no 698 (el 698 ya incluía el paso 1). El revisor lo comprobó creando un worktree en `35240c8`. Delta real de la feature: **+38 Python / +41 web**, y **ningún test borrado** — el único `-def test_` del diff es `test_listado_no_hace_una_consulta_por_publicador`, modificado in situ y vivo.
+
+**Todo verificado por rotura, no por lectura:**
+
+- **Acceptance 1** — quitar el borrado del DELETE y vaciar `__table_args__` ponen rojos sus tests. Los casos aseveran **estado en la DB**, no status HTTP: el del 404 comprueba `_contar_favoritos(...) == 0`, precisamente porque SQLite no fuerza las FK.
+- **Acceptance 2** — hacer que el POST inserte un `Swipe`, que el deck excluya las favoriteadas, y que el corazón del deck haga `slice(1)`: rojo en los tres.
+- **Acceptance 3** — `init.sh` verde; la migración **sigue sin ejecutar**, y el revisor aprueba con ese criterio explícito: es un **gate de merge, no un gate de `done`**, el mismo con el que ya están `done` AD-03 y AD-05.
+- **La colisión `user_id`** — cambió `listar_favoritos` a filtrar por `Pet.user_id` y el candado cayó con el síntoma exacto que documenta (la lista de quien publica devolvía la mascota en vez de vacío). 4 tests rojos.
+- **El anti-N+1 del 5→6 es legítimo**: implementación real `corto=6 largo=6` con 4 vs 16 cartas (constante); con la mutación por fila, `corto=9 largo=21`, o sea `5 + n`.
+- **La migración**: 8 mutaciones (sin unique, sin RLS, con drop, nullable, sin índice, columna extra, timestamptz, unique mal) → **8 rojos**.
+- **El gate de cuenta**: quitado por separado en las cuatro pantallas → las cuatro caen.
+- **Tests decorativos**: rompió **cuatro** aserciones de ausencia fuera de la lista conocida y las cuatro son reales; y confirmó que los tres documentados **ya no** lo son tras `23d9e49`.
+- Sin dependencias nuevas (diff vacío en los cuatro manifiestos), cero rastro de apadrinamiento o WebSockets, `origin/adopta-v1` y el tag intactos en `cde337f`.
+
+**Un mutante que sobrevive (no bloquea, anotado)**: quitar `e.stopPropagation()` de `MascotaCard.tsx:100` deja los 15 casos en verde. Diagnóstico del revisor: el `onClick` de `<Link>` mira `event.defaultPrevented`, así que el `preventDefault()` ya frena la navegación del router por sí solo. El `stopPropagation` es defensa redundante **hoy**; pasaría a importar si la tarjeta se anidara bajo otro clickable que no mire `defaultPrevented`. Sin regresión de comportamiento — lo que sobra es la afirmación del comentario de que los dos son necesarios.
+
+**Tres correcciones de prosa aplicadas tras el veredicto** (los dos primeros eran comentarios que afirmaban protecciones inexistentes, que es peor que no tenerlos):
+
+1. `listar_favoritos` decía que el `solicitante_id` requerido impide la fuga del `DEMO_USER_ID = 1`. **No la impide**: `listarFavoritas(userId)` manda el mismo valor en el path y en la query, así que si cayera a 1, ambos serían 1 y el 403 no dispararía nunca. Quien evita esa fuga es el `hasActiveUser()` de la pantalla. El docstring ahora lo dice y aclara lo que el parámetro sí aporta (olvidarlo es 422, y deja dónde colgar la comprobación real cuando haya login).
+2. El `DELETE` afirmaba seguir "el mismo trueque que los DELETE del resto de la app". **Falso**: `eliminar_reporte` y `despublicar_mascota` sí comparan autoría y responden 403. Sin auth las tres son igual de falsificables y el riesgo práctico no cambia, pero aquí no queda sitio donde colgar el check el día que haya login. El docstring lo dice y señala este endpoint como el primero a revisar entonces.
+3. `tests/api/soporte_migraciones.py` decía que su parser lo comparten tres anti-drift; ya son **cuatro**.
+
+**AD-07 marcada `done` en los dos JSON.** `validate_feature_list.py` exit 0, cero `in_progress`.
+
+⚠️ **Merge a `main` bloqueado**: cuatro migraciones escritas y **ninguna ejecutada**, en este orden — `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. Con `SKIP_DB_CREATE_ALL=1` en producción no hay red de seguridad: si el código llega antes que las tablas, cae la API entera, no solo las pantallas nuevas.
+
+## Plan del líder para AD-08 (2026-08-16): 10 pasos
+
+Línea base: **719 tests de Python + 460 de web**. Cero dependencias nuevas en todo el plan.
+
+### Lo que el líder verificó contra el código, no asumió
+
+1. **El aviso de seguridad YA está en los tres sitios** del módulo (`PublicarMascota.tsx:362`, `MascotaDetalle.tsx:364`, `SolicitudDetalle.tsx:316`, desde AD-02/AD-06) — pero **dos no tienen test**. El acceptance 2 se cierra con **dos tests y cero código de producto**, y por eso su paso **no puede tener rojo inicial**: se prueba borrando la línea del componente y comprobando el rojo. Detalle no obvio: en `SolicitudDetalle` el aviso vive dentro de la rama `otroLado.telefono`, así que el test necesita fixture con teléfono; sin teléfono no hay aviso, y eso es correcto (no hay encuentro que coordinar).
+2. **`docs/architecture.md` está mucho peor de lo que decía el plan maestro.** No es solo el "lienzo CSS/SVG" del §5. Inventario medido: §1 afirma que la única dependencia nueva del pivot es `python-multipart` (**falso**: también `requests`, `httpx`, `psycopg[binary]`, `leaflet`, `qrcode`, `react-easy-crop`); §2 lista **2 modelos de 14** y dice *"sin migraciones formales: `seed.py` hace `drop_all`"*, que es **falso y peligroso** — existe `migrations/` con 5 `.sql` versionados y cuatro anti-drift; §3 lista 3 servicios de 13; §4 lista 6 grupos de endpoints de 13 routers; §5 dice que el mapa es un lienzo propio en `lib/mapa.ts`, cuando usa **Leaflet desde el ADR 0008** y **`lib/mapa.ts` ya no existe**. Por eso los docs son **dos pasos**, no una viñeta.
+3. **Los 360px: los filtros NO arrancan plegados hoy y la primera tarjeta no se ve.** Presupuesto vertical medido sobre el código: en el catálogo la rejilla empieza cerca de **800px** con un viewport de 640-740; en el deck, la carta sobre los 590px. Con los filtros plegados bajan a ~420 y ~225, y la foto 4:3 entra entera en ambos. Estaba agendado por escrito desde AD-04 (`progress/current.md:235`).
+4. **Bug real encontrado de paso**: el `hayFiltros` de `CatalogoAdopcion.tsx:102-106` **no mira `filtros.edad`**, mientras el de `FiltrosAdopcion.tsx:93-98` sí. Con solo un tramo de edad activo y cero resultados, el vacío dice "Todavía no hay mascotas publicadas" en vez de "Ninguna coincide con estos filtros". Se arregla extrayendo `contarFiltrosActivos` a una sola fuente de verdad.
+5. **`titulo_pet(pet: Pet) -> str`**: `services/titulos.py` recibe el **modelo ORM**, no un dict. Su espejo `tituloMascota` ya existe en `lib/adopcion.ts:204` y hay que copiar su regla literalmente.
+
+### Honestidad sobre el acceptance de 360px
+
+Partido en dos mitades, porque **jsdom no puede probar la segunda**:
+- *"los filtros arrancan plegados"* → **sí es jsdom**: al montar los chips no están en el documento y `aria-expanded="false"`. Cae ante la mutación.
+- *"la primera tarjeta se ve sin scroll"* → **jsdom NO puede**: no tiene motor de layout, `getBoundingClientRect()` devuelve ceros. Un test ahí sería decorativo, justo el género de las tres entradas del 2026-08-16 de `memory/memory.md`. Se mide en **Chrome real** a 360×740 y 360×640, con criterio numérico explícito (`img[alt^="Foto de"]` con `rect.top >= 0 && rect.bottom <= innerHeight`, `aria-expanded === "false"`, `scrollWidth === clientWidth === 360`), no con adjetivos. Precedente: el navegador real encontró el bug de `setPointerCapture` que 18 tests verdes no vieron.
+
+### Los 10 pasos
+
+1. **Fijar los avisos de seguridad que ya existen** (2 tests, cero código; se prueba por mutación).
+2. **Backend**: `titulo_pet` + `GET /adoptar/mascota/{pet_id}` calcado de `/reporte/{id}`, con `html.escape` en todo y og:title consciente del estado ("Ya tiene hogar" si está adoptada — compartirla diciendo "En adopción" sería falso).
+3. **`vercel.json`**: rewrite de bots **antes** del catch-all, con test que asevera el **orden** y compara el bloque de bots byte a byte.
+4. **Nav y landing**, con tres candados: los dos CTAs de emergencia siguen siendo los dos primeros links de la landing, el enlace a `/adoptar` **no** lleva borde (es terciario), y la nav tiene la secuencia exacta.
+5. **Botón "Compartir esta mascota"** en la ficha (sin él, los og tags que añadimos se alcanzarían por accidente).
+6. **Cruce**: la Comunidad de `/ayudar` enlaza al catálogo, como línea permanente y no condicionada a filtrar por `hogar_de_paso` (un cruce que exige filtrar primero no lo ve nadie).
+7. **Filtros plegados en móvil** + `contarFiltrosActivos` (arregla el bug 4). ⚠️ Toca **actualizar 7 tests existentes** que pulsan chips: su premisa caducó a propósito, se les añade `abrirFiltros()` con el porqué escrito. **Cero tests borrados.**
+8. **La medición real en Chrome a 360px**, con números guardados.
+9. **`docs/architecture.md`**: pasada de verdad sobre §1-§5 y §7. Regla del paso: **si no lo puedes comprobar con un comando, no lo escribas**.
+10. **`CLAUDE.md`, `AGENTS.md`, `product-research.md`** + paquete para el revisor.
+
+### Qué NO se sigue del plan maestro
+
+- **La línea de adopciones en la franja verde de la landing**: metería una tercera llamada de red en la landing de emergencia y mezclaría dos métricas en una franja cuyo número significa hoy "reencuentros". No la pide ningún acceptance y la franja de adopciones ya vive en `/adoptar`.
+- **"El rewrite se verifica en prod en AD-09"**: dejar `vercel.json` sin test hasta AD-09 apuesta toda la difusión de fichas a que nadie lo coloque en el sitio equivocado. Es JSON estático: cuesta un test.
+- **Los avisos de seguridad como trabajo pendiente**: ya están; implementarlos otra vez los duplicaría en pantalla.
+- **La búsqueda por descripción con mascotas** sigue fuera de alcance (media integración es peor que ninguna). Queda como nota de backlog en `product-research.md`.
+
+#### AD-08 paso 1 EN PAUSA (2026-08-16): el acceptance 2 ya está cubierto; la premisa del plan no se sostiene
+
+**Sin rojo inicial y sin test nuevo, a propósito.** El paso pedía +1 caso en `PublicarMascota.test.tsx` y +1 en `SolicitudDetalle.test.tsx` porque "dos de las tres pantallas no tienen test". Medido antes de escribir nada:
+
+- `src/web/src/screens/PublicarMascota.test.tsx:306` — `it('muestra el aviso de espacio público antes de publicar')`, caso dedicado, con cuenta activa, aseverando `/espacio público/`.
+- `src/web/src/screens/SolicitudDetalle.test.tsx:356` y `:370` — aseveran `/Antes de coordinar un encuentro/i` dentro de los dos casos de WhatsApp (que montan con teléfono, la rama donde vive el aviso).
+- `src/web/src/screens/MascotaDetalle.test.tsx:258` — la tercera pata, ya citada por el plan.
+
+**Mutación ejecutada** (la evidencia que el plan pedía): borradas a la vez las líneas `<AvisoSeguridad contexto="publicar" />` (`PublicarMascota.tsx:362`) y `<AvisoSeguridad contexto="contactar" />` (`SolicitudDetalle.tsx:316`) → `npx vitest run` sobre los dos archivos da **3 fallos de 38** (base: 38 verdes):
+
+- `PublicarMascota.test.tsx > muestra el aviso de espacio público antes de publicar` → `TestingLibraryElementError: Unable to find an element with the text: /espacio público/`.
+- `SolicitudDetalle.test.tsx > quien publicó le escribe a quien pidió la mascota…` y `> quien pidió la mascota le escribe a quien la publicó…` → `Unable to find an element with the text: /Antes de coordinar un encuentro/i`.
+
+Ambos archivos restaurados con `git checkout --`; `git status --short` vacío y sha1 verificados (`e6cc27c9…` `PublicarMascota.tsx`, `e0392bb0…` `SolicitudDetalle.tsx`). **Cero código de producto tocado, cero tests escritos.**
+
+**Lo que el líder tiene que decidir** (el implementador no lo hace por su cuenta):
+
+1. Cerrar el acceptance 2 **citando** los tres tests de arriba, que es lo que el propio plan manda hacer con la tercera pata ("cítala, no la dupliques"); o
+2. Añadir **solo** un caso dedicado en `SolicitudDetalle.test.tsx` con `/nadie debe pedirte dinero/`. Es el único hueco defendible, y no es de cobertura sino de forma: hoy la protegen dos casos cuyo nombre habla de WhatsApp, así que un refactor de esos casos podría llevarse el candado sin que salte nada. El complemento "sin teléfono no hay aviso" (rama `otroLado.telefono`) tampoco está aseverado en ningún sitio.
+
+El duplicado en `PublicarMascota` no se recomienda en ninguno de los dos caminos: sería la misma aserción, más larga, sobre la misma pantalla.
+
+#### AD-08 paso 2 HECHO (2026-08-16): `titulo_pet` + `GET /adoptar/mascota/{pet_id}`
+
+Rojo→verde real. Rojo inicial: `ImportError: cannot import name 'titulo_pet' from 'reencuentro_api.services.titulos'` (los 10 casos de `test_titulos.py` sin recolectarse) y `assert 404 == 200` en los 8 casos nuevos de `test_paginas.py`, más `AssertionError: assert 'Not Found' == 'La mascota 999 no existe'` en el noveno.
+
+- `src/api/reencuentro_api/services/titulos.py` — `titulo_pet(pet: Pet)` sobre el **modelo ORM** (como `titulo_reporte`), con `from ..models.pet import Pet` a nivel de módulo. Regla copiada literal de `tituloMascota` (`lib/adopcion.ts:204`): `nombre.strip()` manda; si vacío, `[etiqueta de especie, tamano, raza.lower() si raza != "Otra"]` unidos por espacio. `tamano` **crudo**. Docstring del módulo reescrito (decía "para un reporte") y **referencia mutua** puesta en los dos lados del espejo.
+- `src/api/reencuentro_api/routers/paginas.py` — handler calcado de `/reporte/{id}`, `escape` en todo, `og:image` omitido sin fotos, `(pet.fotos or [])`, `historia[:200]`, `lugar = ciudad_texto if zona == "Otro" else zona`, 404 en español. `ETIQUETA_ESTADO_ADOPCION` con el porqué de que `en_proceso` se comparta como "En adopción" escrito **en el código**, no solo aquí.
+- **Helper `_absoluta(ruta, sitio)` extraído y usado por los dos handlers**; los 3 tests previos de reportes son la red de regresión.
+- Tests **+14 de Python**: `tests/api/test_titulos.py` (+5, mismos casos que `adopcion.test.ts` y en el mismo orden) y `tests/api/test_paginas.py` (+9). El del 404 asevera el `detail`, no solo el status: sin eso habría nacido verde con el endpoint sin escribir (una ruta inexistente también da 404).
+
+Verificación: `bash init.sh` en verde — **733 tests de Python + 460 de web** (línea base 719 + 460). Mutación ejecutada con cuatro roturas: `_absoluta` prefijando siempre → caen el test del **reporte** con foto absoluta y el de la mascota (2 rojos, la red de regresión del refactor); og:title fijo en "En adopción" → `assert 'og:title" content="Canela — Ya tiene hogar en Armenia"'`; `escape` fuera del título y la descripción → `<flaca>` crudo en el HTML; `og:image` emitido siempre → `'og:image' is contained here: property="og:image" content=""`. `paginas.py` restaurado y `git diff` verificado. Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **El endpoint todavía no lo alcanza nadie en producción**: el rewrite por user-agent de `vercel.json` es el paso 3. Y el botón "Compartir esta mascota" de la ficha es el paso 5 — hasta entonces la vista previa solo se ve si alguien pega la URL a mano.
+
+#### AD-08 paso 3 HECHO (2026-08-16): rewrite de bots para `/adoptar/mascota/:id`
+
+Rojo→verde real. Rojo inicial: `AssertionError: '/adoptar/mascota/:id' aparece 0 veces en vercel.json` en tres casos y `ValueError: list.index(x): x not in list` en el del orden.
+
+- `vercel.json` — rewrite nuevo con el `has` idéntico al de `/reporte/:id`, **antes** del catch-all. Es lo único que hace que los og tags del paso 2 los vea alguien en producción.
+- `tests/api/test_vercel_rewrites.py` (nuevo, 5 casos, patrón `REPO_ROOT` de `test_vercel_entry.py`): `has` comparado **como objeto** contra el del reporte; los **tres** rewrites de bots con los mismos 7 user-agents (lista escrita a mano en el test = anti-drift); ningún rewrite de bots detrás del catch-all; catch-all último y único. **Límite escrito en el docstring**: verifica la configuración, no la semántica de matching de Vercel (`:id` no cruza `/`) — eso se comprueba en producción, en AD-09.
+- **Googlebot no entra** en la lista ni se añade `<meta name="description">`: cambiaría lo que Google indexa también de `/reporte/:id` y es decisión de SEO con ADR propio. Queda dicho en el test.
+
+Verificación: `bash init.sh` en verde con `EXIT=0` — **738 tests de Python + 460 de web** (733 + 460 al cerrar el paso 2; línea base de la feature 719 + 460). Mutación ejecutada con tres roturas: rewrite movido detrás del catch-all → `'/adoptar/mascota/:id' está detrás del catch-all: los bots recibirían la SPA` (`assert 5 < 4`) y el de "catch-all último"; `TelegramBot` quitado del rewrite nuevo → caen la comparación de objetos y la de la lista (`At index 3 diff: 'LinkedInBot' != 'TelegramBot'`); `Slackbot` quitado del rewrite **preexistente** de zonas → `la lista de bots de '/(cali|armenia|…)' cambió` (los dos rewrites viejos también quedan protegidos). `vercel.json` restaurado y `git diff` verificado: solo las 11 líneas del rewrite nuevo. Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+#### AD-08 paso 1 CERRADO (2026-08-16): el aviso de `SolicitudDetalle` con candado propio
+
+El líder decidió la opción 2 de las dos que dejó el implementador anterior: **un** caso dedicado en `SolicitudDetalle.test.tsx` + su complemento, y **no** duplicar el de `PublicarMascota` (que ya es dedicado, `PublicarMascota.test.tsx:306`).
+
+**Sin rojo inicial, a propósito** (cero código de producto: el aviso está desde AD-06 en `SolicitudDetalle.tsx:316`). El hueco era de **forma**: hoy lo protegían dos casos cuyo nombre habla de WhatsApp.
+
+- `src/web/src/screens/SolicitudDetalle.test.tsx` — `describe` nuevo, +2 casos. El dedicado asevera `/nadie debe pedirte dinero/i` (el fragmento que nombra la estafa; los de WhatsApp usan la entradilla, así que no se pisan). El complemento **"sin teléfono no hay aviso"** cierra la otra mitad: el aviso vive dentro de la rama `otroLado.telefono` y eso es correcto — sin teléfono no hay encuentro que coordinar. Además asevera que la sección **sí** sigue en pantalla, para que la ausencia no sea "media pantalla que no llegó a renderizarse".
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` en verde — **738 tests de Python + 462 de web** (línea base 738 + 460; el backend no se tocó). Mutación ejecutada con dos roturas: aviso borrado → `Unable to find an element with the text: /nadie debe pedirte dinero/i` (cae el caso nuevo **y** los dos de WhatsApp, 3 de 23); aviso **fuera** del ternario, pintado siempre → `expected document not to contain element, found <p class="rounded-xl border border-ochre/40 …` en el complemento (1 de 23). `SolicitudDetalle.tsx` restaurado con su sha1 previo (`e0392bb0…`), `git status --short` sin rastro. Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+#### AD-08 paso 4 HECHO (2026-08-16): nav y landing anuncian la adopción (acceptance 1)
+
+Rojo→verde real. Rojo inicial (2 de los 4 casos nuevos): `TestingLibraryElementError: Unable to find an accessible element with the role "link" and name "Adoptar: mascotas rescatadas que buscan hogar"` y `AssertionError: expected [ '/ Pet Finder Col', …(6) ] to deeply equal [ '/ Pet Finder Col', …(7) ]`. Los otros dos nacen verdes **a propósito**: protegen un orden que hoy ya es correcto y que nada impedía romper (se prueban por mutación, abajo).
+
+- `src/web/src/App.tsx` — `NavLink` a `/adoptar` entre "Mis reportes" y "Centros de ayuda", con el porqué del sitio escrito. El comentario de las rutas ("el enlace en la nav llega en AD-08") caducó y se reescribió: lo que sigue sin anunciarse son las rutas interiores (deck, cuestionario, solicitudes, favoritas), a las que se llega desde el catálogo.
+- `src/web/src/screens/LandingEmergencia.tsx` — enlace terciario *"Adoptar: mascotas rescatadas que buscan hogar"*, hermano del de `/ayudar`, con la misma clase de texto y **sin borde**.
+- Tests **+4 de web**: `LandingEmergencia.test.tsx` (+2: los dos primeros links siguen siendo los CTAs; el de adopción sin `border-`) y `App.test.tsx` (+2: montaje de `/adoptar` y la secuencia exacta de los ocho enlaces de la nav, mapeados a `href + copy` para no usar índices mágicos). La factory del `vi.mock` gana `listarMascotas` y `obtenerAdopcionesResumen` (le faltaban) y el `beforeEach` sus dos `mockResolvedValue`.
+- **La franja verde de la landing NO se tocó**: la línea de adopciones la descartó el líder (tercera llamada de red en la landing de emergencia + dos métricas mezcladas en una franja cuyo número significa "reencuentros").
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 466 de web** (738 + 462 al cerrar el paso 1; el backend no se tocó). Mutación ejecutada con tres roturas: "Adoptar" delante de "Reportes" en la nav → el `toEqual` de la secuencia con `+ "/adoptar Adoptar"` en la cuarta posición; `border-2 border-forest` en el enlace de la landing → `expected 'w-full rounded-xl border-2 border-for…' not to contain 'border-'`; el mismo enlace movido encima de los dos CTAs → `Expected element to have text content: Perdí a mi mascota / Received: Adoptar: mascotas rescatadas que buscan hogar`. Los dos componentes restaurados a su sha1 (`37cb486a…` `App.tsx`, `1c561112…` `LandingEmergencia.tsx`). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **Gotcha del paso, candidato a `memory/memory.md`**: restaurar una mutación con `git checkout -- <archivo>` **borra también la implementación del paso en curso** si todavía no está commiteada — pasó aquí con `App.tsx` y `LandingEmergencia.tsx`, y solo se detectó porque el test siguiente falló con "Unable to find" en vez de con el síntoma esperado de la mutación. Para mutar código **sin commitear**, copiar el archivo antes (`cp` a un scratch) y restaurar con `cp`, no con git. Los sha1 de antes y después son la comprobación.
+
+#### AD-08 paso 5 HECHO (2026-08-16): "Compartir esta mascota" en la ficha (acceptance 1)
+
+Rojo→verde real. Rojo inicial: `TestingLibraryElementError: Unable to find role="button" and name "Compartir esta mascota"` en los dos casos nuevos.
+
+- `src/web/src/screens/MascotaDetalle.tsx` — bloque de compartir entre la cabecera y la franja de "ya encontró familia", en el mismo sitio relativo que en `ReporteDetalle`. `navigator.share` con `try/catch` (cancelar no es un error) y fallback a `clipboard.writeText` + aviso de 3 s. Estado nuevo `avisoCompartir`; nada más de la pantalla cambia.
+- **Cierra el circuito de los pasos 2 y 3**: el endpoint de vista previa existía y el rewrite lo alcanzaba, pero nadie tenía cómo poner ese link en un WhatsApp sin copiarlo de la barra del navegador.
+- Texto: `` `${titulo} — ${estado.texto} en ${lugar}. Ayuda a difundir:` ``, con `titulo = tituloMascota(mascota)` (espejo de `titulo_pet`). El estado viaja dentro por la misma razón que en el og:title del paso 2; la divergencia de `en_proceso` (aquí "En proceso", allí "En adopción") está escrita en el código con su porqué, no solo aquí.
+- Tests **+2 de web** en un `describe` propio, calcados de `ReporteDetalle.test.tsx:372-405`: `navigator.share` stubbeado recibe `{title, text, url}`; sin `share`, `clipboard.writeText(window.location.href)` + la confirmación en pantalla. `vi.unstubAllGlobals()` al final de cada uno, como el precedente. **Archivo de solo adiciones** (47 líneas, cero borrados), igual que el componente (39, cero borrados).
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 468 de web** (738 + 466 al cerrar el paso 4; el backend no se tocó). Mutación ejecutada con tres roturas: rama de `navigator.share` desactivada → `expected "vi.fn()" to be called with arguments: [ ObjectContaining{…} ] / Number of calls: 0`; `setAvisoCompartir` quitado del fallback → `Unable to find an element with the text: Link copiado — pégalo donde quieras.`; texto genérico sin título ni estado → `- "text": "Nala — En adopción en Armenia. Ayuda a difundir:"` en el diff del `objectContaining`. Componente restaurado a su sha1 (`cb6395bb…`) con `cp` desde una copia de scratch, **no** con `git checkout` (ver el gotcha del paso 4). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+#### AD-08 paso 6 HECHO (2026-08-16): cruce desde la Comunidad de `/ayudar`
+
+Rojo→verde real. Rojo inicial: `TestingLibraryElementError: Unable to find role="link" and name "Ver mascotas en adopción"` (el caso de ausencia nace verde a propósito y se prueba por mutación).
+
+- `src/web/src/screens/RedDeApoyo.tsx` — línea terciaria bajo el párrafo "Ayuda puntual entre vecinos: hogar de paso, transporte…", **dentro** de la rama `pestana === 'comunidad'`. Copy literal del plan; la flecha `→` queda fuera del `<Link>` para que el nombre accesible sea solo "Ver mascotas en adopción".
+- **Permanente, no condicionada al selector de categoría**, con el porqué escrito en el código y no solo aquí. Los dos CTAs de la pestaña no se tocaron y siguen siendo lo primero.
+- Tests **+2 de web** en el `describe` de Comunidad, con helper nuevo `renderComunidad()` (monta `?tab=comunidad`, que es como llega un enlace compartido, en vez de pulsar el botón de la pestaña como hacen los casos de la feature 42). El de ausencia espera primero a que la pestaña de Lugares pinte su tarjeta: aseverar la ausencia antes de que llegue la lista pasaría por llegar temprano (`memory/memory.md`, 2026-08-16).
+- Archivos de **solo adiciones** (22 y 46 líneas, cero borrados).
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 470 de web** (738 + 468 al cerrar el paso 5; el backend no se tocó). Mutación ejecutada con dos roturas: línea sacada de la rama de la pestaña → `expected document not to contain element, found <a class="font-medium text-forest underline-offset-4 hover:underline"` en el caso de Lugares; línea condicionada a `categoriaAviso === 'hogar_de_paso'` → `Unable to find role="link" and name "Ver mascotas en adopción"` en el otro. Componente restaurado a su sha1 (`99c82329…`) con `cp` desde scratch. Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+#### AD-08 paso 7 HECHO (2026-08-16): filtros plegados en móvil + `contarFiltrosActivos`
+
+Rojo→verde real. Rojo inicial en los tres frentes: `TypeError: contarFiltrosActivos is not a function` (5 casos de `lib/adopcion.test.ts`); `TestingLibraryElementError: Unable to find an accessible element with the role "button" and name /^Filtros/` (el botón plegable, en las dos pantallas); y el del bug de `edad`, `Unable to find an element with the text: /Ninguna mascota coincide con estos filtros/i` — con un tramo de edad como único filtro y cero resultados, el catálogo decía "Todavía no hay mascotas publicadas".
+
+- `src/web/src/components/FiltrosAdopcion.tsx` — el plegado vive **dentro del componente** (un solo sitio para `CatalogoAdopcion` y `DescubrirMascotas`). Botón `lg:hidden` con `aria-expanded` + `aria-controls="filtros-adopcion"`, y el panel **se desmonta** al plegarse, no `class="hidden"`. Estado inicial `useState(() => typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 1024px)').matches)` — jsdom **29.1.1 confirmado por `npm ls`** no implementa `matchMedia`, así que en tests da plegado (el caso móvil del acceptance) y en Chrome ≥1024px desplegado, sin regresar el `aside` pegajoso del deck. El porqué de jsdom está en el docstring del componente, como pedía el plan. **`src/web/src/test/setup.ts` NO se tocó.**
+- `src/web/src/lib/adopcion.ts` — `contarFiltrosActivos(filtros)`: cuenta valores (no grupos) y la zona suma uno. Alimenta el contador del botón ("Filtros · 2"), que con el panel cerrado es la única señal de que el listado está recortado.
+- `src/web/src/screens/CatalogoAdopcion.tsx` — `hayFiltros = contarFiltrosActivos(filtros) > 0`. **Arregla el bug 4 del plan**: la lista escrita a mano se saltaba `filtros.edad`, y el vacío filtrado se anunciaba como catálogo vacío (con CTA de publicar en vez de "Ver todas las mascotas").
+- Tests **+16 de web, cero borrados**: `FiltrosAdopcion.test.tsx` (nuevo, 8 casos), `lib/adopcion.test.ts` (+5), `CatalogoAdopcion.test.tsx` (+2: el del bug y el de "arranca plegado") y `DescubrirMascotas.test.tsx` (+1). Los **6 casos existentes que pulsan chips** (5 del catálogo, 1 del deck) reciben `abrirFiltros()` con el porqué de la premisa caducada escrito encima del helper, en los dos archivos. Auditado: `git diff` de los `.test.*` no borra ni un `it(`.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 486 de web** (línea base 738 + 470; el backend no se tocó). Mutación ejecutada con tres roturas: (a) `useState(true)` → **14 rojos**, el de "arranca plegado" con `Expected aria-expanded="false" / Received "true"`; (b) contador sin `edad` → **4 rojos**, incluido el del bug con su síntoma original y `expected 4 to be 5` en el anti-drift de los cinco grupos; (c) `class="hidden"` en vez de desmontar → **4 rojos** (`expected <div id="filtros-adopcion" …> to be null` en el componente y `expected document not to contain element, found <button` en las dos pantallas), o sea que los casos **no son decorativos**. Los dos archivos restaurados con `cp` desde scratch —no con `git checkout`— y sha1 verificados (`25bf2564…` `FiltrosAdopcion.tsx`, `623c5ef2…` `adopcion.ts`). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local.
+
+⚠️ **Anotado para el líder (fuera de alcance, no tocado)**: el botón es `lg:hidden` y el estado inicial se calcula **una sola vez** al montar. Si alguien encoge la ventana por debajo de 1024px, pliega los filtros y la vuelve a ensanchar, el panel queda desmontado y el botón para reabrirlo está oculto por CSS: los filtros no se alcanzan hasta recargar. Solo pasa cruzando el breakpoint en escritorio (nunca en un móvil real), y el arreglo —escuchar el `change` del `MediaQueryList`— exige stubbear `matchMedia` en los tests, que es infraestructura compartida. Se deja documentado, no implementado.
+
+#### AD-08 paso 8 HECHO (2026-08-16): medido en Chrome a 360px — un desborde real en el catálogo, arreglado
+
+**Sin rojo inicial y sin test de layout, a propósito**: es la mitad del acceptance 3 que jsdom no puede probar (sin motor de layout, `getBoundingClientRect()` devuelve ceros). Medición en **Chrome real**, `/adoptar` y `/adoptar/descubrir`, a **360×740** y **360×640**.
+
+**Método y sus límites** (para que el revisor pueda repetirlo o discutirlo): iframe de 360px de ancho, porque **Chrome en macOS no encoge la ventana por debajo de ~756px**. Un iframe crea un viewport CSS auténtico y dispara las media queries igual que un teléfono. **No** reproduce el user-agent móvil, ni el input táctil, ni el `devicePixelRatio` de un móvil: lo medido es **layout**, no ergonomía táctil ni rendimiento.
+
+**Números crudos (los dos altos, salvo donde se indica):**
+
+| medida | `/adoptar` (catálogo) | `/adoptar/descubrir` (deck) |
+|---|---|---|
+| botón de filtros | `aria-expanded="false"`, panel **fuera del DOM** | `aria-expanded="false"`, panel **fuera del DOM** |
+| primera foto (`img[alt^="Foto de"]`) | `top 426 / bottom 659` | `top 244 / bottom 477` |
+| `scrollWidth` vs `clientWidth` | **729 vs 360** (antes) → **360 vs 360** (después) | 360 vs 360, sin tocar nada |
+
+⚠️ **Corrección del revisor de AD-08 (medida en Chrome headless por CDP sobre el código final).** Los números del catálogo que se publicaron primero (`top 336 / bottom 569`) eran **pre-fix**: se midieron con `shrink-0` todavía puesto, porque la comprobación en vivo del arreglo lo repuso antes de medir la foto. Al quitarlo de verdad, la fila de píldoras **deja de desbordar y envuelve a 3 líneas**, empujando la rejilla ~90px hacia abajo. El revisor reprodujo la causa exacta: reponiendo `shrink-0` vuelven a salir `336/569`.
+
+Consecuencia, dicha sin adornos: **el catálogo entra entero a 360×740 (659 < 740) pero NO a 360×640** (`bottom 659 > 640`). La tarjeta empieza en pantalla (`top 426`) en los dos altos, así que se ve de inmediato y se termina de leer bajando un poco. El acceptance no fija altura y 740 es el alto realista de un teléfono de 360, así que se cumple; pero la afirmación anterior de que entraba entera "incluido el caso duro de 640" **era falsa y queda retirada**. El deck sí entra entero en los dos altos. Consola sin errores.
+
+**El bug, y por qué existía.** `src/web/src/screens/CatalogoAdopcion.tsx:141` tenía `className="flex shrink-0 flex-wrap items-center gap-2"` en la fila de píldoras de la cabecera. **`shrink-0` y `flex-wrap` se anulan**: como item flex de su padre (`flex flex-wrap items-start justify-between gap-3`), `shrink-0` fija el contenedor al ancho de su contenido (**705px** con las cinco píldoras), así que su propio `flex-wrap` nunca llega a envolver y lo que desborda es la **página entera**. Quitado `shrink-0`: la fila mide **312px** y `documentElement.scrollWidth` baja de **729 a 360**, igual que `clientWidth`.
+
+Revisado antes de tocarlo (el líder pidió parar si había una razón): es un **resto de AD-03** (`a48017d`). `shrink-0` vivía en el `<Link>` suelto "Dar en adopción", donde sí tenía sentido —evitar que la píldora se comprimiera—, y se arrastró al `<div>` nuevo cuando se le añadió "Descubrir una por una". Con dos píldoras no se notaba; con cinco es un desborde. **No protege nada hoy.**
+
+- `src/web/src/screens/CatalogoAdopcion.tsx` — `shrink-0` fuera, con un comentario encima que cita los 729 → 360 para que la razón sea comprobable y no vuelva por "estética". Nada más de la cabecera se tocó.
+- `src/web/src/screens/CatalogoAdopcion.test.tsx` — **+1 caso, guarda de CLASE y no de layout**, etiquetado así en el nombre (`(clases, no layout)`) y en su comentario: asevera que la fila no combina `shrink-0` con `flex-wrap`. **Lo que no hace, dicho en el propio test**: no comprueba que la página quepa en 360px; si el desborde llega por otro camino (una píldora más ancha, otro contenedor), seguirá verde. Lleva un **anti-falso-verde**: comprueba que el elemento hallado contiene las cinco píldoras, para que una reestructuración de la cabecera lo haga **fallar** en vez de aprobar las clases de un elemento cualquiera.
+
+**Lo que se midió bien y NO se tocó**: filtros plegados en las dos pantallas y los dos altos (el paso 7 funciona en Chrome, no solo en jsdom); la primera foto sin scroll; el deck sin desborde. La nav sí extiende sus enlaces más allá de 360px, pero es el **carrusel intencional** de la feature 16 (`overflow-x-auto` + `shrink-0` en cada enlace): se clipa dentro de la nav y **no** suma al `scrollWidth` del documento. No es un bug y no se tocó.
+
+Verificación: `npx tsc -b --force` limpio a mano y `bash init.sh` con `EXIT=0` — **738 tests de Python + 487 de web** (línea base 738 + 486; el backend no se tocó). Mutación ejecutada con dos roturas: `shrink-0` repuesto → `expected element not to have class "shrink-0" / Received: flex shrink-0 flex-wrap items-center gap-2`; el enlace "Descubrir una por una" envuelto en un `<span>` (la reestructuración que dejaría verde a un test ingenuo) → `<span /> does not contain: <a … href="/adoptar/mi-hogar">`. Componente restaurado con `cp` desde scratch y sha1 verificado (`1cc02287…`). Cero `.sql`; `seed.py` solo el de `init.sh` sobre la SQLite local. `feature_list.json` sin tocar.
+
+**Pendientes de AD-08 para el líder**: pasos 9 (`docs/architecture.md`) y 10 (docs + paquete para el revisor).
+
+#### AD-08 paso 9 HECHO (2026-08-16): `docs/architecture.md` reescrito contra el código
+
+**Sin rojo inicial y sin test nuevo, a propósito**: son `.md`. El oráculo de este paso es `CHECKPOINTS.md:35` ("documentación que describe un comportamiento que el código no tiene" no es un checkpoint válido), y la regla de trabajo fue **si no se puede comprobar con un comando, no se escribe**. Cada afirmación del archivo se midió antes de reemplazarla.
+
+**Las seis falsedades del líder: las seis confirmadas.** Con dos correcciones de conteo a su favor y en su contra:
+
+| § | Decía | Medido | Comando |
+| --- | --- | --- | --- |
+| 1 | única dep nueva: `python-multipart` | + `requests`, `httpx`, `psycopg[binary]` / + `leaflet`, `qrcode`, `react-easy-crop` | `cat src/api/requirements.txt src/web/package.json` |
+| 2 | 2 modelos | **14** | `grep -c __tablename__ models/*.py` |
+| 2 | "sin migraciones formales; `seed.py` hace `drop_all`" | `migrations/` con 5 `.sql` + README + **4** anti-drift | `ls migrations/ tests/api/ \| grep migracion` |
+| 3 | 3 servicios | **12** (11 puros + `db.py`), **no 13** | `ls services/*.py` |
+| 4 | 6 grupos de endpoints | **12 routers**, **no 13** | `grep -c include_router main.py` |
+| 5 | mapa = lienzo CSS/SVG en `lib/mapa.ts` | `import L from 'leaflet'` (ADR 0008) y **`lib/mapa.ts` no existe** | `head -2 components/MapaLienzo.tsx; ls src/web/src/lib/` |
+
+⚠️ **Dos conteos del plan no cuadran, y mandan los medidos**: servicios son **12** y routers **12** (el plan decía 13 y 13 — la diferencia en ambos casos es `__init__.py`, que está vacío en las dos carpetas). Y las rutas de `/adoptar` son **9**, no 8: `grep -c 'path="/adoptar' src/web/src/App.tsx` → 9 (la novena es `/adoptar/mascota/:id/editar`).
+
+**Lo que se escribió, además de corregir**:
+
+- §2 agrupa los 14 modelos por dominio (cuenta transversal / emergencia 5 / red de apoyo 3 / adopción 5) y señala la **colisión de `user_id`** (`pets` = quien publica; `swipes`, `matches`, `favorites` = quien mira).
+- §2 gana la sección de migraciones: SQL aditivo a mano en Supabase, RLS obligatorio en tabla nueva, anti-drift por migración, **estado real** (`AD-01-pets.sql` ejecutada; las cuatro de adopción no) y `seed.py` acotado a la SQLite local **con el motivo escrito** (datos reales de gente que perdió a su mascota).
+- §4 explica la regla de orden literal-antes-que-dinámica y por qué `paginas.py` va último; incluye la ruta de bots nueva del paso 2 y el bucle de zonas.
+- §5 lista las pantallas reales por dominio y deja escrito que `MapaLienzo.tsx` **conserva el nombre del lienzo que reemplazó**, que es exactamente lo que hizo sobrevivir la mentira dos ADRs.
+- §6 añade `hasActiveUser()` (lo que distingue "nunca se registró" del fallback a `DEMO_USER_ID = 1`).
+- §7 añade `SKIP_DB_CREATE_ALL`, el inventario de env vars (`grep -rn "os.environ.get" src/api api`) y el **flujo numerado del ALTER aditivo antes del merge**, con el porqué operativo.
+
+**Nits cerrados**: `CHECKPOINTS.md` (`psycopg2-binary` → `psycopg[binary]==3.3.4`, con el motivo del driver v3) y `docs/conventions.md` (`mapa` fuera de los ejemplos de `lib/`).
+
+**Deuda encontrada de paso y anotada, no arreglada** (es del líder): `qrcode` (feature 44) y `react-easy-crop` (feature 35) entraron **sin ADR**, con su justificación solo en `changes.md`, y `CHECKPOINTS.md` exige un ADR por dependencia nueva. Queda dicho en los dos archivos en vez de dejar la lista pareciendo completa.
+
+Verificación: `bash init.sh` con `Todo en verde.` — **738 tests de Python + 487 de web**, la misma cuenta que al cerrar el paso 8 (solo se tocaron `.md`). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. `feature_list.json` sin tocar.
+
+#### AD-08 paso 10 HECHO (2026-08-16): `CLAUDE.md`, `AGENTS.md`, `product-research.md` §11 — último paso de la feature
+
+**Sin rojo inicial y sin test nuevo, a propósito**: son `.md`, y el oráculo es la lectura del revisor (acceptance 4). Misma regla que el paso 9: **si no se puede comprobar con un comando, no se escribe**.
+
+- **`CLAUDE.md`** — "Qué es esto" gana un párrafo de fase 2 **detrás** del de emergencia, con el orden codificado (CTAs, enlace terciario, 8.º de la nav) y los tests que lo fijan; el bloque **"Historia"** aclara que el módulo **volvió portado a mano**, sin merge ni cherry-pick, y que `adopta-v1` sigue siendo archivo intocable; el mapa del repo corrige *"11 features"* por los **54 items** reales de `feature_list.json` + los 9 de `feature_list_adopcion.json` (con la regla de que `init.sh` solo valida el primero) y **nombra `migrations/`**; "Estado actual" se rehace con la fecha, **738 + 487**, qué está en prod y qué solo en `feat/adoptar`, y el **bloqueo de merge** por las cuatro migraciones.
+- **`AGENTS.md`** — sección nueva "Dónde vive el módulo de adopción": archivos por capa (modelos, servicios, routers, pantallas, `migrations/`) y los ADRs que lo gobiernan — **0002** (match no mutuo) y **0003** (afinidad al vuelo) heredados, **0013** (WhatsApp, supera al 0004). También el recorte del apadrinamiento. De paso, dos filas mentirosas: la de "Cambiar el esquema **SQLite**" (que no nombraba `migrations/` ni el anti-drift) y la de features (que no nombraba el segundo JSON).
+- **`docs/product-research.md` §11** — por qué la adopción entra ahora (la mascota que nadie reclama; el final del arco de la emergencia, no otro producto) y por qué la emergencia no cede el primer plano; **el recorte del apadrinamiento** (sin pasarela de pagos, y `Organizacion.como_donar` ya cubre la intención con más información útil); **WhatsApp en vez de chat** (el `ConnectionManager` en memoria del ADR 0004 no funciona **ni una vez** en serverless); y la **nota de backlog** de la búsqueda por descripción con mascotas, fuera de alcance a propósito.
+
+⚠️ **Séptima falsedad, encontrada al verificar y no anunciada por el líder**: `CLAUDE.md` y `AGENTS.md` mandaban leer la era Adopta con `git show adopta-v1:ruta`. **Ese comando falla aquí**: `fatal: invalid object name 'adopta-v1'` — no hay rama local, solo `origin/adopta-v1` y el tag `adopta-v1.0.0`. Corregido en los dos archivos con el comando que sí resuelve, y dicho por qué.
+
+Verificación: `bash init.sh` con `Todo en verde.` — **738 tests de Python + 487 de web**. Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. **`feature_list.json` y `feature_list_adopcion.json` sin tocar**: el `done` en los dos es del revisor.
+
+### Paquete para el revisor — AD-08 (integración transversal), 10 pasos cerrados
+
+**Estado**: los 10 pasos implementados y commiteados en `feat/adoptar` — `e2df25f`, `10e3058`, `c549402`, `3656d06`, `4147d8f`, `d39d432`, `337a8b9`, `78c6805`, `400dbc5` + este. **`AD-08-integracion-transversal` sigue `in_progress` en `feature_list.json` y `todo` en `feature_list_adopcion.json`**: el `done` en los dos lo pone el revisor tras correr `init.sh` por su cuenta.
+
+**Delta de tests desde el arranque de AD-08**: línea base **719 Python + 460 web** → **738 + 487**, o sea **+19 Python / +27 web**, y **cero tests borrados** (el paso 7 modificó 6 casos existentes in situ, con el porqué escrito, y los auditó con `git diff` para que no desapareciera ningún `it(`). Reparto: paso 2 +14 Py, paso 3 +5 Py; paso 1 +2 web, paso 4 +4, paso 5 +2, paso 6 +2, paso 7 +16, paso 8 +1. **Cero dependencias nuevas** en los cuatro manifiestos.
+
+**Los 5 acceptance con el nombre exacto del test que ejercita cada uno:**
+
+1. *"La nav y la landing dan acceso a `/adoptar` y compartir una ficha muestra vista previa con foto y nombre en WhatsApp (test del HTML de bots)"*
+   - **Nav y landing**: `App.test.tsx::la nav lista los ocho enlaces en su orden exacto, con Adoptar detrás de la emergencia (AD-08)` (mapea `href + copy`, sin índices mágicos) y `LandingEmergencia.test.tsx::enlaza el catálogo de adopción como acceso terciario, sin borde (AD-08)`. El candado de que la emergencia no cede el primer plano es `LandingEmergencia.test.tsx::los dos primeros enlaces siguen siendo los CTAs de emergencia`, que fija `enlaces[0]`/`enlaces[1]`.
+   - **El HTML de bots** (`tests/api/test_paginas.py`): `::test_pagina_de_mascota_lleva_los_og_tags`, `::test_pagina_de_mascota_absolutiza_la_primera_foto`, `::test_pagina_de_mascota_con_foto_absoluta_la_usa_tal_cual`, `::test_pagina_de_mascota_sin_fotos_omite_og_image`, `::test_pagina_de_mascota_en_zona_otro_usa_la_ciudad_escrita`, `::test_pagina_de_mascota_sin_nombre_usa_el_titulo_compuesto`, `::test_el_og_title_no_miente_sobre_el_estado` (compartir "En adopción" una mascota ya adoptada sería falso), `::test_el_texto_de_usuario_va_escapado` y `::test_pagina_de_mascota_inexistente_devuelve_404` — este último asevera el `detail` en español, no solo el status: sin eso habría nacido verde con el endpoint sin escribir.
+   - **El nombre de la vista previa** (`tests/api/test_titulos.py`, espejo exacto de `lib/adopcion.test.ts`): `::test_el_nombre_de_la_mascota_manda_cuando_lo_tiene`, `::test_sin_nombre_compone_especie_tamano_raza`, `::test_sin_raza_no_deja_huecos_ni_cuelga_el_separador`, `::test_la_raza_otra_no_aporta_senas`, `::test_el_tamano_va_crudo_no_la_etiqueta_de_la_ui`.
+   - **Que el bot llegue** (`tests/api/test_vercel_rewrites.py`): `::test_la_ficha_de_adopcion_tiene_su_rewrite_de_bots`, `::test_el_bloque_de_bots_de_la_mascota_es_identico_al_del_reporte` (comparado **como objeto**), `::test_los_tres_rewrites_de_bots_escuchan_a_los_mismos_user_agents` (lista escrita a mano en el test = anti-drift), `::test_ningun_rewrite_de_bots_queda_detras_del_catch_all` y `::test_el_catch_all_es_el_ultimo_rewrite`. **Límite declarado en el docstring**: verifica la configuración, no la semántica de matching de Vercel — eso es AD-09, en producción.
+   - **Que alguien pueda compartirlo** (sin esto los og tags solo se alcanzan pegando la URL a mano): `MascotaDetalle.test.tsx::compartir usa navigator.share cuando existe` y `::sin navigator.share copia el link y lo confirma`.
+   - **El cruce del paso 6**: `RedDeApoyo.test.tsx::la Comunidad cruza al catálogo de adopción sin exigir filtrar antes` y `::el cruce a adopción NO aparece en la pestaña de Lugares`.
+2. *"Los avisos de seguridad aparecen al publicar y al contactar en el módulo"* — **cerrado con tests y cero código de producto**: el aviso ya estaba en las tres pantallas desde AD-02/AD-06, y volver a implementarlo lo habría duplicado en pantalla.
+   - Publicar: `PublicarMascota.test.tsx::muestra el aviso de espacio público antes de publicar`.
+   - Contactar (ficha): `MascotaDetalle.test.tsx::incluye el aviso de seguridad antes de coordinar un encuentro`.
+   - Contactar (solicitud), el hueco real que se cerró en el paso 1 — era de **forma**, no de cobertura: lo protegían dos casos cuyo nombre habla de WhatsApp, así que un refactor de esos casos se habría llevado el candado. Ahora: `SolicitudDetalle.test.tsx::avisa de la estafa del dinero junto a los datos de contacto` (asevera `/nadie debe pedirte dinero/i`, el fragmento que nombra la estafa) y su complemento `::sin teléfono del otro lado no aparece: no hay encuentro que coordinar`, que además comprueba que la sección **sí** sigue en pantalla, para que la ausencia no sea "media pantalla que no llegó a renderizarse".
+3. *"En móvil a 360px el módulo se usa sin desbordes: los filtros arrancan plegados y la primera tarjeta del catálogo y la del deck se ven sin hacer scroll"* — **acceptance partido en dos mitades, y solo una tiene candado automático. Leer el aviso de abajo antes que la lista.**
+   - **Mitad con test** (*"los filtros arrancan plegados"*): `FiltrosAdopcion.test.tsx::arranca plegado: el panel no está en el DOM y el botón lo dice`, `::pulsar el botón despliega los chips y la zona`, `::volver a pulsarlo lo pliega y el panel desaparece del DOM otra vez`, `::el aria-controls del botón apunta al panel que despliega`, `::plegado, el botón cuenta los filtros puestos`, `::el contador incluye el tramo de edad`; en las dos pantallas, `CatalogoAdopcion.test.tsx::al montar, los chips no están en el documento: la rejilla empieza arriba` y `DescubrirMascotas.test.tsx::los filtros arrancan plegados: lo primero de la pantalla es la carta`. El bug de `edad` que se arregló de paso: `CatalogoAdopcion.test.tsx::con solo un tramo de edad y cero resultados, el vacío dice que es por los filtros` + los 5 casos de `lib/adopcion.test.ts` sobre `contarFiltrosActivos`.
+   - **Mitad SIN candado automático** (*"la primera tarjeta se ve sin hacer scroll"* y "sin desbordes"): ⚠️ **NO está cubierta por ningún test, y no se presenta como si lo estuviera.** **jsdom no tiene motor de layout**: `getBoundingClientRect()` devuelve ceros, así que cualquier test de posición ahí sería decorativo — el género exacto que `memory/memory.md` documenta el 2026-08-16. Se verificó **en Chrome real** (paso 8), a **360×740 y 360×640**, en un iframe de 360px porque Chrome en macOS no encoge la ventana por debajo de ~756px. **Los números, no adjetivos** (catálogo corregido por el revisor: los primeros eran pre-fix, ver arriba): primera foto (`img[alt^="Foto de"]`) en el catálogo `top 426 / bottom 659` y en el deck `top 244 / bottom 477`; **el deck entra entero en los dos altos y el catálogo solo a 740** (`659 > 640`), aunque empieza en pantalla en ambos; `aria-expanded="false"` y panel **fuera del DOM** en las dos pantallas y los dos altos; `documentElement.scrollWidth === clientWidth === 360` en el deck sin tocar nada y en el catálogo **después** de arreglar un desborde real (`shrink-0` + `flex-wrap` en la fila de píldoras, que se anulan: **729 vs 360** antes, **360 vs 360** después, con la fila pasando de 705px a 312px). Consola sin errores. **Límites del método, dichos**: el iframe da un viewport CSS auténtico y dispara las media queries, pero **no** reproduce el user-agent móvil, el input táctil ni el `devicePixelRatio` de un teléfono — se midió **layout**, no ergonomía táctil ni rendimiento. Lo único que quedó en tests de ese arreglo es una **guarda de clase**, etiquetada como tal en su propio nombre: `CatalogoAdopcion.test.tsx::la fila de píldoras del header no combina shrink-0 con flex-wrap (clases, no layout)` — **no** comprueba que la página quepa en 360px, y si el desborde vuelve por otro camino seguirá verde. Lleva un anti-falso-verde (exige que el elemento hallado contenga las cinco píldoras).
+4. *"`CLAUDE.md`, `AGENTS.md` y docs reflejan el módulo (el revisor lo verifica leyéndolo)"* — pasos 9 y 10, **sin test por naturaleza**: el oráculo es la lectura. Lo que sí se puede contrastar con un comando es cada afirmación que quedó escrita; la tabla de medición está en el registro del paso 9 (dependencias, 14 modelos, 12 servicios, 12 routers, Leaflet, `lib/mapa.ts` inexistente, 5 `.sql` + 4 anti-drift). Archivos tocados: `docs/architecture.md` (reescrito), `CLAUDE.md`, `AGENTS.md`, `docs/product-research.md` (§11 nuevo), `CHECKPOINTS.md` y `docs/conventions.md` (nits).
+5. *"`bash init.sh` en verde"* — corrido de verdad en cada paso. El último: **738 tests de Python + 487 de web**, `Todo en verde.`, `EXIT=0`. `init.sh` **no typechequea el frontend**: `npx tsc -b --force` se corrió aparte y a mano en cada paso con código.
+
+⚠️ **Las cuatro migraciones siguen SIN EJECUTAR y el merge a `main` está bloqueado.** Orden obligatorio: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. AD-08 **no añadió esquema** (ni una tabla, ni una columna), así que no suma nada a esa cola — pero tampoco la resuelve. Con `SKIP_DB_CREATE_ALL=1` en producción no hay red de seguridad: si el código llega antes que las tablas, cae la API entera. Es un **gate de merge, no un gate de `done`**, el mismo criterio con el que ya están `done` AD-03, AD-05 y AD-07. En toda AD-08 **no se ejecutó ni una sentencia SQL contra ninguna base**, y `scripts/seed.py` solo corrió el de `init.sh` sobre la SQLite local.
+
+**Deuda anotada durante la feature, para que el revisor no la lea como olvido**:
+
+1. **Filtros inalcanzables cruzando el breakpoint en escritorio** (paso 7, medido y no tocado): el botón es `lg:hidden` y el estado inicial se calcula una sola vez al montar. Encoger la ventana bajo 1024px, plegar, y volver a ensancharla deja el panel desmontado con el botón oculto por CSS. Nunca pasa en un móvil real; el arreglo exige stubbear `matchMedia` en los tests, que es infraestructura compartida.
+2. **`qrcode` y `react-easy-crop` entraron sin ADR** (encontrado en el paso 9), con su porqué solo en `changes.md`, mientras `CHECKPOINTS.md` exige un ADR por dependencia nueva. Anotado en `CHECKPOINTS.md` y en `docs/architecture.md` §1 en vez de dejar la lista pareciendo completa.
+3. **`git show adopta-v1:…` no funciona** en este working tree (no hay rama local): corregido en `CLAUDE.md` y `AGENTS.md` a `origin/adopta-v1` / el tag.
+4. Heredadas y sin cambios: `ya_solicitada` sigue en `False` en toda la app (deuda de AD-05, con el docstring de `obtener_mascota` diciéndolo); `npx prettier` local (3.9.6) y el del hook (v3.1.0) no formatean igual — **manda el hook**.
+
+## Veredicto del revisor — AD-08 integración transversal (2026-08-16): APROBADA con una corrección de registro
+
+`bash init.sh` corrido por el revisor **dos veces**: **738 tests de Python + 487 de web**, `Todo en verde.`, `EXIT=0`. Delta declarado y verificado: **+19 Python / +27 web** sobre la línea base de 719 + 460.
+
+**Verificado por rotura:**
+
+- **Los tres candados de prioridad caen los tres.** Mover el enlace de `/adoptar` encima de los CTAs → `Expected: Perdí a mi mascota / Received: Adoptar…`; ponerle borde → `expected … not to contain 'border-'`; adelantarlo en la nav → el `toEqual` de la secuencia. La emergencia conserva su sitio, y eso es ahora un test.
+- **Los avisos de seguridad**: borró **cada** `<AvisoSeguridad>` y los tres dan rojo (el de `SolicitudDetalle`, tres rojos: los dos de WhatsApp más el candado dedicado que añadió el paso 0). El paro del implementador en el paso 1 estaba justificado.
+- **El endpoint de bots probado de verdad**, no solo por test: `GET /adoptar/mascota/1` → 200 con `og:title` "Nala — En adopción en Armenia" y `og:image` absoluta; `/adoptar/mascota/9999` → 404 con el `detail` correcto.
+- **`vercel.json`**: mascota en índice 4, catch-all en 5, `has` idéntico como objeto al de `/reporte/:id`. Movido detrás → 2 rojos.
+- **Cero tests borrados**: ni una línea `-` con `it(` o `def test_` en todo el rango. `def test_` 612→631, `it(` 441→468.
+- **Seis aserciones rotas fuera de la lista declarada** (raza "Otra", `tamano` crudo, zona "Otro"/`ciudad_texto`, `aria-controls`, la zona en `contarFiltrosActivos`, la flecha del `<Link>`): **las seis en rojo. Ninguna decorativa.**
+- **Los docs, contados por comando**: el implementador tenía razón y el líder no — 12 servicios y 12 routers (no 13), 9 rutas de `/adoptar` (no 8), 14 modelos, 5 `.sql`, 4 anti-drift. `lib/mapa.ts` no existe y `MapaLienzo.tsx` abre con `import L from 'leaflet'`. La séptima falsedad confirmada: `git show adopta-v1:…` → `fatal: invalid object name`, mientras `origin/adopta-v1` y el tag resuelven en `cde337f`.
+
+**El hallazgo — mediciones de 360px publicadas pre-fix (corregido, ver la sección del paso 8):** los números del catálogo `top 336 / bottom 569` se midieron con `shrink-0` todavía puesto. El revisor midió sobre el código final con **Chrome headless por CDP** —que sí honra viewports pequeños, a diferencia de la ventana de macOS— y obtuvo `top 426 / bottom 659`; reprodujo la causa reponiendo la clase. Sus números del **deck coinciden al píxel** con los del iframe (`244/477`), lo que valida los dos métodos. Consecuencia retirada del registro: el catálogo **no** entra entero a 360×640. Aprobada igualmente porque el acceptance no fija altura, a 360×740 se cumple entero, la tarjeta empieza en pantalla en ambos altos, y **lo esencial se verificó sobre el código final**: `scrollWidth === clientWidth === 360` en las dos pantallas y los dos altos (el fix de `shrink-0` es real), filtros plegados con el panel fuera del DOM en los cuatro casos.
+
+**Nit corregido también**: `docs/architecture.md` §7 omitía `SUPABASE_SERVICE_ROLE_KEY`, el alias de respaldo que lee `media.py:46`.
+
+**AD-08 marcada `done` en los dos JSON.** Cero `in_progress`, `validate_feature_list.py` exit 0.
+
+⚠️ AD-08 **no añadió esquema**: la cola sigue en cuatro migraciones escritas y **ninguna ejecutada** — `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. El merge a `main` sigue bloqueado.
+
+## AD-09 en curso (2026-08-16): la mitad que NO toca producción, entregada
+
+Rama `feat/adoptar`. **Línea base: 738 tests de Python + 487 de web**, que no se mueve: este trabajo es solo `.md`. AD-09 **sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json`; **no se puede marcar `done`** hasta que las cuatro migraciones corran en Supabase y el módulo se verifique en producción.
+
+**Encargo explícito de esta sesión: cero autorización para tocar producción.** No se ejecutó ningún `.sql` contra ninguna base (solo la SQLite local de `init.sh`), no se mergeó ni se pusheó nada, y no se escribió una sola fila en `petfinder-col.com`. Lo único que se hizo contra producción son **GET de solo lectura** para constatar su estado, citados abajo.
+
+### Los cuatro acceptance de AD-09: dónde está la línea
+
+| # | Acceptance | Estado | Por qué |
+|---|---|---|---|
+| 1 | *Todas las tablas del módulo existen en prod (verificadas contra `information_schema`) con RLS y cero errores en los endpoints* | ❌ **ABIERTO** | Exige ejecutar las cuatro migraciones en el SQL Editor de Supabase. **Solo el dueño**, con autorización explícita. Lo que sí queda listo: el orden, el porqué y las tres consultas de verificación, listas para pegar |
+| 2 | *El flujo completo funciona en producción con un caso real de prueba, documentado con evidencia en `progress/`* | ❌ **ABIERTO** | Exige que el código esté mergeado y desplegado, es decir, exige el 1 primero. El recorrido de 10 pasos y su limpieza quedan escritos |
+| 3 | *CHANGELOG 3.0.0 publicado y `main`/`develop` sincronizadas* | 🟡 **MITAD CERRADA** | El `CHANGELOG.md` con el release **3.0.0 está escrito**. Sincronizar `main`/`develop` es merge + push: **no autorizado en esta sesión**, y además bloqueado por el acceptance 1 |
+| 4 | *`validate_feature_list.py` sale 0 con los items de este módulo `done` en ambos JSON* | ❌ **ABIERTO** | `validate_feature_list.py` sale **0 hoy** (comprobado), pero con AD-09 en `in_progress`, que es lo correcto: el `done` lo pone el revisor y solo tiene sentido cuando 1 y 2 estén cerrados |
+
+**Dos de los cuatro solo los puede cerrar el dueño del repo, y eso es lo esperado**, no un fallo de la feature.
+
+### Lo entregado
+
+- **`CHANGELOG.md` — release 3.0.0** (Keep a Changelog, estilo de los releases anteriores). Cubre AD-01…AD-08 y dice con la misma claridad lo añadido y **lo recortado a propósito**: apadrinamiento (sin pasarela de pagos aporta poco; `Organizacion.como_donar` ya cubre la intención) y chat interno (el `ConnectionManager` en memoria del ADR 0004 no funciona ni una vez en serverless → **ADR 0013**, WhatsApp, que lo supera). Encabeza el aviso de que **el release no está desplegado**.
+- **`migrations/README.md`** — índice al día con las cinco migraciones y sección nueva **"Cierre del módulo (AD-09)"**: el orden obligatorio con su porqué, las tres consultas de verificación (5 tablas con `rowsecurity`, `ck_pets_publicador_exclusivo`, los tres `UNIQUE`) y el aviso del `SKIP_DB_CREATE_ALL=1`.
+- **`docs/despliegue-modulo-adopcion.md`** (nuevo) — el paquete operativo para el dueño, en el tono de `docs/revision-modulo-adopcion.md`: TL;DR con los `pbcopy`, estado medido de producción hoy, las cuatro migraciones una por una, verificación conjunta, qué pasa si se salta el orden, checklist post-merge con `curl` y **poll del bundle por string marcador**, el recorrido manual de 10 pasos y qué no entra en el release.
+
+### Lo medido contra producción (solo GET, 2026-08-16)
+
+`/health` → `200 {"status":"ok"}` · `/api/pets` → `200 []` (tabla migrada, **cero mascotas publicadas**) · `/api/pets/adopciones` → `200 {"total":0,...}` · `/api/pets/deck` → **422** `int_parsing` sobre `pet_id` (hoy `deck` lo captura `GET /{pet_id}`) · `/api/solicitudes`, `/api/users/1/home-profile`, `/api/users/1/favorites` → **404 `{"detail":"Not Found"}`** · `/adoptar/mascota/1` con user-agent de WhatsApp → el `index.html` estático con og genéricos (el rewrite de bots de AD-08 no está; el de `/reporte/1` sí llega a la API). Bundle servido `/assets/index-CtFTkjan.js`: contiene `"Dar en adopción"` (AD-02) y **no** contiene `"Mis favoritas"` ni `"mascotas rescatadas que buscan hogar"` — de ahí el marcador elegido para el poll.
+
+Comprobado también por comando, no de memoria: **cero dependencias nuevas** (`git diff origin/main...feat/adoptar` sobre los cuatro manifiestos, **sin salida**), cero variables de entorno nuevas, **75 commits** pendientes de merge, y `origin/adopta-v1` + tag `adopta-v1.0.0` intactos en `cde337f`. ⚠️ Ojo con la referencia: el `main` **local** está rancio (`1593f0e`, feature 46); lo desplegado es `origin/main` (`7c4d391`). Comparar contra `main` a secas da resultados falsos — se detectó en esta sesión.
+
+### Tres hallazgos para el líder (medidos, no tocados)
+
+1. **En producción no existe el usuario `id = 1`**: `GET /api/users/1` → `404 {"detail":"El usuario 1 no existe"}`. Varios comentarios del repo (gates de `hasActiveUser()`, `changes.md`, `docs/`) afirman que el `DEMO_USER_ID = 1` "es una persona real en producción" — hoy es falso. **No cambia nada del arreglo `esUsuarioActivo()`**, que sigue siendo correcto, pero sí desmiente la justificación tal como está escrita. Decidir si se corrige la prosa o se deja.
+2. **La limpieza del acceptance 2 no se puede completar por la API tal como está hoy.** No hay endpoint para borrar un swipe ni una solicitud (`routers/swipes.py` solo `POST`; `routers/solicitudes.py` solo `GET` + las cuatro acciones), y `swipes.pet_id`/`matches.pet_id` son FK **sin `ON DELETE`** (`grep -i "on delete" migrations/*.sql` sin salida), así que en Postgres el `DELETE` de una mascota con swipe o solicitud **debería fallar por integridad** — `despublicar_mascota` no lo contempla. **Predicho por el esquema, no medido**: SQLite no fuerza FKs y la suite no puede verlo (`memory/memory.md`, 2026-08-15). Las tres salidas posibles quedan escritas en `docs/despliegue-modulo-adopcion.md` §6 para que el dueño elija **antes** de swipear; la cuarta (que el `DELETE` limpie sus filas hijas o responda 409, como `eliminar_reporte` con el puente) **es código nuevo y no entra en AD-09**.
+3. **La cabecera de `migrations/AD-01-pets.sql` quedó rancia**: sigue diciendo "ESCRITO, NO EJECUTADO" aunque se ejecutó el 2026-08-15. Anotado en `migrations/README.md`; no se tocó el `.sql` para no meter un cambio de contenido en un archivo ya aplicado dentro de un trabajo puramente documental.
+
+### Lo que falta para cerrar AD-09 (requiere autorización explícita del dueño)
+
+1. Ejecutar las cuatro migraciones en Supabase, en orden, y correr las tres consultas de verificación → cierra el acceptance 1.
+2. Mergear `feat/adoptar` y comprobar que el deployment existió de verdad (poll del bundle; el auto-deploy de `main` ya falló en silencio una vez) → media parte del 3.
+3. Recorrido manual en `petfinder-col.com` con evidencia aquí, decidiendo antes la salida de limpieza del hallazgo 2 → cierra el acceptance 2.
+4. Revisor independiente: `init.sh`, veredicto y `done` en los dos JSON → cierra el 4.
+
+### AD-09 (2026-08-16): arreglado el 500 de despublicar una mascota con rastros
+
+**AD-09 sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json` — el `done` es del revisor, y además los dos acceptance que dependen de producción siguen abiertos. Esto no los cierra: cierra el **hallazgo 2** que quedó anotado arriba, que resultó ser un bug de producto y no una limitación de la guía de limpieza.
+
+**Rojo inicial, citado**: `pet` con 1 swipe → `session.delete(p); commit()` → `sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed [SQL: DELETE FROM pets WHERE pets.id = ?]`. En producción (Postgres, que sí fuerza las FK) eso es un **500 con traza** para quien publicó su mascota, recibió un corazón e intentó despublicarla.
+
+**Dónde quedó**:
+
+- `src/api/reencuentro_api/routers/pets.py::despublicar_mascota` — 404 → 403 → **409 si hay solicitudes vivas** → cascada de `swipes`/`favorites`/solicitudes terminales → fotos → `session.delete(pet)`.
+- `src/api/reencuentro_api/services/solicitudes.py` — `ESTADOS_TERMINALES` (bajado del router: `routers/solicitudes.py` ya importa de `.pets`, así que la vuelta era **circular**) y `mensaje_solicitudes_vivas()`, función pura con la concordancia singular/plural del 409.
+- `tests/api/test_despublicar_rastros.py` (nuevo, 13 casos) — base propia con `PRAGMA foreign_keys=ON`; **el `conftest` global no se tocó**.
+- `tests/api/test_solicitudes_service.py` — +2 casos (frontera terminal, copy del 409). `tests/api/test_pets_publicar.py` — solo un comentario que apunta al archivo nuevo.
+- `docs/despliegue-modulo-adopcion.md` §6 — reescrita: era "limitación pendiente, tres salidas a elegir"; ahora describe el comportamiento real y el recorrido manual se limpia con **una sola llamada** sobre una única mascota.
+
+**Lo que hace que estos tests no sean decorativos**: SQLite no fuerza las FK, así que el test normal de esta suite **pasa en verde con el código roto** — se comprobó escribiéndolo (204, mascota borrada, dos swipes huérfanos, verde). El fixture nuevo enciende las FK con un listener sobre el evento `connect` del engine (un `session.execute("PRAGMA …")` no sirve: SQLite lo ignora dentro de una transacción), y `test_el_fixture_fuerza_las_fk_y_el_global_no` cae si alguien se lo quita.
+
+**Cinco mutaciones, con el fallo real**: sin cascada → `IntegrityError … FOREIGN KEY constraint failed` (con FK) / `assert 2 == 0` (sin FK); sin el 409 → caen los tres estados vivos; sin la frontera terminal en el `NOT IN` → caen `adoptado` y `cerrado`; el 409 detrás de las fotos → `assert ['/media/uploads/canela-1.jpg'] == []`.
+
+**Las migraciones no se tocaron** y la cola sigue igual (`AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`, ninguna ejecutada, merge a `main` bloqueado). `ON DELETE CASCADE` habría exigido un `ALTER` sobre tablas que aún no existen en prod y no aporta sobre hacerlo en código, donde además cabe la regla del 409.
+
+Verificación: `bash init.sh` en verde — **753 tests de Python + 487 de web** (738 + 15). Cero `.sql` ejecutado; `seed.py` solo el de `init.sh` sobre la SQLite local. Sin push ni merge. `feature_list.json` sin tocar.
+
+**Para el líder, encontrado de paso y no tocado**: `memory/memory.md` (2026-08-15) afirma que *"ningún test de este repo puede usarse como prueba de que la integridad referencial protege algo"*. Con `test_despublicar_rastros.py` ya no es cierto, y dejarlo así invita al siguiente agente a escribir otra vez el test decorativo. Merece una entrada de `update-memory` con la receta del listener — no la escribo yo porque `memory/` no estaba en el encargo.
+
+## AD-09 (2026-08-17): ventana de migración cerrada por el dueño, merge desbloqueado, tres menores del revisor corregidos
+
+**AD-09 sigue `in_progress`** en `feature_list.json` y `todo` en `feature_list_adopcion.json`. Esta entrada registra dos cosas que llegaron de fuera y una que sí se hizo aquí.
+
+### Lo que llegó de fuera (no lo hizo este agente, y por eso se atribuye)
+
+1. **Veredicto del revisor independiente sobre `feat/adoptar` @ `c0f243b`: APROBADO el merge.** Corrió `init.sh` de verdad: `Todo en verde.`, **753 tests de Python + 487 de web**, y `npm run build` también verde. Evidencia que citó: el fix del `DELETE` verificado **por mutación real** (quitando la cascada de `despublicar_mascota` salta el `IntegrityError` de FK, porque el test fuerza `PRAGMA foreign_keys=ON` — el punto ciego de SQLite quedó cerrado); el 409 por solicitudes vivas en español con concordancia y **antes** de `borrar_foto`; las cuatro migraciones puramente aditivas con RLS; el anti-drift **no decorativo** (rompió `AD-05-matches.sql` a propósito → 2 rojos); cero dependencias nuevas, cero WebSockets, `adopta-v1` intacta; y lo de 360px **declarado honestamente**, sin ningún test fingiendo cubrirlo.
+
+2. **Las cuatro migraciones se EJECUTARON en Supabase el 2026-08-17**, por el dueño del repo, en el orden obligatorio: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. **Verificación suya, contra `pg_class`/`pg_constraint`**: `rowsecurity = true` en las cinco tablas del módulo (`pets`, `swipes`, `home_profiles`, `matches`, `favorites`) y las cuatro constraints presentes con su nombre exacto (`ck_pets_publicador_exclusivo`, `uq_swipe_user_pet`, `uq_match_user_pet`, `uq_favorite_user_pet`).
+
+⚠️ **Precisión de método, para que nadie la lea de más**: la evidencia de arriba es **reportada por el dueño, no medida por este agente** — no hay acceso al SQL Editor desde aquí, y no se ejecutó ni se leyó ni una sentencia SQL contra producción en esta sesión. Matiz que además corrige el acceptance: **el RLS no está en `information_schema`**, que no expone `rowsecurity`; vive en `pg_class`/`pg_tables`. Consultar `pg_class` no es desviarse del acceptance, es la única forma de cumplirlo.
+
+**Con esto el merge a `main` queda desbloqueado por primera vez desde AD-03.**
+
+### Lo que sí se hizo aquí: los tres menores del revisor, más el barrido de estado rancio
+
+Trabajo **solo de `.md`**, cero código de producto, cero tests nuevos, cero `.sql`.
+
+1. **La cuenta de tests rancia** — `docs/despliegue-modulo-adopcion.md` §1 decía **738** y el HEAD da **753**. Corregido, y con una línea que explica de dónde salen los 15 (`tests/api/test_despublicar_rastros.py`, el fix del 500 al despublicar) para que quien vea 738 sepa que su copia es vieja, en vez de creer que le faltan tests.
+2. **El anti-drift de `home_profiles`** — son **cuatro archivos anti-drift para cinco tablas**, y la lista `test_migracion_{pets,swipes,matches,favorites}.py` invitaba a leerlo como un hueco. Aclarado en `migrations/README.md` y en `docs/despliegue-modulo-adopcion.md` §2: `home_profiles` viaja **dentro** de `test_migracion_swipes.py`, parametrizado sobre las dos tablas de la ventana de AD-03 (columnas, nulabilidad, tipos, RLS, aditividad) más dos casos dedicados (`test_home_profiles_tiene_user_id_como_primary_key`, `test_el_presupuesto_mensual_queda_nullable_en_produccion`). **Comprobado leyendo el archivo antes de escribirlo**, no dado por bueno.
+3. **El chunk > 500 kB** — medido, no estimado: `npm run build` sale **exit 0** con `dist/assets/index-BPUHh8ML.js` = **619.80 kB crudos / 176.32 kB gzip**. Contra los **612 kB** que registró la feature 46, **el módulo entero costó ~8 kB**. Sigue siendo deuda preexistente de la feature 44 (el `import()` dinámico que nunca se hizo) y **no bloquea el despliegue**: lo que viaja son los 176 kB gzip. Anotado en §1 de la guía como aviso esperado, para que nadie lo confunda con un error de build.
+
+Además, el estado que había quedado rancio al ejecutarse la ventana: `migrations/README.md` (las cuatro filas pasan a ✅ **EJECUTADA**, con fecha y autoría; la sección "Cierre del módulo (AD-09)" deja de decir *"nada de esto se ha ejecutado"* y **conserva el cuerpo en presente a propósito**, porque es la receta para un entorno nuevo — staging o Postgres local, donde `AD-01-pets.sql` va primero); `docs/despliegue-modulo-adopcion.md` (banner de estado arriba, TL;DR marcado como registro, y el puntero a que lo vivo es de la §4 en adelante); `CLAUDE.md` (fecha, **51 done de 55** —no 50 de 54: AD-08 cerró y AD-09 se copió—, **753 + 487**, AD-09 como el `in_progress`, y el bloqueo de merge convertido en ✅ **desbloqueado** sin perder la regla que lo motivó, que **no se relaja** para el próximo cambio de esquema).
+
+### Los cuatro acceptance de AD-09, hoy
+
+| # | Acceptance | Estado | Qué falta |
+|---|---|---|---|
+| 1 | Tablas en prod con RLS y **cero errores en los endpoints** | 🟡 **MITAD CERRADA** | Las tablas y el RLS: ✅ (reportado y verificado por el dueño). "Cero errores en los endpoints": ❌ — hoy siguen en 404 porque **el código aún no está desplegado**. Lo cierra el merge |
+| 2 | Flujo completo en producción con un caso real, con evidencia en `progress/` | ❌ **ABIERTO** | Exige el merge + el deploy. El recorrido de 10 pasos ya está escrito, y su limpieza **ya no tiene el agujero del hallazgo 2**: `DELETE /api/pets/{id}` cascadea swipes/favoritos y responde 409 si hay solicitudes vivas |
+| 3 | CHANGELOG 3.0.0 publicado y `main`/`develop` sincronizadas | 🟡 **MITAD CERRADA** | El `CHANGELOG.md` 3.0.0 está escrito. Sincronizar es el merge + push |
+| 4 | `validate_feature_list.py` sale 0 con los items `done` en ambos JSON | ❌ **ABIERTO** | Sale 0 hoy con AD-09 en `in_progress`, que es lo correcto. El `done` lo pone el revisor cuando 1 y 2 cierren |
+
+**Los tres que faltan cuelgan del mismo gancho: el merge.** Y el merge es un despliegue a producción — dispara el auto-deploy de `main` sobre `petfinder-col.com`, donde hay datos reales. **No se hace sin autorización explícita**, aunque el bloqueo técnico ya no exista.
+
 ## Veredicto del revisor — módulo de adopción AD-03…AD-09 (rama feat/adoptar, HEAD c0f243b) (2026-08-16): APRUEBO el merge, condicionado a las 4 migraciones previas
 
 Revisión independiente y escéptica de `origin/feat/adoptar` (79 commits sobre main). Todo ejecutado por el revisor en la rama; árbol limpio al terminar.
@@ -955,3 +1902,54 @@ Revisión independiente sobre el working tree de `develop` (sin commitear, sobre
 **Micro-fix pedido para incluir en el mismo commit** (dos caracteres, sin tests que tocar): los estados iniciales de `RedDeApoyo` son `useState<...| null>([])` (líneas 25 y 30) pero el esqueleto cuelga de `null` — en el primer render, antes de que corra el efecto, se pinta **un frame** del vacío engañoso ("Aún no hay lugares") que esta misma feature vino a matar. Inicializarlos en `null` cierra la letra del acceptance 3 por completo (era un leftover del estado pre-feature, no una regresión). Si por alguna razón no se aplica, documentarlo como limitación conocida.
 
 Menores: (a) recurrente — entrada de la feature 48 en `changes.md` con su hash al commitear (checkpoint #4); (b) nota operativa al margen: los 6 entrenadores importados a prod (orgs 29-34) son trabajo operacional fuera de esta feature, sin objeción.
+
+### Merge de `origin/main` en `feat/adoptar` (2026-08-17): cuatro conflictos resueltos y un hallazgo
+
+Al ir a abrir el PR apareció lo que nadie había mirado: **`origin/main` tenía 2 commits que la rama no traía** (la rama iba 80 delante y 2 detrás). Uno es `67e6125`, el registro del veredicto y de las migraciones —ya estaba en el tronco, así que la bitácora de esto vive por duplicado a propósito: una entrada desde el tronco y otra desde la rama—. El otro es **`6283fb8`, la feature 48** (*lecturas resilientes al arranque en frío*), y esa sí toca código: `src/web/src/api/client.ts` y `RedDeApoyo.tsx`, que AD-08 también había tocado.
+
+**Los cuatro conflictos, y cómo se resolvió cada uno** (nada se descartó):
+
+- `src/web/src/api/client.test.ts` — **dos conflictos**. (a) El bloque de imports: cada rama insertó en el mismo hueco alfabético; quedaron los cuatro nombres (`listarReportes`, `listarSolicitudes`, `marcarFavorita`, `marcarReunido`). (b) El final del archivo: los dos lados anexaron `describe`s distintos y git factorizó fuera el cierre común `});\n});`. Concatenar sin más habría dejado el último `it` del lado de la rama **sin cerrar**; se le dio su propio cierre a cada bloque.
+- `feature_list.json` — los dos lados eran el cuerpo del **mismo objeto**, cortados a media lista `acceptance`. Se cerró el de la feature 48 y se reabrió para el bloque `AD-*`, dejando la 48 en su sitio numérico (…47, 48, AD-03…) en vez de detrás de AD-09. Resultado: **56 items, 52 `done`, 3 `todo`, 1 `in_progress` (AD-09)** — `validate_feature_list.py` exit 0. Se editó por reconstrucción de líneas, **sin `json.dump`**, como manda `memory/memory.md`.
+- `changes.md` y `progress/current.md` — anexado puro por los dos lados, sin solape. Se conservan los dos bloques en orden cronológico.
+
+`RedDeApoyo.tsx` y `client.ts` **auto-mergearon**, que no es lo mismo que estar bien, así que se comprobó a mano: sobreviven el cruce a `/adoptar` de AD-08 (línea 152) y los dos botones `Reintentar` de la feature 48 (214, 355). Y lo comprueban los tests, que es el oráculo de verdad.
+
+**Verificación del merge**: `bash init.sh` → **`Todo en verde.`**, `EXIT=0`, **753 tests de Python + 493 de web** (487 + los 6 de la feature 48), 40 archivos de test. `pytest -q` por separado: `753 passed`.
+
+#### ⚠️ Hallazgo para el líder: la feature 48 dejó fuera el listado de emergencia
+
+**Medido, no supuesto.** El reintento de la feature 48 vive dentro de `request()`, y **45 funciones de `client.ts` pasan por ahí**. Pero **tres llamadas usan `fetch` directo y lo esquivan** (`grep -n "await fetch(" src/web/src/api/client.ts`):
+
+| Línea | Llamada | ¿Importa? |
+|---|---|---|
+| 205 | `POST /api/uploads` | **No.** Es un POST multipart, y los POST no se reintentan por diseño (repetirlos duplicaría un reporte) |
+| 319 | **`GET /api/reports`** (`listarReportesPaginado`) | **Sí, y es el peor sitio posible**: es el listado de mascotas perdidas y encontradas, la pantalla que justifica la app |
+| 539 | `GET /api/users/{id}/home-profile` (`obtenerPerfilHogar`) | Sí, aunque menor: es del módulo de adopción y su 404 ya está tratado como estado válido |
+
+O sea: **el bug que motivó la feature 48 —el cold start dejando `/ayudar` con un vacío engañoso teniendo 28 organizaciones— sigue vivo tal cual en `/reportes`**, que es exactamente el mismo patrón sobre la ruta más crítica. No se arregla aquí a propósito: la feature 48 está `done` y mergeada, AD-09 es despliegue y verificación, y meter código de producto de otra feature en este item sería justo lo que `CHECKPOINTS.md` prohíbe. **Merece item propio** (o una corrección de la 48), y conviene decidirlo **antes** del recorrido manual en producción, porque el recorrido va a pegarle a `/reportes` en frío.
+
+#### Corrección al hallazgo anterior (revisor del merge, 2026-08-17)
+
+**El nombre de la función estaba mal y la corrección importa.** Escribí que la línea 319 era `listarReportes`. **Es falso**, y lo verifiqué yo mismo tras el aviso del revisor:
+
+- **`listarReportes` (`client.ts:122`) SÍ pasa por `request()`** y por tanto **sí tiene el reintento**. La prueba más limpia: los cuatro tests de la feature 48 usan precisamente `listarReportes()` como vehículo para ejercitar el reintento — si lo esquivara, no podrían pasar. La usan `MapaReportes.tsx` y `MisReportes.tsx`.
+- **Quien esquiva `request()` en la línea 319 es `listarReportesPaginado`**, y **es la que usa `/reportes`** (`Reportes.tsx:3,54,65`). Así que **la conclusión operativa se sostiene entera** —la pantalla más crítica no tiene reintento ante el cold start— pero apuntando a la función correcta.
+
+Por qué la distinción no es cosmética: quien tome el item iba a abrir `listarReportes`, encontrarla ya correcta, y o bien "arreglar" algo que funciona o bien concluir que el hallazgo era falso y cerrarlo.
+
+**Y hay un matiz de diseño que cambia cómo se arregla**: `listarReportesPaginado` no usa `fetch` directo por descuido. Su propio docstring lo dice — *"expone el total del header `X-Total-Count`, que `request()` no puede leer"*. Así que **el arreglo no es "meterla dentro de `request()`"**: eso le quitaría el total y rompería la paginación. Hace falta o una variante de `request()` que devuelva los headers, o extraer el bucle de reintento a un helper que las dos usen. Lo mismo vale, en menor grado, para `obtenerPerfilHogar` (:539), que además trata su 404 como estado válido.
+
+**Nota de proceso del revisor, aceptada**: el commit de merge `3aacd03` incluyó además cambios en `CLAUDE.md` (los contadores 55→56 y 51→52) que `main` nunca tocó. El contenido es correcto pero no era resolución de conflicto y debió ir en su propio commit. El mensaje de `3aacd03` también arrastra la atribución equivocada a `listarReportes`; **no se reescribe porque ya está pusheado y es historia compartida** — queda corregido aquí, que es donde se lee.
+
+### Veredicto del revisor sobre el árbol mergeado (`4b2b5db`, 2026-08-17): APRUEBA el merge del PR #7
+
+Revisión independiente del delta `c0f243b..4b2b5db` —el merge que nadie había auditado— más `init.sh` sobre el árbol de hoy. Árbol limpio al terminar.
+
+- **Los 4 conflictos, sin pérdidas.** Reprodujo el merge en un worktree desechable y obtuvo **exactamente los 4 conflictos** declarados. Censo de tests comparando conjuntos `(archivo, nombre)` contra **los dos padres**: **cero desapariciones**. `client.test.ts`: 50 `it` de la rama + 4 de la feature 48 = **54**, y vitest recolecta 54 — si sobrara o faltara un `});` no recolectaría esa cifra. `feature_list.json`: 56 items, **cada item conservado idéntico objeto a objeto** a su padre (comparación de dicts, no de texto), la 48 en su índice numérico, `validate_feature_list.py` EXIT=0 con un solo `in_progress`.
+- **Los 3 archivos auto-mergeados son byte-idénticos al auto-merge de git**: no se metió nada a mano en `client.ts`, `RedDeApoyo.tsx` ni `RedDeApoyo.test.tsx`.
+- **Probado rompiéndolo**, tres mutaciones y tres rojos: `REINTENTOS_GET = 0` → 3 rojos en `client.test.ts`; `to="/adoptar"` → `to="/"` → 1 rojo; quitar `setErrorLugares(true)` del `catch` (la regresión exacta que la 48 arregla) → 1 rojo. Restauradas las tres.
+- **`init.sh` corrido por él**: `Todo en verde.`, EXIT=0, **753 Python + 493 web (40 archivos)**. `npm run build` EXIT=0.
+- **Nada raro**: 0 líneas de diff en los 4 manifiestos, cero WebSockets, ADR 0002 intacto, `origin/adopta-v1` y el tag en `cde337f`, y ningún `.env`/`data/app.db`/`node_modules` entre los 110 archivos del PR.
+
+**Lo que el revisor dice explícitamente que NO verificó** (y por eso no se presenta como cubierto): no tocó producción, así que **las cuatro migraciones ejecutadas las toma de la declaración del dueño, no las comprobó contra `information_schema`**; no re-revisó AD-03…AD-08 de cero (descansan en el veredicto sobre `c0f243b`); y el acceptance de layout a 360px sigue sin cubrir, como estaba declarado.

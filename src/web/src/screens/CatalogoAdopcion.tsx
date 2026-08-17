@@ -1,27 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
+  desmarcarFavorita,
   type FiltrosMascotas,
   listarMascotas,
+  marcarFavorita,
   mediaUrl,
   obtenerAdopcionesResumen,
 } from '../api/client';
 import type { AdopcionesResumen, Mascota } from '../api/types';
 import { FiltrosAdopcion } from '../components/FiltrosAdopcion';
 import { MascotaCard } from '../components/MascotaCard';
-import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
+import { contarFiltrosActivos, FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
+import { getActiveUserId, hasActiveUser } from '../lib/session';
 
-// Catálogo público de mascotas en adopción (AD-01).
+// Catálogo público de mascotas en adopción (AD-01, con el corazón de AD-07).
 //
-// ⚠️ Pantalla de SOLO LECTURA. No lleva ninguna acción que escriba —ni favorito ni
-// solicitud— y por eso no llama a `getActiveUserId()`: esa función cae al usuario
-// demo (id 1) cuando no hay cuenta, así que un visitante sin registrarse crearía
-// datos a nombre de otra persona real en producción. Mirar quién necesita hogar
-// nunca exige cuenta; las acciones que escriben llegan con su gate en AD-05/AD-07.
+// ⚠️ **`getActiveUserId()` solo se llama detrás de `hasActiveUser()`**, las tres
+// veces que aparece aquí. Esa función cae al usuario demo (id 1) cuando no hay
+// cuenta, y el id 1 es una persona real en producción (Ana Martínez): mandarlo
+// como `adoptante_id` le mostraría SUS favoritos a un visitante anónimo, y
+// escribir con él le guardaría —o le borraría— mascotas de su lista. Mirar quién
+// necesita hogar nunca exige cuenta; guardar, sí.
 //
-// Tampoco manda `adoptante_id` al backend: en AD-01 no cambiaría la respuesta
-// (afinidad, favorito y solicitud viajan siempre vacíos) y mandar un id inventado
-// sería justo el bug de privacidad que el módulo evita por convención.
+// El corazón se pinta igual sin cuenta y lleva a `/registro?volver=/adoptar`: es
+// el mismo gate que "Me interesa" en el deck (AD-03). Esconderlo sería peor —
+// ocultaría que los favoritos existen a quien todavía no se registró.
 //
 // Sin paginación a propósito: `listarMascotas` devuelve el listado completo, como
 // `listarOrganizaciones` en /ayudar. Cuando el catálogo crezca se copia el paginado
@@ -30,11 +34,16 @@ import { FILTROS_ADOPCION_DEFAULT } from '../lib/adopcion';
 const MENSAJE_ERROR =
   'No pudimos cargar las mascotas en adopción. Revisa tu conexión e intenta de nuevo.';
 
+/** La ruta propia, para el `?volver=` del registro: quien se registra desde el
+ * corazón vuelve al catálogo, no a la landing. */
+const RUTA = '/adoptar';
+
 export function CatalogoAdopcion() {
   const [filtros, setFiltros] = useState<FiltrosMascotas>(FILTROS_ADOPCION_DEFAULT);
   const [mascotas, setMascotas] = useState<Mascota[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adopciones, setAdopciones] = useState<AdopcionesResumen | null>(null);
+  const navigate = useNavigate();
 
   // Métrica de esperanza del módulo, como la franja de reencuentros de la landing:
   // si falla, simplemente no aparece — nunca bloquea el catálogo.
@@ -49,17 +58,55 @@ export function CatalogoAdopcion() {
   // rejilla no parpadea y el esqueleto solo se ve en la primera carga.
   useEffect(() => {
     setError(null);
-    listarMascotas(filtros)
+    // El adoptante solo viaja si existe de verdad (ver la cabecera): es lo que
+    // hace que `es_favorito` llegue lleno y el corazón se pinte como está.
+    listarMascotas(filtros, hasActiveUser() ? getActiveUserId() : undefined)
       .then(setMascotas)
       .catch(() => setError(MENSAJE_ERROR));
   }, [filtros]);
 
+  /** Guarda o quita la mascota, en optimista. */
+  function alternarFavorita(mascota: Mascota) {
+    // Se pide la cuenta ANTES de tocar nada, como el "me interesa" del deck:
+    // sin ella, `getActiveUserId()` escribiría en la lista del usuario 1.
+    if (!hasActiveUser()) {
+      navigate(`/registro?volver=${encodeURIComponent(RUTA)}`);
+      return;
+    }
+
+    const adoptanteId = getActiveUserId();
+    const guardada = mascota.es_favorito;
+    // El corazón cambia ya y el catálogo NO se re-consulta: la rejilla no puede
+    // parpadear ni reordenarse por un toque, y quien está comparando varias
+    // mascotas perdería el sitio donde iba.
+    setMascotas((previas) =>
+      previas
+        ? previas.map((m) => (m.id === mascota.id ? { ...m, es_favorito: !guardada } : m))
+        : previas,
+    );
+
+    const peticion = guardada
+      ? desmarcarFavorita(adoptanteId, mascota.id)
+      : marcarFavorita(adoptanteId, mascota.id);
+    peticion.catch(() => {
+      // Vacío A PROPÓSITO, no por descuido (`docs/conventions.md` §3, mismo
+      // criterio que el swipe del deck): un favorito no bloquea la pantalla ni
+      // merece un error rojo encima del catálogo. Tampoco se revierte el
+      // corazón: lo que se pierde es una fila en una lista privada, y volver a
+      // tocarlo lo reintenta. Reponerlo con la red intermitente haría que el
+      // corazón parpadeara solo mientras la persona sigue mirando.
+    });
+  }
+
   const cargando = mascotas === null && error === null;
-  const hayFiltros =
-    filtros.especie.length > 0 ||
-    filtros.tamano.length > 0 ||
-    filtros.energia.length > 0 ||
-    filtros.zona !== '';
+  // ⚠️ Esta cuenta la hace `lib/adopcion.ts` y no una lista escrita aquí, porque
+  // la que había aquí **se saltaba `filtros.edad`** (AD-08 paso 7): con un tramo
+  // de edad como único filtro y cero resultados, el vacío de abajo decía
+  // "Todavía no hay mascotas publicadas" en vez de "Ninguna coincide con estos
+  // filtros" — le contaba a la persona que el catálogo estaba vacío cuando lo
+  // que pasaba es que su filtro no casaba. Una sola fuente de verdad, la misma
+  // que usa el contador del botón plegable.
+  const hayFiltros = contarFiltrosActivos(filtros) > 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6 pb-24">
@@ -82,14 +129,68 @@ export function CatalogoAdopcion() {
               )}
             </p>
           </div>
-          {/* Entrada al formulario de rescatista (AD-02). El gate de cuenta vive
-              en la pantalla destino, no aquí: mirar el catálogo nunca pide cuenta. */}
-          <Link
-            to="/adoptar/publicar"
-            className="shrink-0 rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"
-          >
-            Dar en adopción
-          </Link>
+          {/* Tres entradas, ningún gate aquí: mirar el catálogo o el deck nunca
+              pide cuenta (la del deck vive en su "Me interesa", AD-03; la del
+              cuestionario, dentro de `CuestionarioHogar`, que es quien escribe).
+              "Descubrir" y "Mi hogar" van con estilo secundario porque el
+              catálogo entero ya está debajo.
+
+              "Mi hogar" existe porque la invitación del deck **desaparece justo
+              cuando ya contestaste** —es la señal de `afinidad === null`— y sin
+              esta entrada cambiar una respuesta exigiría recordar la URL. */}
+          {/* Sin `shrink-0`, y no puede volver: como item flex de la fila de
+              arriba, `shrink-0` fija este contenedor al ancho de su contenido
+              (705px con estas cinco píldoras), así que su propio `flex-wrap`
+              nunca llega a envolver y lo que desborda es la página entera.
+              Medido en Chrome real a 360×740 y 360×640 (AD-08 paso 8): con
+              `shrink-0`, `documentElement.scrollWidth` = **729** contra un
+              `clientWidth` de 360; sin él, la fila mide 312px y scrollWidth =
+              clientWidth = **360**. jsdom no tiene motor de layout
+              (`getBoundingClientRect()` devuelve ceros), así que ningún test
+              unitario puede medir esto: el único candado automático es el caso
+              de clase de `CatalogoAdopcion.test.tsx`, que vigila estas clases
+              —no el layout—. La comprobación de verdad es el navegador. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/adoptar/descubrir"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Descubrir una por una
+            </Link>
+            <Link
+              to="/adoptar/mi-hogar"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mi hogar
+            </Link>
+            {/* "Mis solicitudes" (AD-05) tampoco tiene gate aquí: el enlace es
+                público y la pantalla es la que pide cuenta, porque es la que lee
+                datos personales. Sin esta entrada solo se llegaría desde el acuse
+                de un swipe, que se cierra y no vuelve. */}
+            <Link
+              to="/adoptar/mis-solicitudes"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mis solicitudes
+            </Link>
+            {/* "Mis favoritas" (AD-07), mismo trato y con un agravante: el
+                corazón guarda pero no lleva a ninguna parte, así que sin esta
+                entrada la lista guardada no se alcanzaría desde ningún sitio y
+                guardar sería un gesto a ciegas. El enlace es público; la
+                pantalla es la que exige cuenta, porque es la que lee. */}
+            <Link
+              to="/adoptar/mis-favoritas"
+              className="rounded-full border border-line bg-surface px-5 py-2 text-sm font-medium text-forest"
+            >
+              Mis favoritas
+            </Link>
+            <Link
+              to="/adoptar/publicar"
+              className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-bg"
+            >
+              Dar en adopción
+            </Link>
+          </div>
         </div>
         <FiltrosAdopcion
           filtros={filtros}
@@ -157,7 +258,11 @@ export function CatalogoAdopcion() {
         ) : (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {mascotas.map((mascota) => (
-              <MascotaCard key={mascota.id} mascota={mascota} />
+              <MascotaCard
+                key={mascota.id}
+                mascota={mascota}
+                onAlternarFavorita={() => alternarFavorita(mascota)}
+              />
             ))}
           </div>
         ))}

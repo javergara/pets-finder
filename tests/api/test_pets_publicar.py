@@ -343,6 +343,13 @@ def test_editar_con_estado_invalido_devuelve_422(client, db_session, organizacio
 
 
 # --- DELETE /api/pets/{pet_id} (paso 2) ----------------------------------------
+#
+# ⚠️ Lo que pasa cuando la mascota YA tiene swipes, favoritos o solicitudes vive
+# en `tests/api/test_despublicar_rastros.py`, no aquí: esos casos necesitan una
+# base con `PRAGMA foreign_keys=ON` y el `db_session` de este archivo —el del
+# conftest— no fuerza las FK. Con FK encendidas, varios tests de abajo caerían a
+# propósito (`..._de_organizacion_eliminada_devuelve_403` borra una organización
+# con una mascota colgando).
 
 
 @pytest.fixture()

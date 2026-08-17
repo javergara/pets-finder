@@ -11,12 +11,15 @@ from .media import MEDIA_DIR
 from .models.base import Base, engine
 from .routers import (
     avisos_ayuda,
+    favoritos,
     organizaciones,
     paginas,
     pets,
     radar,
     reports,
+    solicitudes,
     suscripciones,
+    swipes,
     uploads,
     users,
 )
@@ -75,6 +78,12 @@ app.include_router(avisos_ayuda.router)
 app.include_router(suscripciones.router)
 app.include_router(radar.router)
 app.include_router(pets.router)
+app.include_router(swipes.router)
+app.include_router(solicitudes.router)
+# Segundo router con prefijo /api/users (AD-07). Va después de `users` y sus
+# rutas tienen un segmento más (/{user_id}/favorites), así que no compite con
+# /{user_id}: FastAPI casa la ruta completa, no un prefijo.
+app.include_router(favoritos.router)
 # `paginas` va SIEMPRE último: registra rutas de raíz (/reporte/{id}, /zona/…)
 # sin prefijo, así que cualquier router nuevo se monta antes que él.
 app.include_router(paginas.router)

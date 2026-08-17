@@ -70,6 +70,35 @@ def test_registrar_usuario_es_recuperable_via_get(client, db_session):
     assert cuerpo["barrio"] == "Cuba"
 
 
+def test_el_perfil_publico_no_expone_el_hogar_ni_metricas(client, db_session):
+    """Candado contra portar el `UserOut` de `adopta-v1`, que metía `home_profile`
+    y `metricas` dentro del perfil público.
+
+    Traerlos rompería el contrato que hoy leen varias pantallas y añadiría dos
+    queries —una con joins— a un endpoint caliente, para un dato que casi ninguna
+    llamada usa. El hogar tiene su propia ruta y su propio 403 (AD-04 paso 2).
+    Por eso el `set` es exacto: sumar un campo aquí tiene que ser una decisión,
+    no un descuido.
+    """
+    creacion = client.post("/api/users", json={"nombre": "Ana", "email": "ana@example.co"})
+    user_id = creacion.json()["id"]
+
+    cuerpo = client.get(f"/api/users/{user_id}").json()
+
+    assert set(cuerpo) == {
+        "id",
+        "nombre",
+        "email",
+        "ciudad",
+        "barrio",
+        "lat",
+        "lng",
+        "avatar_url",
+        "bio",
+        "creado_en",
+    }
+
+
 def test_obtener_perfil_usuario_inexistente_devuelve_404(client, db_session):
     respuesta = client.get("/api/users/9999")
 

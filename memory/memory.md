@@ -75,6 +75,93 @@ Registro de decisiones de proceso, comandos clave, aprendizajes y gotchas. No es
 ## 2026-08-15 — SQLite no fuerza las FK: los tests y producción se comportan distinto (AD-02 paso 3)
 
 - Al añadir el 409 de "no puedes eliminar un reporte que tiene una mascota en adopción", la hipótesis del plan era que sin esa guarda el `DELETE` reventaría con `IntegrityError` → 500. **Falso en los tests**: SQLite no fuerza las claves foráneas por defecto, así que el endpoint borraba el reporte y sus fotos y devolvía **204**, dejando viva una fila de `pets` apuntando a un reporte inexistente. En Postgres (producción) sí habría sido un 500. Es decir: la misma petición fallaba de dos formas distintas según el motor, y la de los tests era la silenciosa.
-- **Consecuencia práctica**: ningún test de este repo puede usarse como prueba de que la integridad referencial protege algo. Si el comportamiento correcto depende de una FK (borrados en cascada, huérfanos, orden de borrado), hay que **testear la regla en el código**, no confiar en que la DB la imponga — y el test tiene que aseverar el efecto observable (¿se borraron las fotos?, ¿quedó la fila huérfana?), no solo el código de estado.
+- **Consecuencia práctica** (⚠️ **matizada el 2026-08-16, ver abajo**): por defecto, ningún test de este repo puede usarse como prueba de que la integridad referencial protege algo. Si el comportamiento correcto depende de una FK (borrados en cascada, huérfanos, orden de borrado), hay que **testear la regla en el código**, no confiar en que la DB la imponga — y el test tiene que aseverar el efecto observable (¿se borraron las fotos?, ¿quedó la fila huérfana?), no solo el código de estado.
 - Cómo se detectó: espiando `borrar_foto` con un monkeypatch, no mirando el status. `borrar_foto` es tolerante a fallos por diseño (feature 20) y nunca lanza, así que un test que solo compruebe el código de respuesta pasa igual mientras destruye datos. Mismo patrón que hizo falta en el `DELETE /api/pets` del paso 2.
 - Relacionado: por esto mismo `_dueno_user_id` devuelve `int | None` — una mascota puede quedar apuntando a una organización ya borrada en dev, y devolver `None` deja a nadie autorizado en vez de reventar.
+
+## 2026-08-15 — Corrección medida a la receta anti-N+1: lo decisivo son los publicadores distintos, no `expunge_all()` (AD-03 paso 7)
+
+- La entrada de más arriba (AD-01 paso 6) atribuye el falso-verde de un test de conteo de consultas al identity map "que responde los `session.get(...)` sin tocar la base". Al portarla al deck se midió por mutación y **no se reproduce tal como está escrita**: con la implementación ingenua (`session.get` por fila) el test queda **rojo con o sin `expunge_all()`**, tanto en `test_deck.py` (7 y 23 consultas en vez de 5) como en el `test_listado_no_hace_una_consulta_por_publicador` de AD-01 (5 en vez de 4). La razón es que `sessionmaker` usa `expire_on_commit=True`: el `commit()` con el que termina toda siembra ya expira el identity map entero, y un `session.get` sobre una instancia expirada vuelve a consultar igual.
+- **Lo que sí produce el falso-verde es que todas las filas compartan la entidad relacionada.** Verificado: con la implementación ingenua y todas las mascotas colgando de un mismo publicador, el conteo vuelve a ser constante (5) y el test **pasa**, porque dentro de un mismo request el identity map sí responde el segundo `get` de la **misma** fila. Es decir: de la receta original, la parte imprescindible es "filas con entidades relacionadas **distintas**"; `expunge_all()` es cinturón sobre tirantes.
+- El identity map de la `Session` guarda **referencias débiles**: los objetos que un request carga y descarta desaparecen antes del request siguiente. Solo sobreviven los que el test mantiene referenciados (las fixtures) — que es el único caso donde `expunge_all()` cambia el conteo, y solo si entremedio no hubo `commit()`.
+- Se conserva el `expunge_all()` en los dos tests (cuesta nada y protege una medición futura sin `commit()` de por medio), pero **el docstring de cada uno tiene que decir cuál es la parte que sostiene la aserción**, o el siguiente port copia la ceremonia y se deja lo importante.
+
+## 2026-08-15 — El prettier local y el del pre-commit no formatean igual
+
+- `npx prettier` desde `src/web/node_modules` es **3.9.6**; el fijado en `.pre-commit-config.yaml` (`mirrors-prettier`) es **3.1.0**. Difieren en uniones de tipos y en los paréntesis de `??` dentro de ternarios, así que formatear con el local **mete ruido en líneas ajenas al cambio** y convierte un diff aditivo en uno con borrados. Lo levantaron tres implementadores distintos en la misma jornada.
+- **Manda el del hook**: `init.sh` no corre prettier (solo oxlint), así que nada se rompe, pero el diff sí se ensucia. Si al commitear aparecen cambios en líneas que no tocaste, es esto — revierte esas líneas a mano y deja el commit aditivo.
+- Arreglo de fondo pendiente (un `chore:` de una línea): alinear las dos versiones, o fijando `prettier` en `src/web/package.json` a la del hook, o subiendo el `rev` de `mirrors-prettier`. Ojo al subirlo: el `rev: v3.3.3` puesto a ojo en su día no existía y solo falló al clonar el hook (gotcha de 2026-07-31) — verificar con `git ls-remote --tags`.
+
+## 2026-08-15 — Un subagente "colgado" puede seguir vivo y commitear (AD-04)
+
+- El watchdog notificó `Agent stalled: no progress for 600s (stream watchdog did not recover)` y devolvió un resultado parcial ("paso 1 commiteado, empezando el 2"). **El agente siguió trabajando**: commiteó el paso 3 y dejó el paso 4 escrito en el árbol. Como para entonces ya había relanzado el paso 2 con otro agente, hubo **dos escribiendo el mismo working tree**, y el orden de los commits quedó invertido (paso 3 antes que el paso 2).
+- No se perdió trabajo —cada uno tocó archivos distintos y el segundo encontró los restos del primero y los guardó en `stash` antes de empezar—, pero pudo haber sido una colisión fea en `changes.md` o en `progress/current.md`, que ambos escriben.
+- **Antes de relanzar un paso que un agente dio por incompleto**: `git log --oneline -5`, `git status --short` y `git stash list`. Si el árbol tiene archivos del paso o hay commits que el informe no menciona, el agente sigue vivo — esperar, no duplicar. Un árbol limpio y sin commit del paso es la única señal fiable de que no hay nadie escribiendo, y aun así conviene comprobar los mtimes (`find src tests -newermt '-3 minutes'`).
+- Corolario para el orquestador: el resultado que devuelve un agente colgado describe dónde estaba **cuando el watchdog lo perdió de vista**, no dónde terminó. No es fuente de verdad; el disco sí.
+
+## 2026-08-15 — El anti-N+1 de ESCRITURAS no se mide contando sentencias (AD-05 paso 3)
+
+- La receta que funciona para lecturas (listener `before_cursor_execute` + entidades distintas por fila) **no sirve tal cual para escrituras**. Al hacer flush, SQLAlchemy agrupa los `UPDATE` de varias instancias con las mismas columnas en un solo **`executemany`**, así que el bucle que se quería prohibir sale también como **una** sentencia y el test pasa igual.
+- **Receta correcta**: en el listener, cuando `executemany` es `True`, sumar `len(parameters)` en vez de contar 1. Medido en `test_aprobar_cierra_las_demas_con_una_sola_query`: con el `UPDATE` masivo da `[1, 1]` (una fila afectada por sentencia, constante); con el bucle prohibido da `[1, 4]` — una sentencia, cuatro filas.
+- Corolario del mismo paso: un `UPDATE` masivo con `synchronize_session=False` **deja rancias las instancias ya cargadas** en la sesión compartida del `conftest`. Las aserciones sobre filas hermanas van después de `db_session.expire_all()` o releyendo por HTTP; si no, el test puede **pasar con la implementación rota y fallar con la buena**, que es la peor forma de mentir.
+
+## 2026-08-16 — `init.sh` no typechequea la web: el candado de tipos lo aplica el deploy
+
+- `init.sh` corre `oxlint` (`npm run lint`) pero **no** `tsc -b`, que solo entra en `npm run build`. Consecuencia: un error de tipos —por ejemplo añadir un estado a un `Literal` sin actualizar los `Record` exhaustivos que dependen de él— **deja `init.sh` en verde** y solo aparece en el build de Vercel, ya con el push hecho.
+- Se descubrió al verificar AD-06: los dos `Record<EstadoSolicitud, string>` de `lib/contacto.ts` sí rompen la compilación con un estado nuevo (comprobado metiendo `'en_espera'`), pero **ese candado no lo aplica la verificación local**, sino el deploy.
+- Mitigación de hoy: correr `npx tsc -b` a mano en cada paso de frontend, que es lo que vienen haciendo los implementadores. Arreglo de fondo (candidato para AD-09): añadir el typecheck al paso 7 de `init.sh`, junto al lint. Ojo antes de tocarlo: `init.sh` es infraestructura compartida y hay trabajo en paralelo en el repo.
+
+## 2026-08-16 — Un test que solo mira la ubicación NO detecta que falte `preventDefault`
+
+- Al poner el corazón de favoritos dentro de `MascotaCard` —cuya tarjeta entera es un `<Link>`— el handler necesita `preventDefault` **y** `stopPropagation`. El test "hace clic y no navega", escrito aseverando solo la ubicación, **se quedó verde al quitar el `preventDefault`**.
+- Por qué: `stopPropagation` ya frena el `onClick` del `<Link>` de react-router, que es lo que cambia la ubicación en jsdom. Lo que evita el `preventDefault` es la **navegación nativa del `<a href>`** — una recarga completa de página en un navegador real, que **jsdom no simula** y por tanto nunca se refleja en la ubicación del test.
+- Forma correcta: aseverar **las dos cosas**. La ubicación (que sí cae si se quitan ambos guards, el caso "lo delego al llamador") y el **retorno de `fireEvent.click`**, que es `false` cuando el evento fue cancelado — esa es la única señal en jsdom de que el `preventDefault` ocurrió.
+- Regla general que deja: cuando el efecto que quieres prevenir es **nativo del navegador** (submit de un form, navegación de un `<a>`, drag por defecto), jsdom no lo ejecuta, así que no basta con comprobar que "no pasó nada": hay que aseverar la cancelación del evento. Un test que se queda verde ante la mutación no está protegiendo nada.
+
+## 2026-08-16 — Aseverar una AUSENCIA exige forzar el flush primero, o el test pasa por llegar temprano
+
+- Caso real (AD-07 paso 5): el test "si quitar la favorita falla, la tarjeta NO reaparece" **sobrevivió a la mutación** que reponía la tarjeta en el `.catch`. Con `await Promise.resolve()` no basta: la promesa rechazada resuelve en un microtask y **React no vuelca ese `setState` hasta el siguiente `act`**, así que la aserción de ausencia se evaluaba antes de que el estado hubiera cambiado. Pasaba por llegar temprano, no por ser cierta.
+- Arreglo: `waitFor` antes de aseverar la ausencia. Con eso la mutación cae con `expected document not to contain element, found <h3`.
+- Es el mismo género de error que el `preventDefault` de jsdom del mismo día: **un test que se queda verde ante la mutación no está protegiendo nada**. Los dos casos comparten la forma "asevero que algo NO ocurre" — la más fácil de escribir mal, porque el verde inicial no distingue entre "no ocurre" y "todavía no ocurrió".
+- Regla práctica para este repo: toda aserción de ausencia sobre un estado que llega por promesa va detrás de un `waitFor`, y **se verifica por mutación** (haz que el efecto SÍ ocurra y confirma que el test cae). Si no cae, el test es decorativo.
+
+## 2026-08-16 — `waitFor`/`findBy` NO bastan cuando lo que aseveras es que NADA cambia
+
+- Corrección de la entrada anterior del mismo día. `waitFor` sirve cuando esperas a que un estado **llegue**; no sirve cuando aseveras que un estado **se queda como está**. Si la aserción ya es cierta desde el primer render (p. ej. un corazón que se llenó de forma optimista al hacer clic), `waitFor`/`findBy` **pasan en su primera comprobación y vuelven** antes de que la mutación —un `.catch` que revierte— haya volcado su `setState`. El test se queda verde y no protege nada.
+- Lo que sí funciona: `await act(async () => {})` antes de la aserción, que vacía la cola de microtasks y fuerza el re-render pendiente.
+- Medido en tres casos de AD-07 (ficha, deck y catálogo): con `findByRole` a secas la mutación sobrevive; con el `act` cae.
+- Cómo distinguir los dos casos: pregúntate si la aserción **ya era cierta antes** de la operación asíncrona. Si sí, es una aserción de no-cambio y necesita el `act`. Si no (esperas a que aparezca algo), `waitFor` es correcto.
+- Y en los dos casos: **verifícalo por mutación**. Es la única forma de saber en cuál de los dos estás.
+
+## 2026-08-16 — `git checkout -- <archivo>` para deshacer una mutación se lleva también el trabajo sin commitear
+
+- Al verificar un test por mutación, el reflejo es romper el archivo y luego restaurarlo con `git checkout -- <archivo>`. **Eso restaura el archivo al último commit**, así que si el paso en curso todavía no está commiteado, borra también la implementación recién escrita — no solo la mutación.
+- Pasó de verdad en AD-08 paso 4 con `App.tsx` y `LandingEmergencia.tsx`. **Lo peor es lo silencioso que es**: `init.sh` no falla, porque el código simplemente vuelve a un estado anterior coherente. Solo se detectó porque la mutación siguiente falló con `Unable to find` en vez de con el síntoma que se esperaba.
+- Forma correcta: copiar el archivo a la carpeta de scratch **antes** de mutarlo y restaurar con `cp`, verificando después el sha1 (o `git diff` vacío si el paso ya estaba commiteado). `git checkout --` solo es seguro cuando lo que quieres restaurar ya está en un commit.
+- Señal de alarma para el futuro: si una mutación falla con un mensaje que no es el que esperabas, sospecha del estado del árbol antes de sospechar del test.
+
+
+## 2026-08-16 — Sí se pueden forzar las FK en un test, y hace falta: el 500 al despublicar
+
+- Corrige la entrada del 2026-08-15. **Se puede** hacer que SQLite se comporte como Postgres, y hay casos donde es la única forma de ver el bug: un listener del evento `connect` que ejecute `PRAGMA foreign_keys=ON` **sobre la conexión cruda**.
+- ⚠️ **Un `session.execute("PRAGMA foreign_keys=ON")` NO sirve**: SQLite lo ignora dentro de una transacción, y una `Session` abre una antes de la primera sentencia. Tiene que ir en el listener de conexión.
+- ⚠️ **No lo enciendas en el `conftest.py` global**: hay tests que borran filas con hijas a propósito (p. ej. `test_despublicar_mascota_de_organizacion_eliminada_devuelve_403`) y romperían. Va en un engine propio, en el archivo de test que lo necesita — así lo hace `tests/api/test_despublicar_rastros.py`.
+- **El caso que lo motivó**: `DELETE /api/pets/{id}` hacía `session.delete(pet)` sin limpiar `swipes`/`matches`/`favorites`, cuyas FK no llevan `ON DELETE`. En producción eso es un **500** en cuanto la mascota tenga un solo swipe o favorito. Medido: el test que esta suite habría escrito por defecto **pasa en verde con el código roto**, dejando swipes huérfanos; con las FK forzadas sale el `IntegrityError: FOREIGN KEY constraint failed` literal de producción.
+- **Regla**: si el comportamiento correcto depende de una FK, el test necesita las FK encendidas **y** hay que demostrar por mutación que sin encenderlas no caería. Sin esa segunda mitad no sabes si el fixture aporta algo.
+
+## 2026-08-16 — El `DEMO_USER_ID = 1` NO es una persona real en producción
+
+- Muchos comentarios del repo (y varios mensajes de esta sesión) justifican el gate de `hasActiveUser()` diciendo que sin cuenta se actuaría como "el usuario 1, una persona real en producción". **Medido contra prod: `GET /api/users/1` → 404 `{"detail":"El usuario 1 no existe"}`.** El id 1 es del seed local; los usuarios reales de prod tienen otros ids (p. ej. el sistema 49 del crawler y el 70 de las organizaciones importadas).
+- **Qué NO cambia**: el gate sigue siendo correcto y necesario. Sin él, un visitante anónimo escribiría con un id que no es suyo, y en local (donde el 1 sí existe y es Ana Martínez) sobrescribiría datos ajenos de verdad. Lo que cambia es **la justificación escrita**, que hoy exagera el impacto en producción.
+- Al tocar esos comentarios, decir lo cierto: escribir sin cuenta atribuye la acción a un id arbitrario que no es de quien actúa — un dato falso en la base, con o sin persona detrás.
+
+## 2026-08-17 — `git push` a este repo falla por SSH: hay que empujar por HTTPS
+
+- `git push origin <rama>` devuelve **`ERROR: Permission to javergara/pets-finder.git denied to trochezsa`**. No es un problema de permisos que haya que pedir: es que **el remote es SSH** (`git@github.com:javergara/pets-finder.git`) y la llave del agente pertenece a la cuenta **`trochezsa`**, que no tiene acceso al repo.
+- **`gh` está autenticado como `frandak2`, que sí tiene `WRITE`** (`gh repo view javergara/pets-finder --json viewerPermission` → `"WRITE"`). El helper `gh auth git-credential` ya está configurado, pero **solo aplica a HTTPS**, así que un remote SSH nunca lo consulta.
+- **La salida, sin tocar la config del usuario** — empujar a la URL HTTPS explícita, que sí pasa por el helper de `gh`:
+  ```bash
+  git push https://github.com/javergara/pets-finder.git <rama>
+  ```
+- **No cambies el remote a HTTPS ni toques `credential.helper`** para arreglar esto: es la config personal de la máquina y el push explícito resuelve el caso sin efectos colaterales. `gh pr create` funciona sin más (usa el token, no SSH); si se queja del repo, `GH_REPO=javergara/pets-finder` delante.
+- Ojo también: `gh api user` devolvió un **503 transitorio** mientras `gh repo view` funcionaba. Un fallo de `gh api` no significa que no haya sesión — reintenta antes de concluir que falta autenticación.

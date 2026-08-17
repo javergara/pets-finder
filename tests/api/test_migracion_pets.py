@@ -10,113 +10,28 @@ Postgres el invariante sencillamente no existe.
 Este archivo cierra ese hueco: compara el `.sql` versionado contra
 `Pet.__table__` y exige que digan lo mismo.
 
+El parser de `create table` vive en `soporte_migraciones.py`, compartido con el
+anti-drift de AD-03 (`test_migracion_swipes.py`). Los casos de abajo no cambiaron
+al extraerlo: que sigan verdes es la prueba de que la extracción no alteró nada.
+
 ⚠️ `Pet` se importa a nivel de módulo (ver la cabecera de `test_pets.py`): un
 import perezoso deja la tabla fuera de `Base.metadata` en otros tests.
 """
 
 import re
-from pathlib import Path
 
 import pytest
-from sqlalchemy import CheckConstraint
+from soporte_migraciones import (
+    MIGRACIONES_DIR,
+    _normalizar_expresion,
+    check_del_modelo,
+    columnas_del_sql,
+    expresion_del_check,
+)
 
 from reencuentro_api.models.pet import Pet
 
-MIGRACIONES_DIR = Path(__file__).resolve().parents[2] / "migrations"
 SQL_PETS = MIGRACIONES_DIR / "AD-01-pets.sql"
-
-PALABRAS_DE_CONSTRAINT = ("constraint", "check", "primary", "unique", "foreign", "exclude")
-
-
-def _cuerpo_del_create_table(sql: str, tabla: str) -> str:
-    """Devuelve lo que va entre los paréntesis del `create table ... <tabla> (…)`.
-
-    Cuenta paréntesis en vez de usar una regex greedy porque el cuerpo contiene
-    paréntesis propios (el `check ((a is null) <> (b is null))`).
-    """
-    inicio = re.search(
-        rf"create\s+table\s+(?:if\s+not\s+exists\s+)?(?:public\.)?{tabla}\s*\(",
-        sql,
-        re.IGNORECASE,
-    )
-    assert inicio, f"El .sql no declara un 'create table' de {tabla}"
-    profundidad = 0
-    for pos in range(inicio.end() - 1, len(sql)):
-        if sql[pos] == "(":
-            profundidad += 1
-        elif sql[pos] == ")":
-            profundidad -= 1
-            if profundidad == 0:
-                return sql[inicio.end() : pos]
-    raise AssertionError(f"El 'create table' de {tabla} no cierra su paréntesis")
-
-
-def _partes_de_nivel_cero(cuerpo: str) -> list[str]:
-    """Parte el cuerpo por las comas que no están dentro de un paréntesis."""
-    partes, actual, profundidad = [], "", 0
-    for caracter in cuerpo:
-        if caracter == "(":
-            profundidad += 1
-        elif caracter == ")":
-            profundidad -= 1
-        if caracter == "," and profundidad == 0:
-            partes.append(actual)
-            actual = ""
-        else:
-            actual += caracter
-    partes.append(actual)
-    return [parte.strip() for parte in partes if parte.strip()]
-
-
-def columnas_del_sql(sql: str, tabla: str) -> set[str]:
-    """Nombres de columna declarados en el `create table` (sin las constraints)."""
-    columnas = set()
-    for parte in _partes_de_nivel_cero(_cuerpo_del_create_table(sql, tabla)):
-        primera = parte.split()[0]
-        if primera.lower() in PALABRAS_DE_CONSTRAINT:
-            continue
-        columnas.add(primera.strip('"'))
-    return columnas
-
-
-def _normalizar_expresion(expresion: str) -> str:
-    """Minúsculas, espacios colapsados y sin espacios pegados a los paréntesis.
-
-    Comparar carácter a carácter sería frágil: el modelo escribe
-    `(organizacion_id IS NULL) <> (user_id IS NULL)` y el SQL lo envuelve en un
-    paréntesis más y en minúsculas. Lo que importa es que sea la misma condición.
-    """
-    limpio = re.sub(r"\s+", " ", expresion.strip().lower())
-    limpio = re.sub(r"\s*([()])\s*", r"\1", limpio)
-    while limpio.startswith("(") and limpio.endswith(")"):
-        interior = limpio[1:-1]
-        if _partes_de_nivel_cero(interior) and interior.count("(") == interior.count(")"):
-            limpio = interior
-        else:
-            break
-    return limpio
-
-
-def expresion_del_check(sql: str, nombre: str) -> str:
-    """La condición del `constraint <nombre> check (…)` tal como está en el .sql."""
-    inicio = re.search(rf"constraint\s+{nombre}\s+check\s*\(", sql, re.IGNORECASE)
-    assert inicio, f"El .sql no declara el constraint {nombre}"
-    profundidad = 0
-    for pos in range(inicio.end() - 1, len(sql)):
-        if sql[pos] == "(":
-            profundidad += 1
-        elif sql[pos] == ")":
-            profundidad -= 1
-            if profundidad == 0:
-                return sql[inicio.end() : pos]
-    raise AssertionError(f"El check {nombre} no cierra su paréntesis")
-
-
-def check_del_modelo(modelo, nombre: str) -> str:
-    for constraint in modelo.__table__.constraints:
-        if isinstance(constraint, CheckConstraint) and constraint.name == nombre:
-            return str(constraint.sqltext)
-    raise AssertionError(f"El modelo {modelo.__name__} no declara el constraint {nombre}")
 
 
 @pytest.fixture(scope="module")
