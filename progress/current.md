@@ -1987,3 +1987,49 @@ PR **#7 mergeado** a `main` (commit de merge `586b00b`), con el veredicto de **d
 
 - **Acceptance 2 — ABIERTO**, y es el único que exige **escribir en producción**: publicar una mascota de prueba, swipe, solicitud, contacto por WhatsApp y limpieza por la API. **Requiere autorización explícita**; no se hace sola. El guion está en `docs/despliegue-modulo-adopcion.md` §6, y la limpieza ya no tiene el agujero del hallazgo 2 (el `DELETE` cascadea swipes/favoritos y responde 409 si hay solicitudes vivas).
 - **Acceptance 4 — ABIERTO**: el `done` en los dos JSON lo pone el revisor, y solo tiene sentido con el 2 cerrado.
+
+## AD-09 (2026-08-17): acceptance 2 CERRADO — flujo completo ejecutado en producción y limpiado
+
+**Con autorización explícita del dueño.** Recorrido real contra `petfinder-col.com`, de punta a punta, y limpieza completa verificada después.
+
+**Decisión de método, para que no se lea como un descuido**: se publicó con las **cuentas de sistema ya existentes** —`82` "Recupera Tu Mascota (importado)" como rescatista que publica, `49` "Rescate Animal Cali (importado)" como adoptante— en vez de crear usuarios nuevos o usar una organización real con nombre propio. Motivo: **`POST /api/users` no tiene inverso** (no hay `DELETE /api/users`), así que un usuario de prueba habría sido residuo permanente en producción; y atribuir una mascota falsa a una organización real con nombre propio es ponerle a un tercero algo que no publicó. La mascota se llamó **"PRUEBA TECNICA - no es real"** y su historia lo decía en la primera línea, porque el catálogo de adopción en prod estaba vacío y durante esos minutos fue la única visible.
+
+### Los diez pasos, con la respuesta real
+
+| # | Paso | Resultado |
+|---|---|---|
+| 1 | `POST /api/pets` (rescatista 82, zona Cali) | **201**, `id=1`, `estado: disponible` |
+| 2 | `GET /api/pets` | **200**, 1 mascota — aparece en el catálogo público |
+| 3 | `GET /api/pets/deck?adoptante_id=49` | **200**, 1 carta, `afinidad: null` — **exactamente lo que exige AD-04**: sin perfil de hogar el deck no bloquea, solo deja de puntuar |
+| 4 | `POST /api/swipes` (49 → like) | **201**, y la respuesta **trae la solicitud creada en el mismo request** (`id=1`, `estado: solicitado`, etiqueta "Cuestionario nuevo"). Escritura real en `swipes` **y** `matches` |
+| 5 | `POST /api/users/49/favorites` | **201**; `GET` de favoritas devuelve la mascota. Escritura real en `favorites` |
+| 6 | `GET /api/solicitudes` en sus formas | `adoptante_id=49` → `[(1,'solicitado')]`; `publicador_id=82` → lo mismo. Las dos caras ven la misma solicitud |
+| 7 | `GET /api/solicitudes/1?solicitante_id=82` | **200** con `acciones_disponibles: ['agendar-visita','pedir-informacion','aprobar','descartar']` — las cuatro acciones de quien publica (ADR 0002: el adoptante no tiene ninguna) |
+| 8 | **El corte de privacidad**, probado de verdad: `?solicitante_id=70` (un tercero) | **403** `"Solo el adoptante o quien publicó la mascota pueden ver esta solicitud"`. Los ids son secuenciales y adivinables; sin este corte se leería el cuestionario y el teléfono de alguien ajeno |
+| 9 | og tags con user-agent de WhatsApp | `og:title` = **"PRUEBA TECNICA - no es real — En adopción en Cali"** y `og:description` con la historia. **El rewrite de bots de AD-08 funciona en producción**, que era justo lo que su propio test declaraba no poder cubrir ("verifica la configuración, no la semántica de matching de Vercel") |
+| 10 | Limpieza | ver abajo |
+
+### La limpieza probó el fix del 500, contra Postgres real
+
+1. `DELETE /api/pets/1?user_id=82` con la solicitud **viva** → **409** `"Esta mascota tiene 1 solicitud de adopción abierta: ciérrala antes de despublicar a la mascota"`. **Concordancia en singular, en producción.** Esto es exactamente lo que antes del fix era un **500 con traza**.
+2. `POST /api/solicitudes/1/descartar` → **200**, `estado: cerrado`, etiqueta "Solicitud cerrada".
+3. `DELETE /api/pets/1?user_id=82` → **204**.
+
+**Cero rastro después**, comprobado endpoint por endpoint: `pets` `[]`, `pets?adoptante_id=49` `[]`, `deck` `[]`, `favorites` `[]`, `solicitudes` `[]` por las dos caras, `adopciones` `{"total":0,...}`, y `/adoptar/mascota/1` con bot → **404 `"La mascota 1 no existe"`**. La cascada de `swipes`/`favorites` y el borrado de la solicitud terminal funcionaron: si hubieran quedado filas huérfanas o la FK hubiera bloqueado, el `DELETE` habría dado 500 en vez de 204.
+
+### Un dato en vivo que refuerza el hallazgo del cold start
+
+Durante la verificación final, **`GET /api/reports` falló una vez con `HTTP=000`** (la petición ni completó). Cuatro reintentos inmediatos: **200 en ~0.4 s**, y la consulta completa (260 reportes, 344 kB) en **0.87 s**. O sea, **fallo puntual, no regresión** — el dominio de emergencia está sano.
+
+Pero es **justo la clase de fallo que motivó la feature 48**, observado en vivo sobre `/api/reports`. Y refuerza el hallazgo pendiente: `listarReportesPaginado` —la que usa `/reportes`— **no tiene el reintento**, así que un usuario con esa mala suerte ve la pantalla vacía o en error sin segunda oportunidad. Ya no es un razonamiento sobre el código: se vio pasar.
+
+### Estado de los cuatro acceptance de AD-09
+
+| # | Acceptance | Estado |
+|---|---|---|
+| 1 | Tablas en prod con RLS y cero errores en los endpoints | ✅ **CERRADO** (RLS por verificación del dueño contra `pg_class`; los endpoints, medidos aquí) |
+| 2 | Flujo completo en producción con evidencia en `progress/` | ✅ **CERRADO** — es esta sección |
+| 3 | CHANGELOG 3.0.0 publicado y `main`/`develop` sincronizadas | ✅ **CERRADO** (`origin/develop...origin/main` → `0 0`) |
+| 4 | `validate_feature_list.py` sale 0 con los items `done` en ambos JSON | ⏳ **Pendiente del revisor** — el `done` no me corresponde ponerlo |
+
+**AD-09 sigue `in_progress` en `feature_list.json` y `todo` en `feature_list_adopcion.json`.** El `done` en los dos lo pone un revisor independiente, como todas las anteriores.
