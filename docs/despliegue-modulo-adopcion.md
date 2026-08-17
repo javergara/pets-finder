@@ -62,9 +62,9 @@ git fetch origin && git checkout feat/adoptar && git pull
 bash init.sh
 ```
 
-Debe imprimir **`Todo en verde.`** y salir 0, con **753 tests de Python + 487 de web**. La línea base al abrir el módulo era 174 + 148.
+Debe imprimir **`Todo en verde.`** y salir 0, con **753 tests de Python + 493 de web**. La línea base al abrir el módulo era 174 + 148.
 
-*(Este documento nació diciendo 738 + 487, la cuenta al cerrar AD-08. Los 15 tests de Python que faltaban llegaron después, con el arreglo del 500 al despublicar una mascota con swipes o favoritos — `tests/api/test_despublicar_rastros.py`. Si ves 738, tu copia es vieja.)*
+*(Este documento nació diciendo 738 + 487, la cuenta al cerrar AD-08. Los 15 de Python llegaron con el arreglo del 500 al despublicar una mascota con swipes o favoritos (`tests/api/test_despublicar_rastros.py`), y los 6 de web con la feature 48, que entró al mergear `main` en la rama. Si ves 738 o 487, tu copia es vieja.)*
 
 Y el build de producción, que es lo único que typechequea el frontend (`init.sh` corre `oxlint` pero **no** `tsc -b`):
 
@@ -72,7 +72,7 @@ Y el build de producción, que es lo único que typechequea el frontend (`init.s
 cd src/web && npm run build     # tsc -b + vite build, debe salir 0
 ```
 
-Sale **exit 0 con un aviso**, y el aviso es esperado: `Some chunks are larger than 500 kB after minification`. Medido hoy sobre `feat/adoptar`: `dist/assets/index-BPUHh8ML.js` = **619.80 kB crudos / 176.32 kB gzip** (el número que se registró en la feature 46 eran 612 kB crudos, así que el módulo entero costó ~8 kB). Es **deuda preexistente desde la feature 44** — el `import()` dinámico que partiría el bundle nunca se hizo— y **no bloquea el despliegue**: lo que viaja por la red son los 176 kB gzip. No lo confundas con un error: si el build sale 0, está bien.
+Sale **exit 0 con un aviso**, y el aviso es esperado: `Some chunks are larger than 500 kB after minification`. Medido sobre el HEAD de `feat/adoptar` ya con `main` mergeado: **621.30 kB crudos / 176.64 kB gzip** (el hash del archivo cambia en cada build, así que no lo persigas). Contra los **612 kB** que registró la feature 46, el módulo de adopción **entero costó ~9 kB**. Es **deuda preexistente desde la feature 44** — el `import()` dinámico que partiría el bundle nunca se hizo— y **no bloquea el despliegue**: lo que viaja por la red son los 176 kB gzip. No lo confundas con un error: si el build sale 0, está bien.
 
 Dos cosas que puedes dar por comprobadas porque son un comando, no una promesa:
 

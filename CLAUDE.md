@@ -50,7 +50,7 @@ Para resetear los datos a un estado limpio: `python3 scripts/seed.py` (determini
 
 ## Estado actual (2026-08-17)
 
-**52 items en `done` de los 56 de `feature_list.json`**, cada uno aprobado por un revisor independiente que corrió `bash init.sh` de verdad. Última corrida: **753 tests de Python + 487 de web, `Todo en verde.`** (`init.sh` no typechequea el frontend: `npx tsc -b --force` o `npm run build` van aparte, a mano).
+**52 items en `done` de los 56 de `feature_list.json`**, cada uno aprobado por un revisor independiente que corrió `bash init.sh` de verdad. Última corrida: **753 tests de Python + 493 de web, `Todo en verde.`** (`init.sh` no typechequea el frontend: `npx tsc -b --force` o `npm run build` van aparte, a mano).
 
 **Lo que está en producción** (`main`, <https://petfinder-col.com>) es el **dominio de emergencia + la red de apoyo**: reportar perdida/encontrada con varias fotos (comprimidas y recortadas en el navegador) y pin en mapa real (Leaflet+OSM), listado con filtros por características, búsqueda por descripción, avistamientos sin registro, detalle con contacto directo por WhatsApp, cartel imprimible con QR, alertas por correo y radar diario de coincidencias, reunidos con franja de esperanza, landings por zona con og tags, directorio de organizaciones y tablero de ayuda entre vecinos. Arquitectura (ADRs 0006-0008, guía en `docs/deploy.md`): un solo proyecto Vercel gratuito sirve el frontend estático y la API FastAPI como función serverless (`api/index.py`), con Postgres (pooler :6543) y Storage de fotos en Supabase free; dominio comprado en GoDaddy; auto-deploy con cada push a `main`.
 

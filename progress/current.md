@@ -1924,7 +1924,32 @@ Al ir a abrir el PR apareció lo que nadie había mirado: **`origin/main` tenía
 | Línea | Llamada | ¿Importa? |
 |---|---|---|
 | 205 | `POST /api/uploads` | **No.** Es un POST multipart, y los POST no se reintentan por diseño (repetirlos duplicaría un reporte) |
-| 319 | **`GET /api/reports`** (`listarReportes`) | **Sí, y es el peor sitio posible**: es el listado de mascotas perdidas y encontradas, la pantalla que justifica la app |
+| 319 | **`GET /api/reports`** (`listarReportesPaginado`) | **Sí, y es el peor sitio posible**: es el listado de mascotas perdidas y encontradas, la pantalla que justifica la app |
 | 539 | `GET /api/users/{id}/home-profile` (`obtenerPerfilHogar`) | Sí, aunque menor: es del módulo de adopción y su 404 ya está tratado como estado válido |
 
 O sea: **el bug que motivó la feature 48 —el cold start dejando `/ayudar` con un vacío engañoso teniendo 28 organizaciones— sigue vivo tal cual en `/reportes`**, que es exactamente el mismo patrón sobre la ruta más crítica. No se arregla aquí a propósito: la feature 48 está `done` y mergeada, AD-09 es despliegue y verificación, y meter código de producto de otra feature en este item sería justo lo que `CHECKPOINTS.md` prohíbe. **Merece item propio** (o una corrección de la 48), y conviene decidirlo **antes** del recorrido manual en producción, porque el recorrido va a pegarle a `/reportes` en frío.
+
+#### Corrección al hallazgo anterior (revisor del merge, 2026-08-17)
+
+**El nombre de la función estaba mal y la corrección importa.** Escribí que la línea 319 era `listarReportes`. **Es falso**, y lo verifiqué yo mismo tras el aviso del revisor:
+
+- **`listarReportes` (`client.ts:122`) SÍ pasa por `request()`** y por tanto **sí tiene el reintento**. La prueba más limpia: los cuatro tests de la feature 48 usan precisamente `listarReportes()` como vehículo para ejercitar el reintento — si lo esquivara, no podrían pasar. La usan `MapaReportes.tsx` y `MisReportes.tsx`.
+- **Quien esquiva `request()` en la línea 319 es `listarReportesPaginado`**, y **es la que usa `/reportes`** (`Reportes.tsx:3,54,65`). Así que **la conclusión operativa se sostiene entera** —la pantalla más crítica no tiene reintento ante el cold start— pero apuntando a la función correcta.
+
+Por qué la distinción no es cosmética: quien tome el item iba a abrir `listarReportes`, encontrarla ya correcta, y o bien "arreglar" algo que funciona o bien concluir que el hallazgo era falso y cerrarlo.
+
+**Y hay un matiz de diseño que cambia cómo se arregla**: `listarReportesPaginado` no usa `fetch` directo por descuido. Su propio docstring lo dice — *"expone el total del header `X-Total-Count`, que `request()` no puede leer"*. Así que **el arreglo no es "meterla dentro de `request()`"**: eso le quitaría el total y rompería la paginación. Hace falta o una variante de `request()` que devuelva los headers, o extraer el bucle de reintento a un helper que las dos usen. Lo mismo vale, en menor grado, para `obtenerPerfilHogar` (:539), que además trata su 404 como estado válido.
+
+**Nota de proceso del revisor, aceptada**: el commit de merge `3aacd03` incluyó además cambios en `CLAUDE.md` (los contadores 55→56 y 51→52) que `main` nunca tocó. El contenido es correcto pero no era resolución de conflicto y debió ir en su propio commit. El mensaje de `3aacd03` también arrastra la atribución equivocada a `listarReportes`; **no se reescribe porque ya está pusheado y es historia compartida** — queda corregido aquí, que es donde se lee.
+
+### Veredicto del revisor sobre el árbol mergeado (`4b2b5db`, 2026-08-17): APRUEBA el merge del PR #7
+
+Revisión independiente del delta `c0f243b..4b2b5db` —el merge que nadie había auditado— más `init.sh` sobre el árbol de hoy. Árbol limpio al terminar.
+
+- **Los 4 conflictos, sin pérdidas.** Reprodujo el merge en un worktree desechable y obtuvo **exactamente los 4 conflictos** declarados. Censo de tests comparando conjuntos `(archivo, nombre)` contra **los dos padres**: **cero desapariciones**. `client.test.ts`: 50 `it` de la rama + 4 de la feature 48 = **54**, y vitest recolecta 54 — si sobrara o faltara un `});` no recolectaría esa cifra. `feature_list.json`: 56 items, **cada item conservado idéntico objeto a objeto** a su padre (comparación de dicts, no de texto), la 48 en su índice numérico, `validate_feature_list.py` EXIT=0 con un solo `in_progress`.
+- **Los 3 archivos auto-mergeados son byte-idénticos al auto-merge de git**: no se metió nada a mano en `client.ts`, `RedDeApoyo.tsx` ni `RedDeApoyo.test.tsx`.
+- **Probado rompiéndolo**, tres mutaciones y tres rojos: `REINTENTOS_GET = 0` → 3 rojos en `client.test.ts`; `to="/adoptar"` → `to="/"` → 1 rojo; quitar `setErrorLugares(true)` del `catch` (la regresión exacta que la 48 arregla) → 1 rojo. Restauradas las tres.
+- **`init.sh` corrido por él**: `Todo en verde.`, EXIT=0, **753 Python + 493 web (40 archivos)**. `npm run build` EXIT=0.
+- **Nada raro**: 0 líneas de diff en los 4 manifiestos, cero WebSockets, ADR 0002 intacto, `origin/adopta-v1` y el tag en `cde337f`, y ningún `.env`/`data/app.db`/`node_modules` entre los 110 archivos del PR.
+
+**Lo que el revisor dice explícitamente que NO verificó** (y por eso no se presenta como cubierto): no tocó producción, así que **las cuatro migraciones ejecutadas las toma de la declaración del dueño, no las comprobó contra `information_schema`**; no re-revisó AD-03…AD-08 de cero (descansan en el veredicto sobre `c0f243b`); y el acceptance de layout a 360px sigue sin cubrir, como estaba declarado.
