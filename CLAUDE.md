@@ -24,7 +24,7 @@ Para resetear los datos a un estado limpio: `python3 scripts/seed.py` (determini
 ## Mapa del repo
 
 - **`AGENTS.md`** — el mapa real de divulgación progresiva: qué agente/skill usar para cada tarea. Empieza ahí para trabajo día a día.
-- **`feature_list.json`** — el alcance real y el único que valida `init.sh`: **55 items** hoy (`python3 -c "import json;print(len(json.load(open('feature_list.json'))['items']))"`), del pivot (`01-pivot-fundaciones` …) a la fase 2 (`AD-01` … `AD-09`). Regla dura: **máximo un item `in_progress`**.
+- **`feature_list.json`** — el alcance real y el único que valida `init.sh`: **56 items** hoy (`python3 -c "import json;print(len(json.load(open('feature_list.json'))['items']))"`), del pivot (`01-pivot-fundaciones` …) a la fase 2 (`AD-01` … `AD-09`). Regla dura: **máximo un item `in_progress`**.
 - **`feature_list_adopcion.json`** — el **backlog fuente** de la fase 2 (9 items, `AD-01` … `AD-09`). No lo valida `init.sh`: al arrancar una tarea se copia el item a `feature_list.json`, y el revisor marca `done` en **los dos**. Lee antes `docs/integracion-adopcion.md`.
 - **`CHECKPOINTS.md`** — qué significa "terminado". Fuente de verdad del revisor.
 - **`docs/product-research.md`** — problema, referentes reales (Patitas a Salvo, PawBoost, Love Lost), decisiones de mecánica.
@@ -50,7 +50,7 @@ Para resetear los datos a un estado limpio: `python3 scripts/seed.py` (determini
 
 ## Estado actual (2026-08-17)
 
-**51 items en `done` de los 55 de `feature_list.json`**, cada uno aprobado por un revisor independiente que corrió `bash init.sh` de verdad. Última corrida: **753 tests de Python + 487 de web, `Todo en verde.`** (`init.sh` no typechequea el frontend: `npx tsc -b --force` o `npm run build` van aparte, a mano).
+**52 items en `done` de los 56 de `feature_list.json`**, cada uno aprobado por un revisor independiente que corrió `bash init.sh` de verdad. Última corrida: **753 tests de Python + 487 de web, `Todo en verde.`** (`init.sh` no typechequea el frontend: `npx tsc -b --force` o `npm run build` van aparte, a mano).
 
 **Lo que está en producción** (`main`, <https://petfinder-col.com>) es el **dominio de emergencia + la red de apoyo**: reportar perdida/encontrada con varias fotos (comprimidas y recortadas en el navegador) y pin en mapa real (Leaflet+OSM), listado con filtros por características, búsqueda por descripción, avistamientos sin registro, detalle con contacto directo por WhatsApp, cartel imprimible con QR, alertas por correo y radar diario de coincidencias, reunidos con franja de esperanza, landings por zona con og tags, directorio de organizaciones y tablero de ayuda entre vecinos. Arquitectura (ADRs 0006-0008, guía en `docs/deploy.md`): un solo proyecto Vercel gratuito sirve el frontend estático y la API FastAPI como función serverless (`api/index.py`), con Postgres (pooler :6543) y Storage de fotos en Supabase free; dominio comprado en GoDaddy; auto-deploy con cada push a `main`.
 

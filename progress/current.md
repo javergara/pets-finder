@@ -1867,3 +1867,64 @@ Además, el estado que había quedado rancio al ejecutarse la ventana: `migratio
 | 4 | `validate_feature_list.py` sale 0 con los items `done` en ambos JSON | ❌ **ABIERTO** | Sale 0 hoy con AD-09 en `in_progress`, que es lo correcto. El `done` lo pone el revisor cuando 1 y 2 cierren |
 
 **Los tres que faltan cuelgan del mismo gancho: el merge.** Y el merge es un despliegue a producción — dispara el auto-deploy de `main` sobre `petfinder-col.com`, donde hay datos reales. **No se hace sin autorización explícita**, aunque el bloqueo técnico ya no exista.
+
+## Veredicto del revisor — módulo de adopción AD-03…AD-09 (rama feat/adoptar, HEAD c0f243b) (2026-08-16): APRUEBO el merge, condicionado a las 4 migraciones previas
+
+Revisión independiente y escéptica de `origin/feat/adoptar` (79 commits sobre main). Todo ejecutado por el revisor en la rama; árbol limpio al terminar.
+
+**(a) Verde de verdad**: `bash init.sh` → **"Todo en verde." con 753/753 tests de Python + 487/487 de web** — exactamente los números anunciados. `npm run build` (tsc -b + vite) también en verde.
+
+**(b) El bug del DELETE — confirmado arreglado con evidencia de mutación**: `pytest tests/api/test_despublicar_rastros.py -v` → **13/13**. Mutación ejecutada: quitando el bloque `for modelo in (Swipe, Favorite, Match): delete(...)` de `despublicar_mascota`, la suite revienta con `sqlite3.IntegrityError: FOREIGN KEY constraint failed` (el test monta su DB con `PRAGMA foreign_keys=ON` — cierra el punto ciego de SQLite que escondía el 500 de Postgres); restaurado → 13/13 y `git diff` limpio. El 409 por solicitudes vivas es copy de producto en español con concordancia singular/plural ("1 solicitud… ciérrala" / "N solicitudes… ciérralas") y en el código va ANTES de `borrar_foto` (verificado; además las fotos solo se borran si la mascota no vino de un reporte — asimetría bien documentada y espiada por test).
+
+**(c) Migraciones auditadas (NO ejecutadas)**: las 4 (`AD-03-swipes`, `AD-03-home-profiles`, `AD-05-matches`, `AD-07-favorites`) son puramente aditivas — cero `DROP/TRUNCATE` y cero `ALTER` sobre users/reports/organizaciones/pets (grep por archivo), y las 4 terminan con `ENABLE ROW LEVEL SECURITY` (1 por archivo). **Anti-drift verificado por mutación**: borrando la columna `estado` de `AD-05-matches.sql` → 2 tests rojos en `test_migracion_matches.py`; restaurado → 11/11. Nota: el anti-drift de `home_profiles` vive dentro de `test_migracion_swipes.py` (la ventana AD-03 completa, con nullabilidad/uniques/FKs/índices/tipos) — está cubierto, aunque el nombre del archivo no lo delate. `docs/despliegue-modulo-adopcion.md` me cuadra: orden correcto (swipes+home_profiles → matches → favorites, con el porqué real: el swipe-derecha inserta en `swipes` y `matches` en el mismo request), consultas de verificación correctas (RLS ×5, el CHECK de AD-01, los 3 UNIQUE que son la idempotencia real en serverless), y la tabla de `curl` reales contra prod es una práctica excelente.
+
+**(d) Nada raro entró**: diff de package.json/lock/requirements/pyproject contra origin/main → **0 líneas**; grep de WebSocket en src/ → vacío (ADR 0013 respetado); `origin/adopta-v1` y el tag en `cde337f` intactos; cero `os.environ` nuevos.
+
+**(e) Lo no cubierto, honestamente no cubierto**: el acceptance de 360px tiene su mitad de layout SIN test y **ningún test lo finge** — los comentarios lo declaran ("jsdom no tiene motor de layout… un test de altura sería decorativo"), y el caso "GUARDA DE CLASE, NO DE LAYOUT" solo impide reponer la combinación `shrink-0`+`flex-wrap` que causó el desborde real (729px vs 360), con aserción anti-falso-verde incluida. La medición real fue en Chrome; el dev declara que el catálogo entra a 360x740 y no a 360x640.
+
+**Extra del revisor**: smoke E2E en vivo con el seed — deck de 7 cartas, swipe like → 201 con la solicitud creada inline (estado "solicitado"), favorito 201; afinidad None sin home-profile (consistente con su test). El 422 de mi PUT de home-profile fue payload inventado mío, no un bug.
+
+**Dudoso (no bloquea)**: (1) la guía §1 dice **738** tests de Python y el HEAD real da **753** — quedó vieja tras los commits del fix AD-09; actualizarla antes de dársela al dueño (mismo patrón de conteos desactualizados que ya vi en la guía de AD-01/02); (2) el warning de chunk >500 kB sigue creciendo (ya venía de la feature 44 — el `import()` dinámico sigue pendiente); (3) el anti-drift de home_profiles dentro de `test_migracion_swipes.py` merece una línea en la guía para que nadie lo crea faltante.
+
+**VEREDICTO: APRUEBO el merge de `feat/adoptar`, condicionado a ejecutar ANTES en Supabase, en este orden exacto: 1) `migrations/AD-03-swipes.sql` → 2) `migrations/AD-03-home-profiles.sql` → 3) `migrations/AD-05-matches.sql` → 4) `migrations/AD-07-favorites.sql`**, seguidas de las 3 consultas de verificación de la guía (§3: RLS en las 5 tablas, el CHECK de pets, los 3 UNIQUE). Con `SKIP_DB_CREATE_ALL=1` nada se crea solo; mergear antes de migrar tumba `/adoptar` y el deck entero (el propio SQL de AD-05 lo advierte).
+
+## Veredicto del revisor — feature 48 (2026-08-17): APROBADA (con 1 micro-fix pedido para el mismo commit)
+
+Revisión independiente sobre el working tree de `develop` (sin commitear, sobre `67e6125`). Evidencia ejecutable de esta sesión:
+
+- **Acceptance 4**: `bash init.sh` corrido de verdad — **verde completo, 367/367 tests de Python + 293/293 de web**. Sin migración, correcto (cero cambios de backend).
+- **Acceptance 1**: 4 tests con fake timers en `client.test.ts` — GET que falla por red 1 vez → reintenta y devuelve el resultado (2 llamadas aseveradas); 502 → reintenta; **POST que falla NO se reintenta** (`toHaveBeenCalledTimes(1)` aseverado, con el porqué en el nombre: no es idempotente). Por lectura: la implementación es correcta — solo `metodo === 'GET'` gana intentos, 4xx nunca se repite (el `break` cae al manejo normal de `!ok`), esperas 600/1800 ms (máx +2.4 s en el peor caso, razonable contra un cold start), y el guard final de `respuesta` indefinida.
+- **Acceptance 2**: GET que falla siempre → propaga el `TypeError` original tras exactamente **3 intentos** (aseverado).
+- **Acceptance 3**: tests de `RedDeApoyo` — fallo de carga → "No pudimos cargar los lugares" + botón **Reintentar** que re-consulta (vía contador de recarga) y el test asevera explícitamente que el vacío engañoso NO aparece; vacío real solo con respuesta exitosa vacía. Por lectura: los dos fetches (lugares y avisos) tienen la tripleta cargando(null→esqueleto)/error/vacío con guards de null en mapa y acciones.
+- **La confesión del client.test.ts verificada**: el diff tiene **cero líneas `-` en el cuerpo** (solo la línea de imports ampliada); los 18 `it(` de HEAD están intactos byte a byte y ahora son 22 (18 + 4 nuevos). La restauración fue completa.
+- `feature_list.json`: `48-fetch-resiliente` a `done` — línea 648 por número exacto; único cambio de status; `validate_feature_list.py` → exit 0.
+
+**Micro-fix pedido para incluir en el mismo commit** (dos caracteres, sin tests que tocar): los estados iniciales de `RedDeApoyo` son `useState<...| null>([])` (líneas 25 y 30) pero el esqueleto cuelga de `null` — en el primer render, antes de que corra el efecto, se pinta **un frame** del vacío engañoso ("Aún no hay lugares") que esta misma feature vino a matar. Inicializarlos en `null` cierra la letra del acceptance 3 por completo (era un leftover del estado pre-feature, no una regresión). Si por alguna razón no se aplica, documentarlo como limitación conocida.
+
+Menores: (a) recurrente — entrada de la feature 48 en `changes.md` con su hash al commitear (checkpoint #4); (b) nota operativa al margen: los 6 entrenadores importados a prod (orgs 29-34) son trabajo operacional fuera de esta feature, sin objeción.
+
+### Merge de `origin/main` en `feat/adoptar` (2026-08-17): cuatro conflictos resueltos y un hallazgo
+
+Al ir a abrir el PR apareció lo que nadie había mirado: **`origin/main` tenía 2 commits que la rama no traía** (la rama iba 80 delante y 2 detrás). Uno es `67e6125`, el registro del veredicto y de las migraciones —ya estaba en el tronco, así que la bitácora de esto vive por duplicado a propósito: una entrada desde el tronco y otra desde la rama—. El otro es **`6283fb8`, la feature 48** (*lecturas resilientes al arranque en frío*), y esa sí toca código: `src/web/src/api/client.ts` y `RedDeApoyo.tsx`, que AD-08 también había tocado.
+
+**Los cuatro conflictos, y cómo se resolvió cada uno** (nada se descartó):
+
+- `src/web/src/api/client.test.ts` — **dos conflictos**. (a) El bloque de imports: cada rama insertó en el mismo hueco alfabético; quedaron los cuatro nombres (`listarReportes`, `listarSolicitudes`, `marcarFavorita`, `marcarReunido`). (b) El final del archivo: los dos lados anexaron `describe`s distintos y git factorizó fuera el cierre común `});\n});`. Concatenar sin más habría dejado el último `it` del lado de la rama **sin cerrar**; se le dio su propio cierre a cada bloque.
+- `feature_list.json` — los dos lados eran el cuerpo del **mismo objeto**, cortados a media lista `acceptance`. Se cerró el de la feature 48 y se reabrió para el bloque `AD-*`, dejando la 48 en su sitio numérico (…47, 48, AD-03…) en vez de detrás de AD-09. Resultado: **56 items, 52 `done`, 3 `todo`, 1 `in_progress` (AD-09)** — `validate_feature_list.py` exit 0. Se editó por reconstrucción de líneas, **sin `json.dump`**, como manda `memory/memory.md`.
+- `changes.md` y `progress/current.md` — anexado puro por los dos lados, sin solape. Se conservan los dos bloques en orden cronológico.
+
+`RedDeApoyo.tsx` y `client.ts` **auto-mergearon**, que no es lo mismo que estar bien, así que se comprobó a mano: sobreviven el cruce a `/adoptar` de AD-08 (línea 152) y los dos botones `Reintentar` de la feature 48 (214, 355). Y lo comprueban los tests, que es el oráculo de verdad.
+
+**Verificación del merge**: `bash init.sh` → **`Todo en verde.`**, `EXIT=0`, **753 tests de Python + 493 de web** (487 + los 6 de la feature 48), 40 archivos de test. `pytest -q` por separado: `753 passed`.
+
+#### ⚠️ Hallazgo para el líder: la feature 48 dejó fuera el listado de emergencia
+
+**Medido, no supuesto.** El reintento de la feature 48 vive dentro de `request()`, y **45 funciones de `client.ts` pasan por ahí**. Pero **tres llamadas usan `fetch` directo y lo esquivan** (`grep -n "await fetch(" src/web/src/api/client.ts`):
+
+| Línea | Llamada | ¿Importa? |
+|---|---|---|
+| 205 | `POST /api/uploads` | **No.** Es un POST multipart, y los POST no se reintentan por diseño (repetirlos duplicaría un reporte) |
+| 319 | **`GET /api/reports`** (`listarReportes`) | **Sí, y es el peor sitio posible**: es el listado de mascotas perdidas y encontradas, la pantalla que justifica la app |
+| 539 | `GET /api/users/{id}/home-profile` (`obtenerPerfilHogar`) | Sí, aunque menor: es del módulo de adopción y su 404 ya está tratado como estado válido |
+
+O sea: **el bug que motivó la feature 48 —el cold start dejando `/ayudar` con un vacío engañoso teniendo 28 organizaciones— sigue vivo tal cual en `/reportes`**, que es exactamente el mismo patrón sobre la ruta más crítica. No se arregla aquí a propósito: la feature 48 está `done` y mergeada, AD-09 es despliegue y verificación, y meter código de producto de otra feature en este item sería justo lo que `CHECKPOINTS.md` prohíbe. **Merece item propio** (o una corrección de la 48), y conviene decidirlo **antes** del recorrido manual en producción, porque el recorrido va a pegarle a `/reportes` en frío.

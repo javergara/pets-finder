@@ -22,38 +22,55 @@ export function RedDeApoyo() {
   const [pestana, setPestana] = useState<'lugares' | 'comunidad'>(
     busqueda.get('tab') === 'comunidad' ? 'comunidad' : 'lugares',
   );
-  const [organizaciones, setOrganizaciones] = useState<Organizacion[]>([]);
+  const [organizaciones, setOrganizaciones] = useState<Organizacion[] | null>(null);
+  const [errorLugares, setErrorLugares] = useState(false);
   const [tipo, setTipo] = useState<TipoOrganizacion | ''>('');
   const [zona, setZona] = useState('');
   // Comunidad (feature 42): avisos de ayuda entre personas.
-  const [avisos, setAvisos] = useState<AvisoAyuda[]>([]);
+  const [avisos, setAvisos] = useState<AvisoAyuda[] | null>(null);
+  const [errorAvisos, setErrorAvisos] = useState(false);
   const [tipoAviso, setTipoAviso] = useState<'pido' | 'ofrezco' | ''>('');
   const [categoriaAviso, setCategoriaAviso] = useState('');
   const [zonaAviso, setZonaAviso] = useState('');
 
+  // reintento manual además del automático del client (feature 48).
+  const [recargaLugares, setRecargaLugares] = useState(0);
   useEffect(() => {
-    listarOrganizaciones({ tipo: tipo || undefined, zona: zona || undefined }).then(
-      setOrganizaciones,
-    );
-  }, [tipo, zona]);
+    setErrorLugares(false);
+    setOrganizaciones(null);
+    listarOrganizaciones({ tipo: tipo || undefined, zona: zona || undefined })
+      .then(setOrganizaciones)
+      .catch(() => {
+        setErrorLugares(true);
+        setOrganizaciones([]);
+      });
+  }, [tipo, zona, recargaLugares]);
 
+  const [recargaAvisos, setRecargaAvisos] = useState(0);
   useEffect(() => {
     if (pestana !== 'comunidad') return;
+    setErrorAvisos(false);
+    setAvisos(null);
     listarAvisosAyuda({
       tipo: tipoAviso || undefined,
       categoria: categoriaAviso || undefined,
       zona: zonaAviso || undefined,
-    }).then(setAvisos);
-  }, [pestana, tipoAviso, categoriaAviso, zonaAviso]);
+    })
+      .then(setAvisos)
+      .catch(() => {
+        setErrorAvisos(true);
+        setAvisos([]);
+      });
+  }, [pestana, tipoAviso, categoriaAviso, zonaAviso, recargaAvisos]);
 
   async function resolver(aviso: AvisoAyuda) {
     const actualizado = await resolverAvisoAyuda(aviso.id, getActiveUserId());
-    setAvisos((prev) => prev.map((a) => (a.id === aviso.id ? actualizado : a)));
+    setAvisos((prev) => (prev ?? []).map((a) => (a.id === aviso.id ? actualizado : a)));
   }
 
   async function eliminar(aviso: AvisoAyuda) {
     await eliminarAvisoAyuda(aviso.id, getActiveUserId());
-    setAvisos((prev) => prev.filter((a) => a.id !== aviso.id));
+    setAvisos((prev) => (prev ?? []).filter((a) => a.id !== aviso.id));
   }
 
   return (
@@ -184,7 +201,22 @@ export function RedDeApoyo() {
 
           <AvisoSeguridad contexto="contactar" />
 
-          {avisos.length === 0 ? (
+          {errorAvisos ? (
+            <div className="rounded-2xl border border-line bg-surface p-6 text-center">
+              <p className="text-sm text-danger">
+                No pudimos cargar los avisos. Puede ser un problema pasajero de conexión.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRecargaAvisos((n) => n + 1)}
+                className="mt-3 rounded-full border border-forest px-5 py-2 text-sm font-medium text-forest"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : avisos === null ? (
+            <div className="h-40 animate-pulse rounded-2xl bg-surface-alt" />
+          ) : avisos.length === 0 ? (
             <p className="rounded-2xl border border-line bg-surface p-6 text-sm text-muted">
               No hay avisos activos con estos filtros. Sé la primera persona en publicar uno.
             </p>
@@ -301,7 +333,7 @@ export function RedDeApoyo() {
 
           <MapaLienzo
             zona={zona || 'Colombia'}
-            pines={organizaciones.map((o) => ({
+            pines={(organizaciones ?? []).map((o) => ({
               id: o.id,
               lat: o.lat,
               lng: o.lng,
@@ -310,7 +342,22 @@ export function RedDeApoyo() {
             }))}
           />
 
-          {organizaciones.length === 0 ? (
+          {errorLugares ? (
+            <div className="rounded-2xl border border-line bg-surface p-6 text-center">
+              <p className="text-sm text-danger">
+                No pudimos cargar los lugares. Puede ser un problema pasajero de conexión.
+              </p>
+              <button
+                type="button"
+                onClick={() => setRecargaLugares((n) => n + 1)}
+                className="mt-3 rounded-full border border-forest px-5 py-2 text-sm font-medium text-forest"
+              >
+                Reintentar
+              </button>
+            </div>
+          ) : organizaciones === null ? (
+            <div className="h-40 animate-pulse rounded-2xl bg-surface-alt" />
+          ) : organizaciones.length === 0 ? (
             <p className="rounded-2xl border border-line bg-surface p-6 text-sm text-muted">
               Aún no hay lugares registrados con estos filtros. ¿Conoces uno? Regístralo y ayuda a
               que más gente lo encuentre.

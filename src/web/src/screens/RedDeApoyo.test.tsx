@@ -92,6 +92,33 @@ function crearAviso(overrides: Partial<import('../api/types').AvisoAyuda> = {}) 
   };
 }
 
+describe('RedDeApoyo — carga resiliente (feature 48)', () => {
+  it('si la carga de lugares falla muestra el error con Reintentar, y el botón re-consulta', async () => {
+    vi.mocked(client.listarOrganizaciones)
+      .mockRejectedValueOnce(new Error('cold start'))
+      .mockResolvedValueOnce([crearOrganizacion()]);
+
+    renderRed();
+
+    expect(await screen.findByText(/No pudimos cargar los lugares/)).toBeInTheDocument();
+    // El vacío engañoso no aparece: hay error, no "no hay lugares".
+    expect(screen.queryByText(/Aún no hay lugares/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+    expect(await screen.findByText('Fundación Huellitas')).toBeInTheDocument();
+    expect(screen.queryByText(/No pudimos cargar/)).not.toBeInTheDocument();
+  });
+
+  it('el estado vacío real solo aparece con respuesta exitosa vacía', async () => {
+    vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);
+
+    renderRed();
+
+    expect(await screen.findByText(/Aún no hay lugares/)).toBeInTheDocument();
+    expect(screen.queryByText(/No pudimos cargar/)).not.toBeInTheDocument();
+  });
+});
+
 describe('RedDeApoyo — Comunidad (feature 42)', () => {
   it('la pestaña Comunidad lista los avisos con tipo, categoría y WhatsApp correcto', async () => {
     vi.mocked(client.listarOrganizaciones).mockResolvedValue([]);

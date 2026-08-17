@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   agendarVisita,
   ApiError,
@@ -11,8 +11,10 @@ import {
   listarDeck,
   listarFavoritas,
   listarMascotas,
+  listarReportes,
   listarSolicitudes,
   marcarFavorita,
+  marcarReunido,
   mediaUrl,
   guardarPerfilHogar,
   obtenerAdopcionesResumen,
@@ -669,5 +671,76 @@ describe('listarMascotas sigue llevando al adoptante (lo que llena es_favorito)'
     await listarMascotas({});
 
     expect(urlPedida(fetchMock)).toBe('http://127.0.0.1:8000/api/pets');
+  });
+});
+
+// --- Reintento de GETs ante el arranque en frío del serverless (feature 48) ---
+
+function respuestaOk(cuerpo: unknown) {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => cuerpo,
+  } as Response;
+}
+
+describe('request — reintentos de GET', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('un GET que falla por red una vez se reintenta y devuelve el resultado', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce(respuestaOk([{ id: 1 }]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promesa = listarReportes();
+    await vi.runAllTimersAsync();
+
+    expect(await promesa).toEqual([{ id: 1 }]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('un GET con 500 transitorio se reintenta', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 502, json: async () => ({}) } as Response)
+      .mockResolvedValueOnce(respuestaOk([]));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promesa = listarReportes();
+    await vi.runAllTimersAsync();
+
+    expect(await promesa).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('un GET que falla siempre propaga el error tras agotar los reintentos', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promesa = listarReportes().catch((e) => e);
+    await vi.runAllTimersAsync();
+
+    expect(await promesa).toBeInstanceOf(TypeError);
+    expect(fetchMock).toHaveBeenCalledTimes(3); // intento + 2 reintentos
+  });
+
+  it('un POST que falla NO se reintenta (no es idempotente)', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promesa = marcarReunido(1, 1).catch((e) => e);
+    await vi.runAllTimersAsync();
+
+    expect(await promesa).toBeInstanceOf(TypeError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

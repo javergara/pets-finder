@@ -642,6 +642,19 @@
       ]
     },
     {
+      "id": "48-fetch-resiliente",
+      "title": "Lecturas resilientes al arranque en frío: reintento en GET y error visible en /ayudar",
+      "description": "Bug real observado en producción (2026-08-17): el cold start del serverless hizo fallar el primer fetch de /ayudar y la pantalla quedó en 'Aún no hay lugares registrados' TENIENDO 28 organizaciones — un vacío engañoso sin aviso ni reintento. Fix en dos capas: (a) request() del client reintenta los GET (y solo los GET: no son idempotentes los demás) hasta 2 veces ante fallo de red o 5xx, con espera corta — beneficia a todas las pantallas; (b) RedDeApoyo distingue cargando (null) / error / vacío real, con mensaje en español y botón Reintentar en las dos pestañas.",
+      "status": "done",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "request() reintenta un GET que falla por red o 5xx y devuelve el resultado del reintento exitoso; un POST/PUT/DELETE que falla NO se reintenta (tests con fetch mockeado)",
+        "Un GET que falla las 3 veces propaga el error (test)",
+        "En /ayudar, si la carga falla se muestra un mensaje de error con botón Reintentar que re-consulta (test); el estado vacío real ('no hay lugares') solo aparece cuando la API respondió bien con lista vacía",
+        "bash init.sh en verde; sin migración"
+      ]
+    },
+    {
       "id": "AD-03-deck-swipe-y-afinidad",
       "title": "Deck de descubrimiento con swipe y afinidad explicable",
       "description": "Portar los tres servicios puros de adopta-v1 renombrados al espanol (affinity.py -> services/afinidad.py, deck.py -> services/descubrir.py, filters.py -> services/filtros.py), con ADR 0003 vigente: la afinidad se calcula al vuelo y no se persiste ningun score. AfinidadResultado gana razones: tuple[str, ...] (>=2 frases legibles, filosofia explicable de la feature 38) y presupuesto_mensual_cop pasa a opcional. filtros.py gana zona (filtro primario en esta emergencia) y pierde el default de distancia_km=15 heredado de un producto urbano: aqui muchas mascotas no tienen pin y ese radio escondia resultados en silencio. Modelo Swipe con UniqueConstraint(user_id, pet_id) — nuevo respecto a adopta-v1: sin el, un doble tap del gesto en movil mete dos filas. POST /api/swipes idempotente (201 nuevo, 200 repetido, 409 sobre adoptada) y GET /api/pets/deck declarado ANTES de /{pet_id}. Diferencia clave con adopta-v1: el deck viejo devolvia 404 sin HomeProfile; aqui responde 200 con afinidad null y el frontend invita a completar el perfil sin bloquear (lo exige el acceptance de AD-04). Frontend: MascotaSwipeCard con tres rutas equivalentes y testeadas (botones con aria-label, teclado ArrowLeft/ArrowRight/Enter, y el gesto), y AdoptarDescubrir en /adoptar/descubrir que quita la carta optimistamente sin refetch. Migracion: CREATE TABLE swipes + RLS antes del merge a main.",
