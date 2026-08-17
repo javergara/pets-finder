@@ -35,11 +35,38 @@ const API_BASE_URL =
 
 export class ApiError extends Error {}
 
+// El arranque en frío del serverless puede tumbar el PRIMER request (visto en
+// producción: /ayudar vacío con 28 organizaciones existiendo). Solo los GET se
+// reintentan: son idempotentes; repetir un POST podría duplicar un reporte.
+const REINTENTOS_GET = 2;
+const ESPERA_MS = [600, 1800];
+
+function esperar(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const respuesta = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  });
+  const metodo = (init?.method ?? 'GET').toUpperCase();
+  const intentosMax = metodo === 'GET' ? REINTENTOS_GET + 1 : 1;
+
+  let respuesta: Response | undefined;
+  for (let intento = 0; intento < intentosMax; intento++) {
+    if (intento > 0) await esperar(ESPERA_MS[intento - 1] ?? 1800);
+    try {
+      respuesta = await fetch(`${API_BASE_URL}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...init,
+      });
+    } catch (err) {
+      // Fallo de red puro (cold start, DNS, offline): reintentar si quedan turnos.
+      if (intento === intentosMax - 1) throw err;
+      continue;
+    }
+    // 5xx transitorio en GET → reintentar; 4xx es del cliente y no se repite.
+    if (respuesta.status >= 500 && intento < intentosMax - 1) continue;
+    break;
+  }
+  if (!respuesta) throw new ApiError('Error de red');
   if (!respuesta.ok) {
     const cuerpo = await respuesta.json().catch(() => ({}));
     throw new ApiError(cuerpo.detail ?? `Error de red (${respuesta.status})`);

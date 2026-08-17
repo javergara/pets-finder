@@ -640,6 +640,19 @@
         "Se puede registrar un entrenador desde /ayudar/registrar y su detalle muestra el contacto por WhatsApp y la sección de apoyo (tests)",
         "bash init.sh en verde; sin migración (la columna tipo es texto)"
       ]
+    },
+    {
+      "id": "48-fetch-resiliente",
+      "title": "Lecturas resilientes al arranque en frío: reintento en GET y error visible en /ayudar",
+      "description": "Bug real observado en producción (2026-08-17): el cold start del serverless hizo fallar el primer fetch de /ayudar y la pantalla quedó en 'Aún no hay lugares registrados' TENIENDO 28 organizaciones — un vacío engañoso sin aviso ni reintento. Fix en dos capas: (a) request() del client reintenta los GET (y solo los GET: no son idempotentes los demás) hasta 2 veces ante fallo de red o 5xx, con espera corta — beneficia a todas las pantallas; (b) RedDeApoyo distingue cargando (null) / error / vacío real, con mensaje en español y botón Reintentar en las dos pestañas.",
+      "status": "done",
+      "depends_on": ["32-red-de-apoyo"],
+      "acceptance": [
+        "request() reintenta un GET que falla por red o 5xx y devuelve el resultado del reintento exitoso; un POST/PUT/DELETE que falla NO se reintenta (tests con fetch mockeado)",
+        "Un GET que falla las 3 veces propaga el error (test)",
+        "En /ayudar, si la carga falla se muestra un mensaje de error con botón Reintentar que re-consulta (test); el estado vacío real ('no hay lugares') solo aparece cuando la API respondió bien con lista vacía",
+        "bash init.sh en verde; sin migración"
+      ]
     }
   ]
 }
