@@ -1953,3 +1953,37 @@ Revisión independiente del delta `c0f243b..4b2b5db` —el merge que nadie habí
 - **Nada raro**: 0 líneas de diff en los 4 manifiestos, cero WebSockets, ADR 0002 intacto, `origin/adopta-v1` y el tag en `cde337f`, y ningún `.env`/`data/app.db`/`node_modules` entre los 110 archivos del PR.
 
 **Lo que el revisor dice explícitamente que NO verificó** (y por eso no se presenta como cubierto): no tocó producción, así que **las cuatro migraciones ejecutadas las toma de la declaración del dueño, no las comprobó contra `information_schema`**; no re-revisó AD-03…AD-08 de cero (descansan en el veredicto sobre `c0f243b`); y el acceptance de layout a 360px sigue sin cubrir, como estaba declarado.
+
+## AD-09 (2026-08-17): mergeado y desplegado — acceptance 1 y 3 CERRADOS con evidencia
+
+PR **#7 mergeado** a `main` (commit de merge `586b00b`), con el veredicto de **dos revisores independientes**: el módulo sobre `c0f243b` y el árbol mergeado sobre `4b2b5db`. El auto-deploy corrió solo.
+
+### Acceptance 1 — CERRADO
+
+**El deploy llegó de verdad** (poll del bundle por string marcador, el patrón del repo): `/assets/index-CmPw4c7K.js` contiene `"Mis favoritas"` (×2) y `"mascotas rescatadas que buscan hogar"` (×1), ninguno de los cuales estaba en el bundle anterior. El hash **coincide exacto con el del build local**, que es la señal más limpia de que se sirvió este árbol y no otro.
+
+**Los endpoints, medidos con GET de solo lectura.** Lo importante del método: la primera tanda con `user_id=1` **no probaba nada**, porque en producción ese usuario no existe (hallazgo ya anotado) y los 404 caían **antes** de tocar las tablas. Se repitió con el usuario real **82**:
+
+| Endpoint | Tabla que obliga a consultar | Resultado |
+|---|---|---|
+| `GET /api/pets/deck?adoptante_id=82` | **`swipes` + `home_profiles`** | **200 `[]`** |
+| `GET /api/users/82/home-profile?solicitante_id=82` | **`home_profiles`** | **404 de dominio** — *"Todavía no completaste el perfil de hogar"*. Solo se alcanza si el `SELECT` corrió |
+| `GET /api/users/82/favorites?solicitante_id=82` | **`favorites`** | **200 `[]`** |
+| `GET /api/solicitudes?adoptante_id=82` (y `organizacion_id`, `publicador_id`) | **`matches`** | **200 `[]`** las tres |
+| `GET /api/pets?adoptante_id=1` | `pets` + `favorites` | **200 `[]`** |
+| `GET /api/pets`, `/api/pets/adopciones`, `/health` | `pets` | **200** |
+
+**Cero 500 en todo el módulo.** Y la no-regresión, que era el riesgo real de esta ventana: `GET /api/reports` → **200 con datos reales** y `GET /api/organizaciones` → **200**. El dominio de emergencia no se movió.
+
+**El rewrite de bots de AD-08 también entró en vigor**: `/adoptar/mascota/9999` con user-agent de WhatsApp responde **404 del backend**, mientras antes del merge devolvía 200 con el `index.html` estático.
+
+⚠️ **Lo que sigue sin ser medición propia**: el RLS y las constraints se toman de la verificación del dueño contra `pg_class`/`pg_constraint`. Desde aquí no hay acceso al SQL Editor. Lo que sí prueban los GET de arriba es que **las cinco tablas existen y se consultan sin error**, que es la otra mitad del acceptance.
+
+### Acceptance 3 — CERRADO
+
+`CHANGELOG.md` **3.0.0** actualizado: deja de decir *"preparado, sin desplegar"* y pasa a **desplegado**, con la fecha, la evidencia de los endpoints y la cuenta real de la suite (753 + 493). **`main` y `develop` sincronizadas**: `develop` no tenía ni un commit propio e iba 84 detrás, así que fue un fast-forward puro — `git rev-list --left-right --count origin/develop...origin/main` → **`0 0`**.
+
+### Lo que queda
+
+- **Acceptance 2 — ABIERTO**, y es el único que exige **escribir en producción**: publicar una mascota de prueba, swipe, solicitud, contacto por WhatsApp y limpieza por la API. **Requiere autorización explícita**; no se hace sola. El guion está en `docs/despliegue-modulo-adopcion.md` §6, y la limpieza ya no tiene el agujero del hallazgo 2 (el `DELETE` cascadea swipes/favoritos y responde 409 si hay solicitudes vivas).
+- **Acceptance 4 — ABIERTO**: el `done` en los dos JSON lo pone el revisor, y solo tiene sentido con el 2 cerrado.

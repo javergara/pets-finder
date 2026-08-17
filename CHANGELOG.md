@@ -16,15 +16,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 Backlog restante (requiere decisiones del dueño): `22-alertas-por-zona` (ADR de mecanismo; la 39 ya cubre las alertas por reporte), `23-moderacion-reportes` (alcance) y el checklist operativo `25-ops-produccion-pendientes` (+ crear la cuenta de Resend y sus env vars para que los correos de la 39 salgan de verdad).
 
-## [3.0.0] - 2026-08-16 — preparado, **sin desplegar todavía**
+## [3.0.0] - 2026-08-17 — **desplegado en producción**
 
-Fase 2 del producto: **el módulo de adopción** (`/adoptar`), que cierra el arco de la emergencia con la mascota que nadie reclama. Cubre las ocho features `AD-01`…`AD-08` de `feature_list_adopcion.json`; `AD-09` (migrar, mergear y verificar en producción) sigue abierta y **es lo único que falta**.
+Fase 2 del producto: **el módulo de adopción** (`/adoptar`), que cierra el arco de la emergencia con la mascota que nadie reclama. Cubre las ocho features `AD-01`…`AD-08` de `feature_list_adopcion.json`.
 
-⚠️ **Este release NO está en producción.** `AD-01`+`AD-02` sí salieron con el 2.5.0 (la tabla `pets` está migrada y `GET /api/pets` responde 200 en petfinder-col.com). El resto —`AD-03`…`AD-08`, 75 commits en `feat/adoptar`— espera **cuatro migraciones escritas y sin ejecutar**, en este orden: `AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`. Con `SKIP_DB_CREATE_ALL=1` en producción no hay red de seguridad: si el código llega antes que las tablas **cae la API entera**, no solo las pantallas nuevas. Guía de ejecución paso a paso: `docs/despliegue-modulo-adopcion.md`.
+✅ **En producción desde el 2026-08-17** (<https://petfinder-col.com>), por el PR #7. Las cuatro migraciones que faltaban se ejecutaron **antes** del merge, en su orden obligatorio —`AD-03-swipes.sql` → `AD-03-home-profiles.sql` → `AD-05-matches.sql` → `AD-07-favorites.sql`—, verificadas contra `pg_class`/`pg_constraint`: RLS en las cinco tablas del módulo y las cuatro constraints con su nombre exacto. Ese orden no era una formalidad: con `SKIP_DB_CREATE_ALL=1` no hay red de seguridad, y si el código hubiera llegado antes que las tablas **caía la API entera**, no solo las pantallas nuevas.
 
-Es un **mayor** y no un menor porque abre una segunda fase de producto encima de la app de emergencia (cinco tablas, nueve rutas `/adoptar`, la nav crece a ocho enlaces) y porque desplegarlo **exige una acción manual en la base de datos** antes del merge. La emergencia no cede el primer plano: la adopción entra detrás de los dos CTAs de siempre, y hay tests que lo fijan.
+Verificado tras el deploy con GET de solo lectura: `/api/pets/deck` (que consulta `swipes` y `home_profiles`), `/api/users/{id}/favorites`, `/api/solicitudes` en sus tres formas y `/api/users/{id}/home-profile` responden **200 o su 4xx de dominio, cero 500**, y el dominio de emergencia (`/api/reports`, `/api/organizaciones`) sigue intacto.
 
-Suite al cerrar `AD-08`: **738 tests de Python + 487 de web**, `bash init.sh` en verde. Al abrir `AD-01` eran 174 + 148 (ese tramo incluye también trabajo ajeno al módulo: feature 47 y los PRs 4 y 5).
+Es un **mayor** y no un menor porque abre una segunda fase de producto encima de la app de emergencia (cinco tablas, nueve rutas `/adoptar`, la nav crece a ocho enlaces) y porque desplegarlo exigió una acción manual en la base de datos antes del merge. La emergencia no cede el primer plano: la adopción entra detrás de los dos CTAs de siempre, y hay tests que lo fijan.
+
+Suite al desplegar: **753 tests de Python + 493 de web**, `bash init.sh` en verde (al cerrar `AD-08` eran 738 + 487; los 15 de Python llegaron con el arreglo del 500 al despublicar y los 6 de web con la feature 48). Al abrir `AD-01` eran 174 + 148 (ese tramo incluye también trabajo ajeno al módulo: feature 47 y los PRs 4 y 5).
 
 ### Added
 - **`AD-01-modelo-pet-y-catalogo`** *(ya en producción desde 2.5.0)*: modelo `Pet` con **publicador exclusivo** (`ck_pets_publicador_exclusivo`: organización XOR rescatista, nunca ambos ni ninguno), catálogo público `/adoptar` con filtros multivalor (especie, tamaño, energía) y zona, ficha `/adoptar/mascota/:id` con galería, historia, convivencia y checklist de salud, y resumen `GET /api/pets/adopciones`. Mirar nunca pide cuenta.
