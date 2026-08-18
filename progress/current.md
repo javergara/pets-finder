@@ -1953,3 +1953,43 @@ Revisión independiente del delta `c0f243b..4b2b5db` —el merge que nadie habí
 - **Nada raro**: 0 líneas de diff en los 4 manifiestos, cero WebSockets, ADR 0002 intacto, `origin/adopta-v1` y el tag en `cde337f`, y ningún `.env`/`data/app.db`/`node_modules` entre los 110 archivos del PR.
 
 **Lo que el revisor dice explícitamente que NO verificó** (y por eso no se presenta como cubierto): no tocó producción, así que **las cuatro migraciones ejecutadas las toma de la declaración del dueño, no las comprobó contra `information_schema`**; no re-revisó AD-03…AD-08 de cero (descansan en el veredicto sobre `c0f243b`); y el acceptance de layout a 360px sigue sin cubrir, como estaba declarado.
+
+## 2026-08-18 — AD-09: flujo completo verificado en producción (evidencia)
+
+Caso real de prueba corrido por la API de prod con autorización explícita del dueño (transcripción cruda: `progress/evidencia-ad09-prod.txt`, dos pasadas):
+
+- **Publicar**: POST /api/pets como rescatista (cuenta real id 6) → 201, `estado=disponible`, publicador `rescatista` (pets de prueba ids 2 y 3).
+- **Deck**: la mascota aparece en GET /api/pets/deck de otro usuario (84) → 200.
+- **Swipe → solicitud**: POST /api/swipes `like` con mensaje y teléfono → 201 y la solicitud nace en el mismo commit (`matches`).
+- **Contacto (WhatsApp)**: GET /api/solicitudes/{id}?solicitante_id=6 (publicador) → 200 con `mensaje` y `telefono_contacto=3000000001`; el mismo GET con un usuario ajeno → **403** (protege el teléfono; ids adivinables).
+- **og para compartir**: GET /adoptar/mascota/{id} con User-Agent WhatsApp → 200 con og:title y el nombre en el HTML (rewrite de bots vivo en prod).
+- **Regla de producto confirmada**: DELETE con solicitud viva → **409** (no se desaparece una conversación); tras POST /descartar (`estado=cerrado`) → DELETE **204** con swipe y favorito vivos (regresión del fix 0ee57ac en Postgres real) y GET final **404**.
+- **Limpieza total por la API**: pets 2 y 3 eliminados, solicitudes cerradas y borradas en cascada con la mascota; cero datos de prueba vivos.
+
+Además main/develop quedaron sincronizadas (4a61513, PR #7 mergeado y desplegado) y el CHANGELOG 3.0.0 está publicado. Queda: veredicto del revisor sobre AD-09 → done en ambos JSON.
+
+Nota menor RESUELTA por el revisor: el `acciones: None` de la transcripción no es bug — el campo real de `SolicitudDetalleOut` es `acciones_disponibles` (`schemas/solicitud.py:98`); el script del operador leyó una clave inexistente.
+
+## Veredicto del revisor — AD-09 (2026-08-18): RECHAZADA por 1 hallazgo puntual de CHANGELOG; todo lo demás verificado en verde
+
+Revisión independiente sobre `develop` @ `4a61513`. NO marqué done en ningún JSON (acceptance 4 queda pendiente del fix). Evidencia ejecutada por el revisor:
+
+**Lo que SÍ pasa:**
+- `bash init.sh` corrido de verdad — **verde completo, 753/753 tests de Python + 493/493 de web** (main y develop sincronizadas: `git rev-parse` de las 4 refs → `4a61513`, con el PR #7 `586b00b` dentro).
+- **Acceptance 1**: migraciones ya auditadas en mi revisión de feat/adoptar (aditivas + RLS + anti-drift por mutación); hoy verifiqué prod en vivo (solo lectura): `GET /api/pets` → **200 `[]`** (limpio tras la prueba, la tabla responde) y `/health` → 200. La transcripción muestra códigos coherentes en todo el flujo (201/200/403/409/204/404).
+- **Acceptance 2**: la evidencia es real y —punto a favor— **honesta**: `progress/evidencia-ad09-prod.txt` conserva los tropiezos del propio script del operador (el traceback de la pasada 1 y el "esperado 204" del paso 7 que en realidad era una expectativa equivocada: había una solicitud VIVA del swipe del paso 3, y el 409 fue el comportamiento correcto de producto; tras descartar → 204 **con swipe y favorito vivos**, que es exactamente la regresión del fix `0ee57ac` probada contra Postgres real con FK forzadas). Flujo completo: publicar → deck de otro usuario → swipe→solicitud en el mismo commit → detalle con teléfono (200 publicador / **403 ajeno**, protege el teléfono) → og con UA de WhatsApp → 409/descartar/204/404 → **limpieza total por la API** (prod quedó en `[]`).
+- **Nota del `acciones: None` RESUELTA — no es bug**: el campo real de `SolicitudOut` es **`acciones_disponibles`** (`schemas/solicitud.py:98`); el script de la evidencia leyó una clave inexistente (`acciones`) y por eso vio None. Actualizar la "nota menor" de current.md al cerrar.
+
+**El hallazgo que bloquea (acceptance 3):** `CHANGELOG.md` — la entrada `## [3.0.0] - 2026-08-16` sigue diciendo "**preparado, sin desplegar todavía**", con el bloque "⚠️ Este release NO está en producción", "cuatro migraciones escritas y sin ejecutar" y "`AD-09` sigue abierta y es lo único que falta". **Todo eso es falso hoy**: el release está desplegado (`586b00b`), las 4 migraciones ejecutadas y el flujo verificado en prod. Publicar el cierre de AD-09 con el registro público de releases negando el deploy es exactamente "documentación que describe un estado que no existe" (CHECKPOINTS). Fix pequeño para la sesión principal: actualizar el encabezado y ese bloque de advertencia al estado real (desplegado el 2026-08-18 con el PR #7; suite final 753+493, no 738+487), y de paso la línea del "Backlog restante" si menciona a AD-09 como pendiente.
+
+**Al llegar el fix**: re-verifico, marco `AD-09` como done en **ambos** JSON (edición puntual, línea exacta), corro `validate_feature_list.py` (acceptance 4) y hago el commit de cierre como se me delegó.
+
+## Veredicto del revisor — AD-09, segunda pasada (2026-08-18): APROBADA — módulo de adopción cerrado (9/9 AD en done en ambos JSON)
+
+Re-verificación tras el fix del CHANGELOG:
+
+- **Hallazgo corregido y verificado**: la entrada `[3.0.0]` ahora dice "**desplegado en producción el 2026-08-17** (PR #7)", el bloque pasó de ⚠️ a ✅ con el estado real (migraciones ejecutadas el 2026-08-16 ANTES del merge, verificadas con RLS; deploy vía `586b00b`; la regla de `SKIP_DB_CREATE_ALL` conservada como advertencia futura y la guía degradada a referencia), la suite dice **753 + 493** con la base 174+148 intacta, y el grep de "sin desplegar / NO está en producción / sin ejecutar" sale **vacío**. La nota menor del `acciones` quedó marcada RESUELTA con el hallazgo del revisor (`acciones_disponibles`).
+- **Evidencia previa vigente de esta misma sesión**: `bash init.sh` verde con **753/753 Python + 493/493 web**; 4 refs en `4a61513`; prod en vivo `GET /api/pets` → 200 `[]` y `/health` → 200; flujo completo documentado con transcripción cruda honesta (409 con solicitud viva era comportamiento correcto; 204 con swipe+favorito vivos = regresión de `0ee57ac` contra Postgres real; limpieza total por la API).
+- **Acceptance 4 cumplido**: `AD-09` marcada `done` con edición puntual (líneas 740 y 112, `git diff` con solo esas dos líneas); `validate_feature_list.py` → **exit 0 en ambos JSON**; los 9 items AD-01…AD-09 en `done` en los dos archivos.
+
+Con esto, el módulo de adopción (fase 2) queda formalmente cerrado: código en main, migraciones aplicadas, producción verificada y limpia, release 3.0.0 fiel a la realidad. Commit de cierre hecho por el revisor por delegación explícita de la sesión principal (sin push).

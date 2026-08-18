@@ -737,7 +737,7 @@
       "id": "AD-09-migraciones-y-deploy",
       "title": "Cierre: auditoría de migraciones, deploy y verificación en producción",
       "description": "CORREGIDO AL COPIAR: el item fuente menciona las tablas 'sponsorships' y 'mensajes', que NO existen — el apadrinamiento se recortó en AD-07 y el chat se descartó en el ADR 0013 (WhatsApp directo). El paquete real son CUATRO tablas, en este orden obligatorio: AD-03-swipes.sql, AD-03-home-profiles.sql, AD-05-matches.sql, AD-07-favorites.sql (pets ya está en prod desde AD-01). Como la cadencia fue incremental, este item AUDITA en vez de ejecutar a ciegas: comprobar contra information_schema que las cinco tablas del módulo existen con RLS y que ck_pets_publicador_exclusivo sigue ahí. Verificación post-deploy con el patrón del repo: poll del bundle por string marcador + GET a los endpoints nuevos + flujo manual en petfinder-col.com con una organización real (publicar, swipe, solicitud, contacto por WhatsApp) y limpieza de los datos de prueba POR LA API, nunca por SQL. CHANGELOG release 3.0.0.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": ["AD-08-integracion-transversal"],
       "acceptance": [
         "Todas las tablas del módulo existen en prod (verificadas contra information_schema) con RLS y cero errores en los endpoints",

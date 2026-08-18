@@ -1,0 +1,29 @@
+1. POST /api/pets → 201
+   pet id: 2 | estado: disponible | publicador: rescatista
+2. GET /api/pets/deck?user_id=84 → 200 | la prueba está en el deck: True
+3. POST /api/swipes → 201 | solicitud creada: True | solicitud id: 2
+4. GET /api/solicitudes?publicador_id=6 → 200 | solicitudes de la prueba: 1
+   detalle → telefono para WhatsApp presente: False | mensaje: None
+5. POST /api/users/84/favorites → 201
+6. GET /adoptar/mascota/{id} (UA WhatsApp) → 200 | og:title presente: True | nombre en el HTML: True
+7. DELETE /api/pets/{id} → 409 (esperado 204 con swipes+favoritos vivos)
+   GET tras borrar → 200 (esperado 404)
+   solicitudes de la prueba restantes: 1
+detalle solicitud 2 — campos: ['detail']
+   adoptante: null
+   contacto: None
+7b. POST /descartar → 200 | estado: cerrado
+7c. DELETE /api/pets/2 → 204 (ahora sí 204: la solicitud cerrada no bloquea)
+   GET tras borrar → 404 (esperado 404)
+Traceback (most recent call last):
+  File "<stdin>", line 16, in <module>
+  File "<stdin>", line 16, in <listcomp>
+AttributeError: 'str' object has no attribute 'get'
+--- pasada 2: detalle de solicitud con autorización correcta ---
+POST /api/pets → 201 | id: 3
+POST /api/swipes → 201 | solicitud: 3
+GET detalle (como publicador) → 200
+   mensaje: "Me interesa adoptarlo (prueba AD-09)" | telefono_contacto: 3000000001 | acciones: None
+GET detalle (usuario ajeno) → 403 (esperado 403: protege el teléfono)
+POST /descartar → 200 | estado: cerrado
+DELETE pet → 204 | GET tras borrar → 404
