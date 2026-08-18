@@ -33,9 +33,19 @@ describe('mediaUrl', () => {
     );
   });
 
-  it('devuelve las URLs absolutas tal cual (fotos en Supabase Storage, ADR 0006)', () => {
-    const absoluta = 'https://abc123.supabase.co/storage/v1/object/public/fotos/x.jpg';
-    expect(mediaUrl(absoluta)).toBe(absoluta);
+  it('reescribe las fotos del bucket propio a /fotos del dominio (feature 49)', () => {
+    // El rewrite de vercel.json hace de proxy con caché larga: las vistas
+    // repetidas dejan de gastar el egress de Supabase (Fair Use, 2026-08-18).
+    const bucket = 'https://abc123.supabase.co/storage/v1/object/public/fotos/x.jpg';
+    expect(mediaUrl(bucket)).toBe('/fotos/x.jpg');
+  });
+
+  it('devuelve las demás URLs absolutas tal cual (fotos de fuera del bucket)', () => {
+    const ajena = 'https://cdn.example.com/foto.jpg';
+    expect(mediaUrl(ajena)).toBe(ajena);
+    // Otro bucket del mismo proyecto no es nuestro: pasa intacto.
+    const otroBucket = 'https://abc123.supabase.co/storage/v1/object/public/avatares/x.jpg';
+    expect(mediaUrl(otroBucket)).toBe(otroBucket);
   });
 });
 

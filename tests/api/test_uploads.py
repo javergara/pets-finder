@@ -114,6 +114,9 @@ def test_con_supabase_configurado_la_foto_va_al_bucket_y_no_al_disco(
     assert llamadas[0]["data"] == b"bytes-al-bucket"
     assert llamadas[0]["headers"]["Authorization"] == "Bearer service-key-de-prueba"
     assert llamadas[0]["headers"]["Content-Type"] == "image/jpeg"
+    # Feature 49: la subida fija la caché del objeto — sin esto, Storage sirve
+    # la foto con `no-cache` y cada vista gasta egress del bucket (Fair Use).
+    assert llamadas[0]["headers"]["cache-control"] == "max-age=31536000"
     # Nada tocó el disco local.
     assert list(uploads_en_tmp.iterdir()) == []
 

@@ -31,15 +31,17 @@ describe('GaleriaFotos', () => {
     expect(grande.getAttribute('src')).toContain('/media/uploads/b.jpg');
   });
 
-  it('las rutas relativas pasan por mediaUrl y las absolutas se dejan tal cual', () => {
+  it('las rutas relativas pasan por mediaUrl y las del bucket van por /fotos', () => {
     render(<GaleriaFotos fotos={[RELATIVA, ABSOLUTA]} alt="Foto de Rocky" />);
 
     const grande = screen.getByAltText('Foto de Rocky');
     // En dev/test la base de la API es absoluta: la ruta relativa queda prefijada.
     expect(grande.getAttribute('src')).toMatch(/^https?:\/\/.+\/media\/uploads\/a\.jpg$/);
 
+    // Feature 49: la foto del bucket se sirve por el proxy /fotos del dominio
+    // (caché larga en vercel.json), no por la URL directa de Supabase.
     fireEvent.click(screen.getByRole('button', { name: 'Ver foto 2' }));
-    expect(grande.getAttribute('src')).toBe(ABSOLUTA);
+    expect(grande.getAttribute('src')).toBe('/fotos/b.jpg');
   });
 
   it('si el índice activo queda fuera del array tras un re-render, sigue mostrando una foto válida', () => {

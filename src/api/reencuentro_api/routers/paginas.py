@@ -11,6 +11,7 @@ Es HTML que servimos a terceros y un `"` sin escapar cierra el atributo.
 """
 
 import os
+import re
 from html import escape
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,11 +33,24 @@ def _sitio() -> str:
     return os.environ.get("SITE_URL", "https://petfinder-col.com").strip().rstrip("/")
 
 
+# Una foto del bucket propio: cualquier host, ruta pública del bucket `fotos`.
+# El nombre no lleva `/` ni query (es un uuid + extensión, uploads.py lo fija).
+_FOTO_BUCKET = re.compile(r"^https?://[^/]+/storage/v1/object/public/fotos/([^/?#]+)$")
+
+
 def _absoluta(ruta: str, sitio: str) -> str:
     """Las fotos llegan de dos sitios: Supabase Storage las da absolutas
     (`https://…`) y las locales/del seed relativas (`/media/…`). Ningún
     rastreador resuelve una relativa, así que la de casa se absolutiza con
-    `SITE_URL` y la de fuera se deja intacta."""
+    `SITE_URL` y la de fuera se deja intacta.
+
+    Las del bucket propio se reescriben a `{sitio}/fotos/{nombre}` (feature 49):
+    el rewrite de vercel.json las sirve desde el dominio con caché larga, y el
+    rastreador de WhatsApp/Facebook —que descarga la og:image en cada
+    compartida— deja de gastar egress del bucket."""
+    bucket = _FOTO_BUCKET.match(ruta)
+    if bucket:
+        return f"{sitio}/fotos/{bucket.group(1)}"
     return ruta if ruta.startswith("http") else sitio + ruta
 
 

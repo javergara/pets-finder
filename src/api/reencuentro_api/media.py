@@ -79,6 +79,12 @@ def subir_a_supabase(nombre: str, contenido: bytes, content_type: str) -> str:
 
     `x-upsert: true` hace la operación idempotente (el seed puede re-correrse
     sin chocar con archivos ya subidos).
+
+    `cache-control` viaja en la subida y Storage lo guarda como metadata del
+    objeto y lo sirve tal cual en cada GET (feature 49): sin él, el bucket
+    responde `no-cache` y cada vista re-descarga la foto entera — así se agotó
+    la cuota de egress del plan free. Un año es seguro: los nombres son uuid y
+    un archivo jamás cambia de contenido bajo el mismo nombre.
     """
     config = _config_supabase()
     if config is None:
@@ -92,6 +98,7 @@ def subir_a_supabase(nombre: str, contenido: bytes, content_type: str) -> str:
             "Authorization": f"Bearer {key}",
             "Content-Type": content_type,
             "x-upsert": "true",
+            "cache-control": "max-age=31536000",
         },
         timeout=_SUPABASE_TIMEOUT_SECONDS,
     )

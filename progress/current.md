@@ -1993,3 +1993,11 @@ Re-verificación tras el fix del CHANGELOG:
 - **Acceptance 4 cumplido**: `AD-09` marcada `done` con edición puntual (líneas 740 y 112, `git diff` con solo esas dos líneas); `validate_feature_list.py` → **exit 0 en ambos JSON**; los 9 items AD-01…AD-09 en `done` en los dos archivos.
 
 Con esto, el módulo de adopción (fase 2) queda formalmente cerrado: código en main, migraciones aplicadas, producción verificada y limpia, release 3.0.0 fiel a la realidad. Commit de cierre hecho por el revisor por delegación explícita de la sesión principal (sin push).
+
+## 2026-08-18 — Feature 49 en curso: caché de fotos (Fair Use de Supabase)
+
+Correo de Supabase (2026-08-18): egress sobre la cuota free (5 GB), gracia hasta 2026-09-17. Causa raíz medida en prod: las fotos del bucket se sirven con `cache-control: no-cache` (~370 KB por foto, cero caché en navegador/CDN) porque `subir_a_supabase()` nunca fijó la metadata. Implementado (init.sh en verde):
+- `media.py`: la subida manda `cache-control: max-age=31536000` (nombres uuid inmutables) — asserts en test_uploads.
+- `vercel.json`: rewrite `/fotos/:nombre` → bucket público (proxy con caché en el CDN de Vercel) + header `Cache-Control public, max-age=31536000, immutable`.
+- `client.ts::mediaUrl()` y `paginas.py::_absoluta()`: las URLs del bucket propio se reescriben a `/fotos/{nombre}` en render (las guardadas en la DB NO cambian); URLs ajenas pasan intactas. Tests en client.test.ts (fusionado, no sobrescrito), GaleriaFotos.test.tsx y test_paginas.py (reporte + mascota).
+Queda: veredicto del revisor → merge/deploy (autorización de push pendiente del dueño) → backfill de los ~350 objetos existentes (UPDATE de metadata en storage.objects vía SQL Editor, patrón navegador) → evidencia curl antes/después en progress/ (el "antes" ya está capturado: no-cache).

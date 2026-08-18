@@ -85,9 +85,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return respuesta.json() as Promise<T>;
 }
 
+// Una foto del bucket propio: cualquier host, ruta pública del bucket `fotos`.
+// El nombre es un uuid + extensión (sin `/` ni query), lo fija uploads.py.
+const FOTO_BUCKET_RE = /^https?:\/\/[^/]+\/storage\/v1\/object\/public\/fotos\/([^/?#]+)$/;
+
 export function mediaUrl(path: string): string {
   // Las fotos en Supabase Storage llegan como URL pública absoluta (ADR 0006);
   // las locales del seed/dev siguen siendo rutas relativas bajo /media.
+  // Las del bucket propio se sirven vía /fotos del mismo dominio (feature 49):
+  // el rewrite de vercel.json hace de proxy con caché larga y las vistas
+  // repetidas las absorben el navegador y el CDN, no el egress de Supabase.
+  const bucket = FOTO_BUCKET_RE.exec(path);
+  if (bucket) return `/fotos/${bucket[1]}`;
   if (path.startsWith('http')) return path;
   return `${API_BASE_URL}${path}`;
 }

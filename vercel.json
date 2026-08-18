@@ -8,6 +8,10 @@
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/health", "destination": "/api/index" },
     {
+      "source": "/fotos/:nombre",
+      "destination": "https://edizovmcsdpfblfmyccu.supabase.co/storage/v1/object/public/fotos/:nombre"
+    },
+    {
       "source": "/(cali|armenia|pereira|manizales|quibdo|bogota|medellin)",
       "has": [
         {
@@ -41,5 +45,13 @@
       "destination": "/api/index"
     },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/fotos/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }

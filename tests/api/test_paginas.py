@@ -79,6 +79,21 @@ def test_pagina_con_foto_absoluta_la_usa_tal_cual(client, db_session, reporte):
     assert '<meta property="og:image" content="https://cdn.example.com/foto.jpg">' in html
 
 
+def test_pagina_con_foto_del_bucket_la_sirve_via_fotos_del_dominio(client, db_session, reporte):
+    """Feature 49: la og:image del bucket propio sale por {sitio}/fotos/{nombre}
+    (el proxy con caché de vercel.json), no por la URL directa de Supabase — el
+    rastreador de WhatsApp descarga la imagen en CADA compartida y era egress
+    del bucket. Una URL absoluta ajena (test anterior) sigue pasando intacta."""
+    reporte.foto_url = "https://abc123.supabase.co/storage/v1/object/public/fotos/abc123.jpg"
+    db_session.commit()
+
+    html = client.get(f"/reporte/{reporte.id}").text
+
+    assert (
+        '<meta property="og:image" content="https://petfinder-col.com/fotos/abc123.jpg">' in html
+    )
+
+
 def test_pagina_de_reporte_inexistente_devuelve_404(client, db_session):
     assert client.get("/reporte/999").status_code == 404
 
@@ -147,6 +162,18 @@ def test_pagina_de_mascota_con_foto_absoluta_la_usa_tal_cual(client, db_session,
     html = client.get(f"/adoptar/mascota/{mascota.id}").text
 
     assert '<meta property="og:image" content="https://cdn.example.com/canela.jpg">' in html
+
+
+def test_pagina_de_mascota_con_foto_del_bucket_usa_el_proxy_fotos(client, db_session, mascota):
+    """La misma regla de la feature 49 que en el reporte: `_absoluta` es común."""
+    mascota.fotos = ["https://abc123.supabase.co/storage/v1/object/public/fotos/canela.jpg"]
+    db_session.commit()
+
+    html = client.get(f"/adoptar/mascota/{mascota.id}").text
+
+    assert (
+        '<meta property="og:image" content="https://petfinder-col.com/fotos/canela.jpg">' in html
+    )
 
 
 def test_pagina_de_mascota_sin_fotos_omite_og_image(client, db_session, mascota):
