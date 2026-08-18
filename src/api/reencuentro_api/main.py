@@ -12,6 +12,7 @@ from .models.base import Base, engine
 from .routers import (
     avisos_ayuda,
     favoritos,
+    fotos,
     organizaciones,
     paginas,
     pets,
@@ -84,6 +85,7 @@ app.include_router(solicitudes.router)
 # rutas tienen un segmento más (/{user_id}/favorites), así que no compite con
 # /{user_id}: FastAPI casa la ruta completa, no un prefijo.
 app.include_router(favoritos.router)
+app.include_router(fotos.router)
 # `paginas` va SIEMPRE último: registra rutas de raíz (/reporte/{id}, /zona/…)
 # sin prefijo, así que cualquier router nuevo se monta antes que él.
 app.include_router(paginas.router)
