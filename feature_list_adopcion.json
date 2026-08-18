@@ -109,7 +109,7 @@
       "id": "AD-09-migraciones-y-deploy",
       "title": "Cierre: paquete de migraciones, deploy y verificación en producción",
       "description": "Si las migraciones se fueron haciendo por feature este item las audita; si se difirieron, ejecuta el paquete completo (pets, swipes, home_profiles, matches, favorites, sponsorships, y mensajes si aplica — todas aditivas, con ENABLE ROW LEVEL SECURITY, en el SQL Editor de Supabase con autorización explícita del dueño, ANTES del merge). Verificación post-deploy con el patrón del repo: poll del bundle por string marcador + GET a los endpoints nuevos en prod + flujo manual en petfinder-col.com (publicar mascota de prueba de una organización real, swipe, solicitud, y limpieza de los datos de prueba con autorización). CHANGELOG release 3.0.0.",
-      "status": "todo",
+      "status": "done",
       "depends_on": ["AD-08-integracion-transversal"],
       "acceptance": [
         "Todas las tablas del módulo existen en prod (verificadas contra information_schema) con RLS y cero errores en los endpoints",

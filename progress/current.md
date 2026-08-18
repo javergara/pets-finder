@@ -2033,3 +2033,63 @@ Pero es **justo la clase de fallo que motivó la feature 48**, observado en vivo
 | 4 | `validate_feature_list.py` sale 0 con los items `done` en ambos JSON | ⏳ **Pendiente del revisor** — el `done` no me corresponde ponerlo |
 
 **AD-09 sigue `in_progress` en `feature_list.json` y `todo` en `feature_list_adopcion.json`.** El `done` en los dos lo pone un revisor independiente, como todas las anteriores.
+
+## Veredicto del revisor — AD-09-migraciones-y-deploy (rama `feat/adoptar`, HEAD `d6d3fbf`) (2026-08-17): APRUEBO
+
+Revisor independiente. `bash init.sh` corrido **en esta sesión**: `Todo en verde.`, **EXIT=0**, **753 tests de Python (1 warning) + 493 de web (40 archivos)**. Coincide exacto con lo declarado.
+
+### Lo que verifiqué yo mismo contra producción (GET de solo lectura, cero escrituras)
+
+**Las cinco tablas del módulo se consultan sin error**, con usuarios que existen (la trampa del `user_id=1` es real y la reproduje: `GET /api/pets/deck?adoptante_id=1` → **404 `"El usuario 1 no existe"`**, o sea cae antes de tocar tabla y no prueba nada):
+
+| Endpoint | Tabla forzada | Mi medición |
+|---|---|---|
+| `GET /api/pets/deck?adoptante_id=49` | `swipes` + `home_profiles` | **200 `[]`** (0.94 s) |
+| `GET /api/users/49/favorites?solicitante_id=49` | `favorites` | **200 `[]`** (0.50 s) |
+| `GET /api/solicitudes?adoptante_id=49` | `matches` | **200 `[]`** (0.40 s) |
+| `GET /api/solicitudes?publicador_id=82` | `matches` | **200 `[]`** (0.39 s) |
+| `GET /api/pets?adoptante_id=49` | `pets` + `favorites` | **200 `[]`** (0.44 s) |
+| `GET /api/users/49/home-profile?solicitante_id=49` | `home_profiles` | **404 de dominio** *"Todavía no completaste el perfil de hogar de tu cuenta"* — solo se alcanza si el `SELECT` corrió. Igual con el usuario **70** |
+
+**Cero 500 en todo el módulo.**
+
+**La limpieza del recorrido es completa.** `GET /api/pets` → **200 `[]`**; `GET /api/pets/adopciones` → **200 `{"total":0,"recientes":[]}`**. **Ningún residuo, ningún id de prueba vivo.**
+
+**No-regresión del dominio de emergencia**: `/api/reports` **6 de 6 intentos en 200**, 0.72–0.97 s, 369 006 bytes idénticos en todos; `/api/organizaciones` **200** (21 369 bytes); `/api/reports/reunidos` **200**; `/health` **200 `{"status":"ok"}`**. **El `HTTP=000` que reportó el implementador no me pasó ni una vez en 6 intentos** → confirmo su lectura: fallo transitorio de arranque en frío, **no una regresión**.
+
+**Rewrite de bots de AD-08, verificado en vivo**: `curl -A "WhatsApp/2.23" /adoptar/mascota/9999` → **404 `application/json` `{"detail":"La mascota 9999 no existe"}`** (backend, no la SPA); el mismo path con user-agent de navegador → **200 `text/html`, 2 626 bytes** (el `index.html` de la SPA). El gemelo de la emergencia sigue sano: `/reporte/354` con bot devuelve **og:title `"Perro grande negro — Encontrada en Cali"`** y `/reporte/999999` con bot → **404**.
+
+### Acceptance 3
+
+`CHANGELOG.md` tiene **`## [3.0.0] - 2026-08-17 — desplegado en producción`** (ya no dice "preparado, sin desplegar"). `git rev-list --left-right --count origin/develop...origin/main` → **`0	0`**. Cerrado.
+
+### Acceptance 1: la parte que NO medí, dicha con todas las letras
+
+**El RLS y las cuatro constraints los tomo de la verificación declarada del dueño contra `pg_class`/`pg_constraint`** (registrada en `changes.md` y en `migrations/README.md`, con las cinco filas en ✅ EJECUTADA, fecha y autoría). **No tengo acceso al SQL Editor de Supabase desde aquí y no intenté conseguirlo.** **Acepto esa evidencia declarada** y doy el acceptance por cerrado sobre esa base, por tres razones: la mitad medible —que las cinco tablas existan y se consulten sin error— **la medí yo** y da 200/4xx-de-dominio sin un solo 500; los cuatro `.sql` tienen anti-drift que exige que el RLS y las constraints viajen con su nombre (**46 casos, todos en verde**, incluido el de `home_profiles` que vive dentro de `test_migracion_swipes.py`); y con `SKIP_DB_CREATE_ALL=1` la API entera se habría caído si alguna tabla faltara.
+
+**Confirmo la nota de precisión del implementador**: `information_schema` **no expone `rowsecurity`** —ese dato vive en `pg_class.relrowsecurity` y en la vista `pg_tables.rowsecurity`—, así que verificar contra `pg_class` **cumple** el acceptance en vez de desviarse de él. La letra del acceptance ("contra information_schema") es imprecisa; la intención está satisfecha.
+
+### Hallazgo declarado y no arreglado: lo confirmo y me parece bien que quede fuera
+
+`listarReportesPaginado` (`src/web/src/api/client.ts:319`) hace su **propio `fetch` crudo**, sin pasar por `request()` — que sí tiene el reintento de la feature 48 (`client.ts:54`, `REINTENTOS_GET = 2`, backoff `[600, 1800]`, solo GET, más el `continue` en 5xx). **Confirmado con `grep`**: la ruta más crítica del producto (`/reportes`) no tiene la segunda oportunidad que sí tiene `/ayudar`. **Correcto dejarlo fuera de AD-09**: es código de producto de otra feature ya `done` y mergeada, y meterlo aquí sería exactamente lo que prohíbe el checkpoint por feature. **Merece item propio en el backlog** (o una corrección de la 48), con más razón ahora que el fallo se observó en vivo.
+
+### Corrección requerida, que NO bloquea el acceptance (no la arreglo yo: el revisor no edita)
+
+**`CHANGELOG.md:40` quedó rancio y se contradice con la cabecera de su propio release.** Dentro de la sección `[3.0.0]` —la marcada "desplegado en producción"— el bullet de esquema sigue diciendo de `swipes`, `home_profiles`, `matches` y `favorites`: *"Las cuatro últimas están **escritas en `migrations/` y sin ejecutar**"*. Es **falso desde el 2026-08-17**: se ejecutaron antes del merge. El commit `ee0f99c` actualizó la cabecera y el párrafo de aviso pero se saltó esta línea.
+
+No bloquea el acceptance 3, que pide que el release **esté publicado y diga desplegado** — y lo dice, con fecha y método de verificación tres párrafos más arriba; además el documento con autoridad sobre el estado de las migraciones (`migrations/README.md`) está **correcto**. Pero es un error de hecho sobre **estado de migraciones**, en la zona de reglas duras del repo, en un artefacto publicado en `main`. **Debe corregirse en el próximo commit de documentación.**
+
+### Checkpoints
+
+Global: `init.sh` en verde ✅; ningún commit del rango trae `app.db`, `.env`, `node_modules/`, `.venv/` ni `data/media/` ✅; Conventional Commits con el porqué ✅; `progress/current.md` refleja el estado real ✅; `origin/adopta-v1` y el tag `adopta-v1.0.0` intactos ✅.
+
+Por feature: **acceptance 1, 2 y 3 son operativos (producción) y por naturaleza NO los cubre un test de la suite — lo digo en vez de presentarlos como cubiertos**; lo que sí hay es el anti-drift de los cuatro `.sql` (46 casos) y `test_vercel_rewrites.py`, más mi verificación directa contra prod arriba. El **acceptance 4 sí lo ejercita `init.sh`** vía `validate_feature_list.py`. Entrada en `changes.md` ✅ (2026-08-17, recorrido ejecutado y limpiado). Ninguna otra feature `in_progress` ✅. El implementador **no** se autoaprobó: dejó los dos JSON sin tocar ✅. Desde el merge solo se tocaron `.md` (`CHANGELOG.md`, `changes.md`, `progress/current.md`) — cero código de producto, así que no hay diff que contrastar contra ADRs.
+
+### Resultado
+
+**AD-09 marcada `done` en los DOS archivos**, por reemplazo de texto puntual (`sed` sobre la línea exacta), **sin `json.dump`**. `python3 scripts/validate_feature_list.py feature_list.json` → **EXIT=0**; los dos JSON siguen parseando.
+
+- `feature_list.json`: **56 items — 53 `done`, 3 `todo`, 0 `in_progress`**. Quedan `22-alertas-por-zona`, `23-moderacion-reportes` y `25-ops-produccion-pendientes`.
+- `feature_list_adopcion.json`: **9 de 9 `done`. El módulo de adopción queda cerrado de punta a punta.**
+
+No hice push (el remote es SSH) ni mergeé nada.
