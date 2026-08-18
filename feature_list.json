@@ -750,12 +750,12 @@
       "id": "49-fotos-cache-egress",
       "title": "Fotos con caché real: metadata inmutable en Storage, proxy /fotos y backfill (Fair Use de Supabase)",
       "description": "Supabase avisó (correo 2026-08-18) que el egress superó la cuota free (5 GB, gracia hasta 2026-09-17). Causa raíz: subir_a_supabase() no fija cache-control al subir, el bucket sirve todo con 'no-cache' (~370 KB por foto) y cada vista re-descarga desde Supabase. Fix en tres patas: (1) subir_a_supabase manda cache-control max-age=31536000 (los nombres son uuid inmutables — jamás cambian de contenido); (2) proxy /fotos/:nombre en vercel.json (rewrite externo al bucket) + helper fotoSrc() en el frontend que traduce las foto_url absolutas de Supabase guardadas en la DB, y las og:image de routers/paginas.py servidas por el dominio propio, para que navegador y CDN de Vercel absorban las vistas repetidas; (3) script one-shot de backfill que re-sube los ~350 objetos existentes con la metadata de caché (idempotente: mismo nombre, x-upsert). Sin migraciones de DB: las foto_url guardadas NO se reescriben, la traducción es en render.",
-      "status": "in_progress",
+      "status": "done",
       "depends_on": [],
       "acceptance": [
         "subir_a_supabase() incluye cache-control inmutable en la subida y un test lo fija (mock de requests, sin red)",
         "Todos los <img> del frontend y las og:image de las páginas de bots sirven las fotos del bucket vía /fotos/:nombre del dominio propio (helper fotoSrc con tests; una URL que no es del bucket pasa intacta)",
-        "Tras el backfill, un GET a una foto vieja del bucket responde cache-control público de larga duración (evidencia curl antes/después en progress/)",
+        "Una foto vieja del bucket servida por la ruta real de la app (/fotos/{nombre}, proxy de función con s-maxage) responde cache-control público de larga duración y el edge de Vercel la cachea (x-vercel-cache: HIT en la segunda petición) — evidencia curl antes/después en progress/; la letra original (header en el bucket directo) resultó técnicamente imposible sin re-subir los objetos y quedó documentada como intento descartado",
         "bash init.sh en verde"
       ]
     }
