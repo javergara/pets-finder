@@ -43,6 +43,23 @@ def test_sirve_la_foto_del_bucket_con_cache_de_edge(client, monkeypatch):
     assert pedidas == ["https://abc123.supabase.co/storage/v1/object/public/fotos/abc123.webp"]
 
 
+def test_head_responde_los_mismos_headers_sin_body(client, monkeypatch):
+    """Algunos rastreadores hacen HEAD antes de descargar la og:image; sin la
+    ruta registrada FastAPI respondía 405 (curl -I lo delató en prod)."""
+    _configurar_supabase(monkeypatch)
+    monkeypatch.setattr(
+        fotos.http,
+        "get",
+        lambda url, timeout=None: _Respuesta(200, b"bytes", {"content-type": "image/jpeg"}),
+    )
+
+    r = client.head("/fotos/abc123.jpg")
+
+    assert r.status_code == 200
+    assert "s-maxage=31536000" in r.headers["cache-control"]
+    assert r.content == b""
+
+
 def test_foto_inexistente_en_el_bucket_es_404(client, monkeypatch):
     _configurar_supabase(monkeypatch)
     monkeypatch.setattr(fotos.http, "get", lambda url, timeout=None: _Respuesta(400))

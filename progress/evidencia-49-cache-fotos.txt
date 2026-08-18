@@ -1,0 +1,29 @@
+Evidencia feature 49 — caché de fotos (curl contra prod, 2026-08-18)
+
+== ANTES (causa raíz) ==
+$ curl -sI https://edizovmcsdpfblfmyccu.supabase.co/storage/v1/object/public/fotos/43d328406709494b9772489b5b0cec85.jpg
+HTTP/2 200
+content-length: 372514
+cache-control: no-cache            ← cada vista re-descargaba 372 KB del bucket
+
+== Intentos descartados (documentados en progress/current.md) ==
+- UPDATE storage.objects (312 filas, aplicado): la tabla quedó con max-age=31536000
+  pero el bucket siguió sirviendo no-cache (la metadata S3 se fija solo al subir).
+- Rewrite externo en vercel.json: el edge nunca cacheó (x-vercel-cache: MISS
+  persistente con origen no-cache).
+
+== DESPUÉS (proxy de función con s-maxage, deploy 70e628d) ==
+$ curl -s -D - https://petfinder-col.com/fotos/43d328406709494b9772489b5b0cec85.jpg   (1a vez)
+HTTP/2 200
+cache-control: public, max-age=31536000, immutable
+x-vercel-cache: MISS
+$ (2a vez)
+x-vercel-cache: HIT                ← el edge de Vercel la sirve; cero egress de Supabase
+cache-control: public, max-age=31536000, immutable
+
+== Piezas verificadas ==
+- Bundle desplegado contiene la regla de mediaUrl (storage\/v1\/object\/public\/fotos).
+- og:image de bots: <meta property="og:image" content="https://petfinder-col.com/fotos/43d…jpg"> y responde 200.
+- Subidas nuevas registran cacheControl=max-age=31536000 en storage.objects (verificado
+  con un upload de prueba, objeto 1689eadf73fb4be9a59ec6bf0fd71538.jpg — huérfano de 664
+  bytes que queda en el bucket, trueque aceptado por la feature 20).

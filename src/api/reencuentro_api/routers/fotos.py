@@ -26,7 +26,10 @@ _TIMEOUT_SECONDS = 30
 CACHE_INMUTABLE = "public, max-age=31536000, s-maxage=31536000, immutable"
 
 
-@router.get("/fotos/{nombre}")
+# GET y HEAD: FastAPI no registra HEAD solo por declarar GET (daba 405) y
+# algunos rastreadores hacen HEAD antes de descargar la og:image. Starlette
+# recorta el body en el HEAD; los headers salen iguales.
+@router.api_route("/fotos/{nombre}", methods=["GET", "HEAD"])
 def foto_del_bucket(nombre: str) -> Response:
     """Sirve una foto del bucket `fotos` con caché larga.
 
