@@ -655,6 +655,20 @@
       ]
     },
     {
+      "id": "49-cold-start-en-reportes-y-zonas",
+      "title": "El cold start también tumba /reportes y las landings por zona",
+      "description": "La feature 48 arregló el arranque en frío solo a medias: puso el reintento dentro de request(), pero listarReportesPaginado usa fetch directo y lo esquiva — y es justo la que consumen /reportes (Reportes.tsx) y las landings por zona (ZonaLanding.tsx), o sea la pantalla que justifica la app y las páginas de entrada desde buscadores. No es teoría: durante la verificación de AD-09 se observó GET /api/reports fallar una vez con HTTP=000 en producción (cuatro reintentos inmediatos: 200 en ~0.4s). Y el sintoma es peor que en /ayudar, porque las dos pantallas tratan el fallo distinto y las dos mal: Reportes.tsx no tiene NI UN .catch en todo el archivo, asi que un fallo deja el estado en null para siempre (la pantalla se cuelga sin mensaje ni reintento), mientras ZonaLanding.tsx hace .catch(() => setRecientes([])), que convierte el error en 'no hay reportes recientes en esta zona' — exactamente el vacio enganoso que motivo la 48. El arreglo NO es meter listarReportesPaginado dentro de request(): necesita el header X-Total-Count, que request() no expone, y perderlo romperia la paginacion. Hay que extraer el bucle de reintento a un helper compartido que devuelva la Response cruda, y que lo usen request(), listarReportesPaginado y obtenerPerfilHogar (:539, el tercero que lo esquiva). Sin dependencias nuevas y sin migracion.",
+      "status": "todo",
+      "depends_on": ["48-fetch-resiliente"],
+      "acceptance": [
+        "El bucle de reintento vive en un helper compartido y listarReportesPaginado lo usa sin perder el total del header X-Total-Count: un GET que falla por red o 5xx se reintenta y devuelve items y total del intento bueno; un 4xx no se reintenta (tests con fetch mockeado)",
+        "obtenerPerfilHogar tambien pasa por el helper y conserva su 404 -> null, que es un estado valido y no un error (test)",
+        "En /reportes, si la carga falla se muestra un mensaje de error en espanol con boton Reintentar que re-consulta; el estado vacio ('no hay reportes') solo aparece cuando la API respondio bien con lista vacia (tests)",
+        "ZonaLanding deja de convertir un fallo en lista vacia: un error no se presenta como 'no hay reportes recientes en esta zona' (test)",
+        "bash init.sh en verde; sin migracion y sin dependencias nuevas"
+      ]
+    },
+    {
       "id": "AD-03-deck-swipe-y-afinidad",
       "title": "Deck de descubrimiento con swipe y afinidad explicable",
       "description": "Portar los tres servicios puros de adopta-v1 renombrados al espanol (affinity.py -> services/afinidad.py, deck.py -> services/descubrir.py, filters.py -> services/filtros.py), con ADR 0003 vigente: la afinidad se calcula al vuelo y no se persiste ningun score. AfinidadResultado gana razones: tuple[str, ...] (>=2 frases legibles, filosofia explicable de la feature 38) y presupuesto_mensual_cop pasa a opcional. filtros.py gana zona (filtro primario en esta emergencia) y pierde el default de distancia_km=15 heredado de un producto urbano: aqui muchas mascotas no tienen pin y ese radio escondia resultados en silencio. Modelo Swipe con UniqueConstraint(user_id, pet_id) — nuevo respecto a adopta-v1: sin el, un doble tap del gesto en movil mete dos filas. POST /api/swipes idempotente (201 nuevo, 200 repetido, 409 sobre adoptada) y GET /api/pets/deck declarado ANTES de /{pet_id}. Diferencia clave con adopta-v1: el deck viejo devolvia 404 sin HomeProfile; aqui responde 200 con afinidad null y el frontend invita a completar el perfil sin bloquear (lo exige el acceptance de AD-04). Frontend: MascotaSwipeCard con tres rutas equivalentes y testeadas (botones con aria-label, teclado ArrowLeft/ArrowRight/Enter, y el gesto), y AdoptarDescubrir en /adoptar/descubrir que quita la carta optimistamente sin refetch. Migracion: CREATE TABLE swipes + RLS antes del merge a main.",
